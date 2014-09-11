@@ -1,67 +1,63 @@
-#! /usr/bin/python
-
+#!/usr/bin/env python
 import os
-import math
+from math import floor
 from subprocess import Popen
 import gtk
+import gobject
+from pulseaudio.lib_pulseaudio import PA_VOLUME_MUTED, PA_VOLUME_NORM, \
+     pa_threaded_mainloop_lock, pa_threaded_mainloop_unlock
+
 
 from pa_mgr import PulseAudioManager
 
-PROGRAM_NAME = "Volume Control"
-VERSION = "0.1"
-COPYRIGHT = "(c) Mirko Dietrich"
-LICENSE = "GPLv2"
-COMMENTS = "PulseAudio enabled volume control status icon."
-WEBSITE = "www.github.com/buzz/volctl"
 
-SCRIPTPATH = os.path.dirname(os.path.realpath(__file__))
-IMAGEPATH = os.path.join(SCRIPTPATH, "images")
-TRAY_ICONS = [
-    os.path.join(IMAGEPATH, "audio-volume-muted.png"),
-    os.path.join(IMAGEPATH, "audio-volume-low.png"),
-    os.path.join(IMAGEPATH, "audio-volume-medium.png"),
-    os.path.join(IMAGEPATH, "audio-volume-high.png"),
-    ]
-MIXER_CMD = "/usr/bin/pavucontrol"
+PROGRAM_NAME = 'Volume Control'
+VERSION =      '0.2'
+COPYRIGHT =    '(c) Mirko Dietrich'
+LICENSE =      'GPLv2 http://www.gnu.org/licenses/gpl-2.0.html'
+COMMENTS =     'Volume control tray icon using PulseAudio.'
+WEBSITE =      'www.github.com/buzz/volctl'
+
+MIXER_CMD = '/usr/bin/pavucontrol'
 # granularity of volume control
 STEPS = 10
+
 
 class VolCtlTray():
 
     def __init__(self):
-        # connect to pulseaudio
-        self.pa_mgr = PulseAudioManager(self.cb_pa_update)
-        self.pa_mgr.connect()
-
+        self.volume = 0
+        self.mute = False
         # status icon
-        self.pixbufs = [gtk.gdk.pixbuf_new_from_file(f) for f in TRAY_ICONS]
         self.statusicon = gtk.StatusIcon()
-        self.statusicon.set_title("Volume")
-        self.statusicon.set_name("Volume")
-        self.statusicon.set_from_pixbuf(self.pixbufs[0])
+        self.statusicon.set_title('Volume')
+        self.statusicon.set_name('Volume')
+        # self.statusicon.set_from_pixbuf(self.pixbufs[0])
         self.statusicon.set_has_tooltip(True)
-        self.statusicon.connect("popup-menu", self.cb_popup)
-        self.statusicon.connect("button-press-event", self.cb_button_press)
-        self.statusicon.connect("scroll-event", self.cb_scroll)
-        self.statusicon.connect("query-tooltip", self.cb_tooltip)
+        self.statusicon.connect('popup-menu', self.cb_popup)
+        self.statusicon.connect('button-press-event', self.cb_button_press)
+        self.statusicon.connect('scroll-event', self.cb_scroll)
+        self.statusicon.connect('query-tooltip', self.cb_tooltip)
 
         # popup menu
         self.menu = gtk.Menu()
-        mute_menu_item = gtk.ImageMenuItem("Mute")
+        mute_menu_item = gtk.ImageMenuItem('Mute')
         img = gtk.Image()
-        img.set_from_file(os.path.join(IMAGEPATH, "audio-volume-muted-16.png"))
+        img.set_from_icon_name(
+            'audio-volume-muted', gtk.ICON_SIZE_SMALL_TOOLBAR)
         mute_menu_item.set_image(img)
-        mixer_menu_item = gtk.ImageMenuItem("Mixer")
+        mixer_menu_item = gtk.ImageMenuItem('Mixer')
         img = gtk.Image()
-        img.set_from_file(os.path.join(IMAGEPATH, "mixer.png"))
+        img.set_from_icon_name(
+            'preferences-desktop', gtk.ICON_SIZE_SMALL_TOOLBAR)
         mixer_menu_item.set_image(img)
 
-        mute_menu_item.connect("activate", self.cb_mute)
-        mixer_menu_item.connect("activate", self.cb_mixer)
+        mute_menu_item.connect('activate', self.cb_mute)
+        mixer_menu_item.connect('activate', self.cb_mixer)
         about_menu_item = gtk.ImageMenuItem(gtk.STOCK_ABOUT)
-        about_menu_item.connect("activate", self.cb_about)
+        about_menu_item.connect('activate', self.cb_about)
         exit_menu_item = gtk.ImageMenuItem(gtk.STOCK_QUIT)
-        exit_menu_item.connect("activate", self.cb_quit)
+        exit_menu_item.connect('activate', self.cb_quit)
 
         self.menu.append(mute_menu_item)
         self.menu.append(mixer_menu_item)
@@ -70,45 +66,34 @@ class VolCtlTray():
         self.menu.append(exit_menu_item)
         self.menu.show_all()
 
-        self.slider = None
-
-        self.update_icon(self.pa_mgr.get_volume())
-
-    def cb_pa_update(self, vol, muted):
-        if not muted is None:
-            if muted:
-                self.statusicon.set_from_pixbuf(self.pixbufs[0])
-            else:
-                self.update_icon(self.pa_mgr.get_volume())
-            if not self.slider is None:
-                self.slider.update_scale(self.slider.master_scale, None, muted)
-        if not vol is None:
-            self.update_icon(vol)
-            if not self.slider is None:
-                self.slider.update_scale(self.slider.master_scale, vol, None)
-
-    def update_icon(self, vol, muted=None):
-        if muted is None:
-            muted = self.pa_mgr.get_mute()
-        v = min(vol, 1)
-        if v == 0 or muted:
-            idx = 0
-        else:
-            idx = int((len(self.pixbufs) - 2) * v) + 1
-        self.statusicon.set_from_pixbuf(self.pixbufs[idx])
+        self.pa_mgr = PulseAudioManager(self)
 
     def launch_mixer(self):
         Popen(MIXER_CMD)
 
+    def update_icon(self):
+        v = float(self.volume) / float(PA_VOLUME_NORM)
+        if self.mute:
+            state = 'muted'
+        else:
+            idx = min(int(floor(v * 3)), 2)
+            state = ['low', 'medium', 'high'][idx]
+        icon_name = 'audio-volume-%s-symbolic' % state
+        self.statusicon.set_from_icon_name(icon_name)
+
     def cb_tooltip(self,item, x, y, keyboard_mode, tooltip):
-        text = "Volume: %i%%" % (self.pa_mgr.get_volume() * 100)
-        if self.pa_mgr.get_mute():
-            text += " <span weight='bold'>(muted)</span>"
+        perc = float(self.volume) / float(PA_VOLUME_NORM) * 100
+        text = 'Volume: %.0f%%' % perc
+        if self.mute:
+            text += ' <span weight="bold">(muted)</span>'
         tooltip.set_markup(text)
         return True
 
     def cb_mute(self, widget):
+        m = self.pa_mgr.pa.pa_mainloop
+        pa_threaded_mainloop_lock(m)
         self.pa_mgr.toggle_mute()
+        pa_threaded_mainloop_unlock(m)
 
     def cb_mixer(self, widget):
         self.launch_mixer()
@@ -121,9 +106,6 @@ class VolCtlTray():
         about.set_license(LICENSE)
         about.set_comments(COMMENTS)
         about.set_website(WEBSITE)
-        about.set_logo(
-            gtk.gdk.pixbuf_new_from_file(
-                os.path.join(IMAGEPATH, "audio-volume-high-128.png")))
         about.run()
         about.destroy()
 
@@ -134,119 +116,201 @@ class VolCtlTray():
             exit(1)
 
     def cb_scroll(self, widget, ev):
+        old_vol = self.volume
         if ev.direction == gtk.gdk.SCROLL_UP:
-            self.pa_mgr.change_volume(1. / STEPS)
+            step = PA_VOLUME_NORM / STEPS
         elif ev.direction == gtk.gdk.SCROLL_DOWN:
-            self.pa_mgr.change_volume(- 1. / STEPS)
+            step = - PA_VOLUME_NORM / STEPS
+        new_value = old_vol + step
+        new_value = min(PA_VOLUME_NORM, new_value)
+        new_value = max(PA_VOLUME_MUTED, new_value)
+
+        m = self.pa_mgr.pa.pa_mainloop
+        pa_threaded_mainloop_lock(m)
+        self.pa_mgr.set_volume(new_value)
+        pa_threaded_mainloop_unlock(m)
 
     def cb_button_press(self, widget, ev):
         if ev.button == 1:
             if ev.type == gtk.gdk.BUTTON_PRESS:
-                if self.slider is None:
-                    self.slider = VolumeSlider(self)
+                if hasattr(self, 'slider'):
+                    self.close_slider()
                 else:
-                    self.slider.close()
-                    self.slider = None
+                    self.show_slider()
             if ev.type == gtk.gdk._2BUTTON_PRESS:
-                if not self.slider is None:
-                    self.slider.close()
-                    self.slider = None
                 self.launch_mixer()
+
+    def show_slider(self):
+        self.slider = VolumeSlider(self)
+
+    def close_slider(self):
+        self.slider.close()
+        del self.slider
 
     def cb_popup(self, icon, button, time):
         self.menu.popup(None, None, None, button, time)
 
+    # updates coming from pulse
+
+    def sink_count_changed(self):
+        if hasattr(self, 'slider'):
+            self.close_slider()
+            self.show_slider()
+
+    def update_values(self, volume, mute):
+        self.volume = volume
+        self.mute = mute
+        self.update_icon()
+
+    def update_sink_scale(self, idx, volume, mute):
+        if hasattr(self, 'slider'):
+            self.slider.update_sink_scale(idx, volume, mute)
+
+    def update_sink_input_scale(self, idx, volume, mute):
+        if hasattr(self, 'slider'):
+            self.slider.update_sink_input_scale(idx, volume, mute)
+
 class VolumeSlider:
     def __init__(self, volctl):
-        self.statusicon = volctl.statusicon
-        self.pa_mgr = volctl.pa_mgr
-        self.clients = self.pa_mgr.get_clients()
+        self.volctl = volctl
         self.win = gtk.Window(type=gtk.WINDOW_POPUP)
         self.table = gtk.Table()
+        self.table.set_resize_mode(gtk.RESIZE_IMMEDIATE)
+        self.table.set_col_spacings(8)
+        self.frame = gtk.Frame()
+        self.frame.set_shadow_type(gtk.SHADOW_OUT)
+        self.frame.add(self.table)
+        self.win.add(self.frame)
 
-        # position
-        screen, rect, orient = self.statusicon.get_geometry()
-        x, y, self.w, h = rect
-        self.win.move(x, y + h)
+        # gui objects by index
+        self.sink_scales = {}
+        self.sink_input_scales = {}
 
-        self.scales = []
+        self.separator = None
 
-        # remember obj_path for each stream scale
-        self.scale_streams = {}
-
-        # add master
-        self.master_scale = self.add_scale(
-            "Master", self.cb_scale_master_value_change, "audio-card")
-        self.update_scale(
-            self.master_scale, self.pa_mgr.get_volume(), self.pa_mgr.get_mute())
-
-        # add clients
-        for c in self.clients:
-            scale = self.add_scale(
-                c.name, self.cb_scale_stream_value_change, c.icon_name)
-            self.scale_streams[scale] = c.stream_obj_path
-            self.update_scale(scale,
-                self.pa_mgr.get_stream_volume(c.stream_obj_path),
-                self.pa_mgr.get_stream_mute(c.stream_obj_path))
-        self.win.add(self.table)
+        self.create_sliders()
         self.win.show_all()
 
-    def add_scale(self, name, cb, icon_name=None):
+    def _find_idx_by_scale(self, scale, scales):
+        for idx, v in scales.iteritems():
+            if scale == v:
+                return idx
+        # should never happen
+        raise Exception('Sink index not found for scale!')
+
+    def _find_sink_idx_by_scale(self, scale):
+        return self._find_idx_by_scale(scale, self.sink_scales)
+
+    def _find_sink_input_idx_by_scale(self, scale):
+        return self._find_idx_by_scale(scale, self.sink_input_scales)
+
+    def set_position(self):
+        screen, rect, orient = self.volctl.statusicon.get_geometry()
+        x, y, w, h = rect
+        self.win.move(x, y + h)
+
+    def create_sliders(self):
+        self.set_position()
+        x = 0
+
+        # touching pa objects here!
+        pa_threaded_mainloop_lock(self.volctl.pa_mgr.pa.pa_mainloop)
+
+        # sinks
+        for idx, sink in self.volctl.pa_mgr.pa_sinks.iteritems():
+            scale, icon = self.add_scale(sink)
+            self.sink_scales[sink.idx] = scale
+            scale.connect('value-changed', self.cb_sink_scale)
+            self.update_scale(scale, sink.volume, sink.mute)
+            self.table.attach(scale, x, x + 1, 0, 1, xpadding=0, ypadding=6)
+            self.table.attach(icon, x, x + 1, 1, 2, xpadding=0, ypadding=6)
+            x += 1
+
+        # separator
+        if len(self.volctl.pa_mgr.pa_sink_inputs) > 0:
+            self.separator = gtk.VSeparator()
+            self.table.attach(self.separator, 1, 2, 0, 2, xpadding=0, ypadding=8)
+            x += 1
+
+        # sink inputs
+        for idx, sink_input in self.volctl.pa_mgr.pa_sink_inputs.iteritems():
+            scale, icon = self.add_scale(sink_input)
+            self.sink_input_scales[sink_input.idx] = scale
+            scale.connect('value-changed', self.cb_sink_input_scale)
+            self.update_scale(scale, sink_input.volume, sink_input.mute)
+            self.table.attach(scale, x, x + 1, 0, 1, xpadding=0, ypadding=6)
+            self.table.attach(icon, x, x + 1, 1, 2, xpadding=0, ypadding=6)
+            x += 1
+
+        pa_threaded_mainloop_unlock(self.volctl.pa_mgr.pa.pa_mainloop)
+
+    def add_scale(self, sink):
+        # scale
         scale = gtk.VScale()
-        scale.set_update_policy(gtk.UPDATE_DELAYED)
+        scale.set_update_policy(gtk.UPDATE_CONTINUOUS)
         scale.set_draw_value(False)
-        scale.set_digits(1)
-        scale.set_range(0, 1.0)
+        scale.set_value_pos(gtk.POS_BOTTOM)
+        scale.set_range(PA_VOLUME_MUTED, PA_VOLUME_NORM)
         scale.set_inverted(True)
-        scale.set_size_request(self.w, 120)
-        scale.set_increments(0.05, 0.1)
-        scale.set_tooltip_text(name)
-        self.scales.append(scale)
-        x = len(self.scales)
-        self.table.attach(scale, x, x + 1, 0, 1)
-        scale.connect("value-changed", cb)
-        image = gtk.Image()
-        image.set_tooltip_text(name)
-        if icon_name is None:
-            image.set_from_icon_name("audio-card", gtk.ICON_SIZE_SMALL_TOOLBAR)
-        else:
-            image.set_from_icon_name(icon_name, gtk.ICON_SIZE_SMALL_TOOLBAR)
-        self.table.attach(image, x, x + 1, 1, 2)
-        return scale
+        scale.set_size_request(24, 128)
+        scale.set_increments(PA_VOLUME_NORM / STEPS, PA_VOLUME_NORM / STEPS)
+        scale.set_tooltip_text(sink.name)
 
-    def update_scale(self, scale, value, muted):
+        # icon
+        icon = gtk.Image()
+        icon.set_tooltip_text(sink.name)
+        icon.set_from_icon_name(sink.icon_name, gtk.ICON_SIZE_SMALL_TOOLBAR)
+
+        return scale, icon
+
+    def update_scale(self, scale, volume, mute):
+        scale.set_value(volume)
+        if not mute is None:
+            scale.set_sensitive(not mute)
+
+    # called by pa thread
+
+    def update_sink_scale(self, idx, volume, mute):
         try:
-            if not value is None:
-                scale.set_value(value)
-                if not muted is None:
-                    scale.set_sensitive(not muted)
+            scale = self.sink_scales[idx]
         except KeyError:
-            pass
+            return
+        self.update_scale(scale, volume, mute)
 
-    # callback for scale gui element update (master)
-    def cb_scale_master_value_change(self, scale):
-        value = scale.get_value()
-        self.pa_mgr.set_volume(value)
-        # update other scales as automatically are changed depending on master
-        for s in self.scales:
-            if s != scale:
-                value = self.pa_mgr.get_stream_volume(self.scale_streams[s])
-                s.set_value(value)
-
-    # callback for scale gui element update (playback stream)
-    def cb_scale_stream_value_change(self, scale):
+    def update_sink_input_scale(self, idx, volume, mute):
         try:
-            value = scale.get_value()
-            # scale callback
-            self.pa_mgr.set_stream_volume(self.scale_streams[scale], value)
+            scale = self.sink_input_scales[idx]
         except KeyError:
-            # stream not found, update master vol
-            self.pa_mgr.set_volume(value)
+            return
+        self.update_scale(scale, volume, mute)
+
+    # gui callbacks
+
+    def cb_sink_scale(self, scale):
+        value = int(scale.get_value())
+        idx = self._find_sink_idx_by_scale(scale)
+
+        m = self.volctl.pa_mgr.pa.pa_mainloop
+        pa_threaded_mainloop_lock(m)
+        sink = self.volctl.pa_mgr.pa_sinks[idx]
+        sink.set_volume(value)
+        pa_threaded_mainloop_unlock(m)
+
+    def cb_sink_input_scale(self, scale):
+        value = int(scale.get_value())
+        idx = self._find_sink_input_idx_by_scale(scale)
+
+        m = self.volctl.pa_mgr.pa.pa_mainloop
+        pa_threaded_mainloop_lock(m)
+        sink_input = self.volctl.pa_mgr.pa_sink_inputs[idx]
+        sink_input.set_volume(value)
+        pa_threaded_mainloop_unlock(m)
 
     def close(self):
         self.win.destroy()
 
-if __name__ == "__main__":
-    gtk.gdk.threads_init()
+
+if __name__ == '__main__':
+    gobject.threads_init()
     vctray = VolCtlTray()
     gtk.main()
