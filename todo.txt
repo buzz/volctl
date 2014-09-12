@@ -1,7 +1,4 @@
-- dblclick opens mixer
-
 - solo/mute in den minimixer einbauen
-- default icon mappings for alsa plugin apps like chrome
-- config dialog for
+- config dialog ?
  - mixer cmd
  - set mousewheel granularity

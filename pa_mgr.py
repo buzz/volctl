@@ -4,6 +4,10 @@ import ctypes
 import gobject
 
 
+APP_TO_ICON_NAME = {
+    'Chromium': 'chromium-browser',
+}
+
 def cvolume_from_volume(volume, channels):
     cvolume = pa_cvolume()
     cvolume.channels = channels
@@ -328,4 +332,7 @@ class Client():
         try:
             self.icon_name = props['application.icon_name']
         except KeyError:
-            self.icon_name = 'multimedia-volume-control'
+            try:
+                self.icon_name = APP_TO_ICON_NAME[self.name]
+            except KeyError:
+                self.icon_name = 'multimedia-volume-control'
