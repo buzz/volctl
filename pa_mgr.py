@@ -1,7 +1,7 @@
 from pulseaudio.lib_pulseaudio import *
 import sys
 import ctypes
-import gobject
+from gi.repository import GObject
 
 
 APP_TO_ICON_NAME = {
@@ -203,14 +203,14 @@ class PulseAudioManager():
             self.pa_sinks[index] = Sink(self, index, struct, props)
             self.pa_sinks[index].update(struct, props)
             # notify gui thread
-            gobject.idle_add(self.volctl.sink_count_changed)
+            GObject.idle_add(self.volctl.sink_count_changed)
         else:
             self.pa_sinks[index].update(struct, props)
 
     def on_remove_pa_sink(self, index):
         del self.pa_sinks[index]
         # notify gui thread
-        gobject.idle_add(self.volctl.sink_count_changed)
+        GObject.idle_add(self.volctl.sink_count_changed)
 
     def on_new_pa_sink_input(self, index, struct):
         # filter out strange events
@@ -220,7 +220,7 @@ class PulseAudioManager():
             self.pa_sink_inputs[index] = SinkInput(self, index, struct)
             self.pa_sink_inputs[index].update(struct)
             # notify gui thread
-            gobject.idle_add(self.volctl.sink_count_changed)
+            GObject.idle_add(self.volctl.sink_count_changed)
         else:
             self.pa_sink_inputs[index].update(struct)
 
@@ -228,7 +228,7 @@ class PulseAudioManager():
         if self.pa_sink_inputs.has_key(index):
             del self.pa_sink_inputs[index]
             # notify gui thread
-            gobject.idle_add(self.volctl.sink_count_changed)
+            GObject.idle_add(self.volctl.sink_count_changed)
 
     def _get_first_sink(self):
         try:
@@ -273,10 +273,10 @@ class Sink():
         self.mute = bool(struct.mute)
         # tray icon update (first sound card)
         if self == self.pa_mgr._get_first_sink():
-            gobject.idle_add(
+            GObject.idle_add(
                 self.pa_mgr.volctl.update_values, self.volume, self.mute)
         # scale update
-        gobject.idle_add(self.pa_mgr.volctl.update_sink_scale, self.idx,
+        GObject.idle_add(self.pa_mgr.volctl.update_sink_scale, self.idx,
                          self.volume, self.mute)
 
     def set_volume(self, volume):
@@ -302,7 +302,7 @@ class SinkInput():
         self.mute = bool(struct.mute)
         self.client = struct.client
         # scale update
-        gobject.idle_add(self.pa_mgr.volctl.update_sink_input_scale, self.idx,
+        GObject.idle_add(self.pa_mgr.volctl.update_sink_input_scale, self.idx,
                          self.volume, self.mute)
 
     def get_client(self):

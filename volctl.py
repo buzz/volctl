@@ -2,8 +2,7 @@
 import os
 from math import floor
 from subprocess import Popen
-import gtk
-import gobject
+from gi.repository import Gtk, Gdk, GObject
 from pulseaudio.lib_pulseaudio import PA_VOLUME_MUTED, PA_VOLUME_NORM, \
      pa_threaded_mainloop_lock, pa_threaded_mainloop_unlock
 
@@ -14,7 +13,7 @@ from pa_mgr import PulseAudioManager
 PROGRAM_NAME = 'Volume Control'
 VERSION =      '0.2'
 COPYRIGHT =    '(c) Mirko Dietrich'
-LICENSE =      'GPLv2 http://www.gnu.org/licenses/gpl-2.0.html'
+LICENSE =      Gtk.License.GPL_2_0
 COMMENTS =     'Volume control tray icon using PulseAudio.'
 WEBSITE =      'www.github.com/buzz/volctl'
 
@@ -29,10 +28,9 @@ class VolCtlTray():
         self.volume = 0
         self.mute = False
         # status icon
-        self.statusicon = gtk.StatusIcon()
+        self.statusicon = Gtk.StatusIcon()
         self.statusicon.set_title('Volume')
         self.statusicon.set_name('Volume')
-        # self.statusicon.set_from_pixbuf(self.pixbufs[0])
         self.statusicon.set_has_tooltip(True)
         self.statusicon.connect('popup-menu', self.cb_popup)
         self.statusicon.connect('button-press-event', self.cb_button_press)
@@ -40,28 +38,28 @@ class VolCtlTray():
         self.statusicon.connect('query-tooltip', self.cb_tooltip)
 
         # popup menu
-        self.menu = gtk.Menu()
-        mute_menu_item = gtk.ImageMenuItem('Mute')
-        img = gtk.Image()
-        img.set_from_icon_name(
-            'audio-volume-muted', gtk.ICON_SIZE_SMALL_TOOLBAR)
+        self.menu = Gtk.Menu()
+        mute_menu_item = Gtk.ImageMenuItem('Mute')
+        img = Gtk.Image.new_from_icon_name(
+            'audio-volume-muted', Gtk.IconSize.SMALL_TOOLBAR)
         mute_menu_item.set_image(img)
-        mixer_menu_item = gtk.ImageMenuItem('Mixer')
-        img = gtk.Image()
-        img.set_from_icon_name(
-            'preferences-desktop', gtk.ICON_SIZE_SMALL_TOOLBAR)
-        mixer_menu_item.set_image(img)
-
         mute_menu_item.connect('activate', self.cb_mute)
+
+        mixer_menu_item = Gtk.ImageMenuItem('Mixer')
+        img = Gtk.Image.new_from_icon_name(
+            'preferences-desktop', Gtk.IconSize.SMALL_TOOLBAR)
+        mixer_menu_item.set_image(img)
         mixer_menu_item.connect('activate', self.cb_mixer)
-        about_menu_item = gtk.ImageMenuItem(gtk.STOCK_ABOUT)
+
+        about_menu_item = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_ABOUT)
         about_menu_item.connect('activate', self.cb_about)
-        exit_menu_item = gtk.ImageMenuItem(gtk.STOCK_QUIT)
+
+        exit_menu_item = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_QUIT)
         exit_menu_item.connect('activate', self.cb_quit)
 
         self.menu.append(mute_menu_item)
         self.menu.append(mixer_menu_item)
-        self.menu.append(gtk.SeparatorMenuItem())
+        self.menu.append(Gtk.SeparatorMenuItem())
         self.menu.append(about_menu_item)
         self.menu.append(exit_menu_item)
         self.menu.show_all()
@@ -78,7 +76,7 @@ class VolCtlTray():
         else:
             idx = min(int(floor(v * 3)), 2)
             state = ['low', 'medium', 'high'][idx]
-        icon_name = 'audio-volume-%s-symbolic' % state
+        icon_name = 'audio-volume-%s' % state
         self.statusicon.set_from_icon_name(icon_name)
 
     def cb_tooltip(self,item, x, y, keyboard_mode, tooltip):
@@ -99,29 +97,33 @@ class VolCtlTray():
         self.launch_mixer()
 
     def cb_about(self, widget):
-        about = gtk.AboutDialog()
+        about = Gtk.AboutDialog()
         about.set_program_name(PROGRAM_NAME)
         about.set_version(VERSION)
         about.set_copyright(COPYRIGHT)
-        about.set_license(LICENSE)
+        about.set_license_type(LICENSE)
         about.set_comments(COMMENTS)
         about.set_website(WEBSITE)
+        about.set_logo_icon_name('audio-volume-high')
         about.run()
         about.destroy()
 
     def cb_quit(self, widget):
-        if gtk.main_level() > 0:
-            gtk.main_quit()
+        if Gtk.main_level() > 0:
+            Gtk.main_quit()
         else:
             exit(1)
 
     def cb_scroll(self, widget, ev):
         old_vol = self.volume
-        if ev.direction == gtk.gdk.SCROLL_UP:
-            step = PA_VOLUME_NORM / STEPS
-        elif ev.direction == gtk.gdk.SCROLL_DOWN:
-            step = - PA_VOLUME_NORM / STEPS
-        new_value = old_vol + step
+        amount = PA_VOLUME_NORM / STEPS
+        if ev.direction == Gdk.ScrollDirection.DOWN:
+            amount *= -1
+        elif ev.direction == Gdk.ScrollDirection.UP:
+            pass
+        else:
+            return
+        new_value = old_vol + amount
         new_value = min(PA_VOLUME_NORM, new_value)
         new_value = max(PA_VOLUME_MUTED, new_value)
 
@@ -132,12 +134,12 @@ class VolCtlTray():
 
     def cb_button_press(self, widget, ev):
         if ev.button == 1:
-            if ev.type == gtk.gdk.BUTTON_PRESS:
+            if ev.type == Gdk.EventType.BUTTON_PRESS:
                 if hasattr(self, 'slider'):
                     self.close_slider()
                 else:
                     self.show_slider()
-            if ev.type == gtk.gdk._2BUTTON_PRESS:
+            if ev.type == Gdk.EventType._2BUTTON_PRESS:
                 self.launch_mixer()
 
     def show_slider(self):
@@ -148,7 +150,7 @@ class VolCtlTray():
         del self.slider
 
     def cb_popup(self, icon, button, time):
-        self.menu.popup(None, None, None, button, time)
+        self.menu.popup(None, None, None, None, button, time)
 
     # updates coming from pulse
 
@@ -173,20 +175,18 @@ class VolCtlTray():
 class VolumeSlider:
     def __init__(self, volctl):
         self.volctl = volctl
-        self.win = gtk.Window(type=gtk.WINDOW_POPUP)
-        self.table = gtk.Table()
-        self.table.set_resize_mode(gtk.RESIZE_IMMEDIATE)
-        self.table.set_col_spacings(8)
-        self.frame = gtk.Frame()
-        self.frame.set_shadow_type(gtk.SHADOW_OUT)
-        self.frame.add(self.table)
+        self.win = Gtk.Window(type=Gtk.WindowType.POPUP)
+        self.grid = Gtk.Grid()
+        self.grid.set_column_spacing(2)
+        self.grid.set_row_spacing(6)
+        self.frame = Gtk.Frame()
+        self.frame.set_shadow_type(Gtk.ShadowType.OUT)
+        self.frame.add(self.grid)
         self.win.add(self.frame)
 
         # gui objects by index
         self.sink_scales = {}
         self.sink_input_scales = {}
-
-        self.separator = None
 
         self.create_sliders()
         self.win.show_all()
@@ -205,9 +205,8 @@ class VolumeSlider:
         return self._find_idx_by_scale(scale, self.sink_input_scales)
 
     def set_position(self):
-        screen, rect, orient = self.volctl.statusicon.get_geometry()
-        x, y, w, h = rect
-        self.win.move(x, y + h)
+        a, screen, rect, orient = self.volctl.statusicon.get_geometry()
+        self.win.move(rect.x, rect.y + rect.height)
 
     def create_sliders(self):
         self.set_position()
@@ -222,14 +221,18 @@ class VolumeSlider:
             self.sink_scales[sink.idx] = scale
             scale.connect('value-changed', self.cb_sink_scale)
             self.update_scale(scale, sink.volume, sink.mute)
-            self.table.attach(scale, x, x + 1, 0, 1, xpadding=0, ypadding=6)
-            self.table.attach(icon, x, x + 1, 1, 2, xpadding=0, ypadding=6)
+            scale.set_margin_top(6)
+            icon.set_margin_bottom(6)
+            self.grid.attach(scale, x, 0, 1, 1)
+            self.grid.attach(icon, x, 1, 1, 1)
             x += 1
 
         # separator
         if len(self.volctl.pa_mgr.pa_sink_inputs) > 0:
-            self.separator = gtk.VSeparator()
-            self.table.attach(self.separator, 1, 2, 0, 2, xpadding=0, ypadding=8)
+            separator = Gtk.VSeparator()
+            separator.set_margin_top(6)
+            separator.set_margin_bottom(6)
+            self.grid.attach(separator, x, 0, 1, 2)
             x += 1
 
         # sink inputs
@@ -238,18 +241,19 @@ class VolumeSlider:
             self.sink_input_scales[sink_input.idx] = scale
             scale.connect('value-changed', self.cb_sink_input_scale)
             self.update_scale(scale, sink_input.volume, sink_input.mute)
-            self.table.attach(scale, x, x + 1, 0, 1, xpadding=0, ypadding=6)
-            self.table.attach(icon, x, x + 1, 1, 2, xpadding=0, ypadding=6)
+            scale.set_margin_top(6)
+            icon.set_margin_bottom(6)
+            self.grid.attach(scale, x, 0, 1, 1)
+            self.grid.attach(icon, x, 1, 1, 1)
             x += 1
 
         pa_threaded_mainloop_unlock(self.volctl.pa_mgr.pa.pa_mainloop)
 
     def add_scale(self, sink):
         # scale
-        scale = gtk.VScale()
-        scale.set_update_policy(gtk.UPDATE_CONTINUOUS)
+        scale = Gtk.VScale()
         scale.set_draw_value(False)
-        scale.set_value_pos(gtk.POS_BOTTOM)
+        scale.set_value_pos(Gtk.PositionType.BOTTOM)
         scale.set_range(PA_VOLUME_MUTED, PA_VOLUME_NORM)
         scale.set_inverted(True)
         scale.set_size_request(24, 128)
@@ -257,9 +261,9 @@ class VolumeSlider:
         scale.set_tooltip_text(sink.name)
 
         # icon
-        icon = gtk.Image()
+        icon = Gtk.Image()
         icon.set_tooltip_text(sink.name)
-        icon.set_from_icon_name(sink.icon_name, gtk.ICON_SIZE_SMALL_TOOLBAR)
+        icon.set_from_icon_name(sink.icon_name, Gtk.IconSize.SMALL_TOOLBAR)
 
         return scale, icon
 
@@ -311,6 +315,6 @@ class VolumeSlider:
 
 
 if __name__ == '__main__':
-    gobject.threads_init()
+    GObject.threads_init()
     vctray = VolCtlTray()
-    gtk.main()
+    Gtk.main()
