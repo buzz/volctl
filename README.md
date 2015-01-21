@@ -30,3 +30,8 @@ application. If you're looking for that check out the excellent
 1. Clone this repository somewhere to your home folder.
 1. Run `create-venv.sh` to initialize virtual env that holds deps.
 1. Make `volctl.sh` auto-start with your desktop environment. This step depends on which desktop you use.
+
+## Dependencies
+
+* python2-gobject
+* [python-pulseaudio](https://github.com/Valodim/python-pulseaudio)
