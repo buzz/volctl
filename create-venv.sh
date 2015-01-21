@@ -3,8 +3,9 @@
 virtualenv --system-site-packages venv
 source venv/bin/activate
 cd /tmp
-wget 'http://datatomb.de/~valodim/libpulseaudio-1.1.tar.gz' -qO - | tar xzf -
-cd libpulseaudio-1.1
+git clone https://github.com/Valodim/python-pulseaudio.git
+cd python-pulseaudio
+git co 7af33cf60f87f74851dd47359859d8c47c3f7d2d
 python setup.py install
 cd ..
-rm -r libpulseaudio-1.1
+rm -rf python-pulseaudio
