@@ -1,4 +1,0 @@
-- solo/mute in den minimixer einbauen
-- config dialog ?
- - mixer cmd
- - set mousewheel granularity
