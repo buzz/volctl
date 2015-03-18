@@ -216,6 +216,10 @@ class PulseAudioManager():
         # filter out strange events
         if struct.name == 'audio-volume-change':
             return
+        # unknown if this is the right way to filter for applications
+        # but seems to keep away things like loopback module etc.
+        if struct.driver.find('protocol-native') < 0:
+            return
         if not self.pa_sink_inputs.has_key(index):
             self.pa_sink_inputs[index] = SinkInput(self, index, struct)
             self.pa_sink_inputs[index].update(struct)
