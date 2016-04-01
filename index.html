@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Volctl by buzz</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Volctl</h1>
+        <p>Volume control for GNU/Linux desktops featuring per-app sliders</p>
+
+        <p class="view"><a href="https://github.com/buzz/volctl">View the Project on GitHub <small>buzz/volctl</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/buzz/volctl/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/buzz/volctl/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/buzz/volctl">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a id="volctl" class="anchor" href="#volctl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>volctl</h1>
+
+<p><img src="https://raw.githubusercontent.com/buzz/volctl/master/volctl_screenshot.png" alt="Screenshot"></p>
+
+<p><a href="http://www.freedesktop.org/wiki/Software/PulseAudio/">PulseAudio</a>-enabled
+tray icon volume control for GNU/Linux desktops written in
+<a href="http://www.gtk.org/">GTK+</a>.</p>
+
+<p>I couldn't find a simple tray icon that allows to control multiple
+applications easily from the task bar.</p>
+
+<p>So I wrote my own. The program is written in Python and fairly short
+and should not be too hard to understand. Bug reports and patches welcome!</p>
+
+<p>It's not meant to be an replacement for a full-featured mixer
+application. If you're looking for that check out the excellent
+<a href="http://freedesktop.org/software/pulseaudio/pavucontrol/">pavucontrol</a>.</p>
+
+<h2>
+<a id="features" class="anchor" href="#features" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Features</h2>
+
+<ul>
+<li>Runs on virtually every desktop environment under GNU/Linux. (Needs to support the freedesktop system tray specs)</li>
+<li>Control main volumes as well as individual applications</li>
+<li>Shows applications icons and names</li>
+<li>Internally uses the PulseAudio library directly which turned out to work much better then DBUS</li>
+<li>Double-click opens <code>pavucontrol</code>
+</li>
+<li>Mouse-wheel support</li>
+</ul>
+
+<h2>
+<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Usage</h2>
+
+<ol>
+<li>Clone this repository somewhere to your home folder.</li>
+<li>Run <code>create-venv.sh</code> to initialize virtual env that holds deps.</li>
+<li>Make <code>volctl.sh</code> auto-start with your desktop environment. This step depends on which desktop you use.</li>
+</ol>
+
+<h2>
+<a id="dependencies" class="anchor" href="#dependencies" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Dependencies</h2>
+
+<ul>
+<li>python2-gobject</li>
+<li><a href="https://github.com/Valodim/python-pulseaudio">python-pulseaudio</a></li>
+</ul>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/buzz">buzz</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
+  </body>
+</html>
