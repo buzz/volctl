@@ -1,9 +1,10 @@
-from pulseaudio.lib_pulseaudio import *
 import sys
-import ctypes
 from gi.repository import GObject
 
+from lib_pulseaudio import *
 
+
+# if app names do not match correctly to icons
 APP_TO_ICON_NAME = {
     'Chromium': 'chromium-browser',
 }
