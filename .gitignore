@@ -5,4 +5,4 @@ ThumbsDB
 \#*#
 .#*
 *.pyc
-venv
+build

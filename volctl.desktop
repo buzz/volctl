@@ -1,0 +1,10 @@
+[Desktop Entry]
+Encoding=UTF-8
+Type=Application
+Name=Volctl
+Comment=Per-application volume control for GNU/Linux desktops
+Exec=volctl
+Icon=multimedia-volume-control
+Terminal=false
+StartupNotify=false
+Categories=AudioVideo;Audio;Mixer;GTK;

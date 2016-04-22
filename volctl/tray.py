@@ -1,21 +1,14 @@
-#!/usr/bin/env python
 import os
 from math import floor
 from subprocess import Popen
-from gi.repository import Gtk, Gdk, GObject
-from pulseaudio.lib_pulseaudio import PA_VOLUME_MUTED, PA_VOLUME_NORM, \
+import gi
+gi.require_version('Gtk', '3.0')
+from gi.repository import Gtk, Gdk
+
+from lib_pulseaudio import PA_VOLUME_MUTED, PA_VOLUME_NORM, \
      pa_threaded_mainloop_lock, pa_threaded_mainloop_unlock
-
-
 from pa_mgr import PulseAudioManager
 
-
-PROGRAM_NAME = 'Volume Control'
-VERSION =      '0.2'
-COPYRIGHT =    '(c) Mirko Dietrich'
-LICENSE =      Gtk.License.GPL_2_0
-COMMENTS =     'Volume control tray icon using PulseAudio.'
-WEBSITE =      'www.github.com/buzz/volctl'
 
 MIXER_CMD = '/usr/bin/pavucontrol'
 # granularity of volume control
@@ -312,9 +305,3 @@ class VolumeSlider:
 
     def close(self):
         self.win.destroy()
-
-
-if __name__ == '__main__':
-    GObject.threads_init()
-    vctray = VolCtlTray()
-    Gtk.main()
