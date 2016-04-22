@@ -61,20 +61,28 @@ application. If you're looking for that check out the excellent
 </ul>
 
 <h2>
-<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Usage</h2>
+<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Installation</h2>
+
+<h3>Manual installation</h3>
 
 <ol>
-<li>Clone this repository somewhere to your home folder.</li>
-<li>Run <code>create-venv.sh</code> to initialize virtual env that holds deps.</li>
-<li>Make <code>volctl.sh</code> auto-start with your desktop environment. This step depends on which desktop you use.</li>
+<li>Clone this repository somewhere and cd into it.</li>
+<li>To install: <code>sudo ./setup.py install</code></li>
+<li>For the application icon to show up in the menu: <code>sudo update-desktop-database</code></li>
 </ol>
+
+<h3>Arch Linux</h3>
+
+<p>
+Available in AUR: <a href="https://aur.archlinux.org/packages/volctl/">volctl</a>
+</p>
 
 <h2>
 <a id="dependencies" class="anchor" href="#dependencies" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Dependencies</h2>
 
 <ul>
+<li>pulseaudio</li>
 <li>python2-gobject</li>
-<li><a href="https://github.com/Valodim/python-pulseaudio">python-pulseaudio</a></li>
 </ul>
       </section>
       <footer>
@@ -83,6 +91,5 @@ application. If you're looking for that check out the excellent
       </footer>
     </div>
     <script src="javascripts/scale.fix.js"></script>
-    
   </body>
 </html>
