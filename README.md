@@ -20,10 +20,9 @@ application. If you're looking for that check out the excellent
 * Control main volumes as well as individual applications
 * Shows applications icons and names
 * Internally uses the PulseAudio library directly which turned out to work much better then DBUS
-* Double-click opens `pavucontrol`
+* Double-click opens *pavucontrol*
 * Mouse-wheel support
 
-## Dependencies
+## Installation
 
-* python2-gobject
-
+Check the [homepage](https://buzz.github.io/volctl/) for details.
