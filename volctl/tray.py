@@ -8,7 +8,7 @@ from gi.repository import Gtk, Gdk
 from lib_pulseaudio import PA_VOLUME_MUTED, PA_VOLUME_NORM, \
      pa_threaded_mainloop_lock, pa_threaded_mainloop_unlock
 from pa_mgr import PulseAudioManager
-
+from volctl import PROGRAM_NAME, VERSION, COPYRIGHT, LICENSE, COMMENTS, WEBSITE
 
 MIXER_CMD = '/usr/bin/pavucontrol'
 # granularity of volume control
