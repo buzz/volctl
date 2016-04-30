@@ -8,12 +8,19 @@ from gi.repository import Gtk, Gdk
 from lib_pulseaudio import PA_VOLUME_MUTED, PA_VOLUME_NORM, \
      pa_threaded_mainloop_lock, pa_threaded_mainloop_unlock
 from pa_mgr import PulseAudioManager
-from volctl import PROGRAM_NAME, VERSION, COPYRIGHT, LICENSE, COMMENTS, WEBSITE
+
+from volctl._version import __version__
+
 
 MIXER_CMD = '/usr/bin/pavucontrol'
 # granularity of volume control
 STEPS = 10
 
+PROGRAM_NAME = 'Volume Control'
+COPYRIGHT =  '(c) buzz'
+LICENSE = Gtk.License.GPL_2_0
+COMMENTS = 'Per-application volume control for GNU/Linux desktops'
+WEBSITE = 'https://buzz.github.io/volctl/'
 
 class VolCtlTray():
 
@@ -92,7 +99,7 @@ class VolCtlTray():
     def cb_about(self, widget):
         about = Gtk.AboutDialog()
         about.set_program_name(PROGRAM_NAME)
-        about.set_version(VERSION)
+        about.set_version(__version__)
         about.set_copyright(COPYRIGHT)
         about.set_license_type(LICENSE)
         about.set_comments(COMMENTS)
