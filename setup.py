@@ -1,9 +1,20 @@
 #!/usr/bin/env python2.7
-
 from distutils.core import setup
 
+# parse version (setup.py should not import module!)
+import re
+VERSIONFILE = 'volctl/_version.py'
+with open(VERSIONFILE, 'rt') as f:
+    version_file_content = f.read()
+version_regex = r"^__version__ = ['\"]([^'\"]*)['\"]"
+m = re.search(version_regex, version_file_content, re.M)
+if m:
+    version = m.group(1)
+else:
+    raise RuntimeError('Unable to find version string in %s.' % VERSIONFILE)
+
 setup(name='volctl',
-      version='0.3',
+      version=version,
       description='Per-application volume control for GNU/Linux desktops',
       author='buzz',
       author_email='buzz-AT-l4m1-DOT-de',
