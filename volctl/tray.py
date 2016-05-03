@@ -229,7 +229,7 @@ class VolumeSlider:
 
         # separator
         if len(self.volctl.pa_mgr.pa_sink_inputs) > 0:
-            separator = Gtk.VSeparator()
+            separator = Gtk.Separator().new(Gtk.Orientation.VERTICAL)
             separator.set_margin_top(6)
             separator.set_margin_bottom(6)
             self.grid.attach(separator, x, 0, 1, 2)
@@ -251,7 +251,7 @@ class VolumeSlider:
 
     def add_scale(self, sink):
         # scale
-        scale = Gtk.VScale()
+        scale = Gtk.Scale().new(Gtk.Orientation.VERTICAL)
         scale.set_draw_value(False)
         scale.set_value_pos(Gtk.PositionType.BOTTOM)
         scale.set_range(PA_VOLUME_MUTED, PA_VOLUME_NORM)
