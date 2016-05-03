@@ -190,6 +190,7 @@ class VolumeSlider:
 
         self.create_sliders()
         self.win.show_all()
+        self.set_position()
 
     def _find_idx_by_scale(self, scale, scales):
         for idx, v in scales.iteritems():
@@ -206,10 +207,13 @@ class VolumeSlider:
 
     def set_position(self):
         a, screen, rect, orient = self.volctl.statusicon.get_geometry()
-        self.win.move(rect.x, rect.y + rect.height)
+        # hack-ish but works
+        if rect.y > screen.height() / 2:
+            self.win.move(rect.x, rect.y - self.win.get_size()[1])
+        else:
+            self.win.move(rect.x, rect.y + rect.height)
 
     def create_sliders(self):
-        self.set_position()
         x = 0
 
         # touching pa objects here!
