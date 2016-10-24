@@ -4,12 +4,15 @@
 # h2xml.py -I $PWD -c -o pa.xml pulse/mainloop-api.h pulse/sample.h pulse/def.h pulse/operation.h pulse/context.h pulse/channelmap.h pulse/volume.h pulse/stream.h pulse/introspect.h pulse/subscribe.h pulse/scache.h pulse/version.h pulse/error.h pulse/xmalloc.h pulse/utf8.h pulse/thread-mainloop.h pulse/mainloop.h pulse/mainloop-signal.h pulse/util.h pulse/timeval.h
 # xml2py.py -k efstd -o lib_pulseaudio.py -l 'pulse' -r '(pa|PA)_.+' pa.xml
 
+import sys
 from ctypes import *
 
 _libraries = {}
 _libraries['libpulse.so.0'] = CDLL('libpulse.so.0')
 STRING = c_char_p
 
+if sys.version_info > (3,):
+    long = int
 
 PA_CHANNEL_MAP_DEF_MAX = 5
 PA_SAMPLE_S24_32BE = 12
@@ -1663,17 +1666,17 @@ pa_xstrndup.argtypes = [STRING, size_t]
 pa_xmemdup = _libraries['libpulse.so.0'].pa_xmemdup
 pa_xmemdup.restype = c_void_p
 pa_xmemdup.argtypes = [c_void_p, size_t]
-PA_CHANNELS_MAX = 32L # Variable c_uint '32u'
+PA_CHANNELS_MAX = long(32) # Variable c_uint '32u'
 PA_PROP_WINDOW_DESKTOP = 'window.desktop' # Variable STRING '(const char*)"window.desktop"'
-PA_NSEC_PER_SEC = 1000000000L # Variable c_ulonglong '1000000000ull'
+PA_NSEC_PER_SEC = long(1000000000) # Variable c_ulonglong '1000000000ull'
 PA_PROP_WINDOW_ICON = 'window.icon' # Variable STRING '(const char*)"window.icon"'
-PA_NSEC_PER_MSEC = 1000000L # Variable c_ulonglong '1000000ull'
-PA_USEC_PER_MSEC = 1000L # Variable c_ulong '1000u'
+PA_NSEC_PER_MSEC = long(1000000) # Variable c_ulonglong '1000000ull'
+PA_USEC_PER_MSEC = long(1000) # Variable c_ulong '1000u'
 PA_PROP_DEVICE_BUFFERING_BUFFER_SIZE = 'device.buffering.buffer_size' # Variable STRING '(const char*)"device.buffering.buffer_size"'
-PA_VOLUME_MUTED = 0L # Variable c_uint '0u'
+PA_VOLUME_MUTED = long(0) # Variable c_uint '0u'
 PA_PROP_WINDOW_HPOS = 'window.hpos' # Variable STRING '(const char*)"window.hpos"'
 PA_PROP_DEVICE_CLASS = 'device.class' # Variable STRING '(const char*)"device.class"'
-PA_USEC_PER_SEC = 1000000L # Variable c_ulong '1000000u'
+PA_USEC_PER_SEC = long(1000000) # Variable c_ulong '1000000u'
 PA_PROP_WINDOW_X11_DISPLAY = 'window.x11.display' # Variable STRING '(const char*)"window.x11.display"'
 PA_PROP_DEVICE_VENDOR_ID = 'device.vendor.id' # Variable STRING '(const char*)"device.vendor.id"'
 PA_PROP_FILTER_SUPPRESS = 'filter.suppress' # Variable STRING '(const char*)"filter.suppress"'
@@ -1691,15 +1694,15 @@ PA_PROP_WINDOW_X = 'window.x' # Variable STRING '(const char*)"window.x"'
 PA_PROP_APPLICATION_PROCESS_ID = 'application.process.id' # Variable STRING '(const char*)"application.process.id"'
 PA_PROP_MEDIA_ICON_NAME = 'media.icon_name' # Variable STRING '(const char*)"media.icon_name"'
 PA_CVOLUME_SNPRINT_MAX = 320 # Variable c_int '320'
-PA_RATE_MAX = 192000L # Variable c_uint '192000u'
+PA_RATE_MAX = long(192000) # Variable c_uint '192000u'
 PA_MICRO = 0 # Variable c_int '0'
 PA_PROP_APPLICATION_ICON_NAME = 'application.icon_name' # Variable STRING '(const char*)"application.icon_name"'
 PA_PROP_MODULE_VERSION = 'module.version' # Variable STRING '(const char*)"module.version"'
-PA_INVALID_INDEX = 4294967295L # Variable c_uint '4294967295u'
+PA_INVALID_INDEX = long(4294967295) # Variable c_uint '4294967295u'
 PA_PROP_APPLICATION_PROCESS_HOST = 'application.process.host' # Variable STRING '(const char*)"application.process.host"'
 PA_PROP_DEVICE_ICON = 'device.icon' # Variable STRING '(const char*)"device.icon"'
 PA_PROP_WINDOW_X11_SCREEN = 'window.x11.screen' # Variable STRING '(const char*)"window.x11.screen"'
-PA_USEC_INVALID = 18446744073709551615L # Variable c_ulong '-1u'
+PA_USEC_INVALID = long(18446744073709551615) # Variable c_ulong '-1u'
 PA_PROP_APPLICATION_LANGUAGE = 'application.language' # Variable STRING '(const char*)"application.language"'
 PA_PROP_WINDOW_WIDTH = 'window.width' # Variable STRING '(const char*)"window.width"'
 PA_PROP_DEVICE_STRING = 'device.string' # Variable STRING '(const char*)"device.string"'
@@ -1713,10 +1716,10 @@ PA_PROP_MEDIA_SOFTWARE = 'media.software' # Variable STRING '(const char*)"media
 PA_PROP_APPLICATION_ID = 'application.id' # Variable STRING '(const char*)"application.id"'
 PA_DECIBEL_MININFTY = -200.0 # Variable c_double '-2.0e+2'
 PA_PROP_WINDOW_NAME = 'window.name' # Variable STRING '(const char*)"window.name"'
-PA_NSEC_PER_USEC = 1000L # Variable c_ulonglong '1000ull'
+PA_NSEC_PER_USEC = long(1000) # Variable c_ulonglong '1000ull'
 PA_API_VERSION = 12 # Variable c_int '12'
 PA_PROP_WINDOW_X11_XID = 'window.x11.xid' # Variable STRING '(const char*)"window.x11.xid"'
-PA_VOLUME_NORM = 65536L # Variable c_uint '65536u'
+PA_VOLUME_NORM = long(65536) # Variable c_uint '65536u'
 PA_PROP_EVENT_MOUSE_BUTTON = 'event.mouse.button' # Variable STRING '(const char*)"event.mouse.button"'
 PA_PROP_APPLICATION_PROCESS_USER = 'application.process.user' # Variable STRING '(const char*)"application.process.user"'
 PA_PROP_APPLICATION_ICON = 'application.icon' # Variable STRING '(const char*)"application.icon"'
@@ -1744,7 +1747,7 @@ PA_PROP_EVENT_ID = 'event.id' # Variable STRING '(const char*)"event.id"'
 PA_BYTES_SNPRINT_MAX = 11 # Variable c_int '11'
 PA_PROP_DEVICE_FORM_FACTOR = 'device.form_factor' # Variable STRING '(const char*)"device.form_factor"'
 PA_PROP_APPLICATION_PROCESS_SESSION_ID = 'application.process.session_id' # Variable STRING '(const char*)"application.process.session_id"'
-PA_USEC_MAX = 18446744073709551614L # Variable c_ulong '-2u'
+PA_USEC_MAX = long(18446744073709551614) # Variable c_ulong '-2u'
 PA_PROP_FORMAT_CHANNELS = 'format.channels' # Variable STRING '(const char*)"format.channels"'
 PA_PROP_MEDIA_NAME = 'media.name' # Variable STRING '(const char*)"media.name"'
 PA_VOLUME_SNPRINT_MAX = 10 # Variable c_int '10'
@@ -1755,7 +1758,7 @@ PA_PROP_DEVICE_PRODUCT_NAME = 'device.product.name' # Variable STRING '(const ch
 PA_PROP_MODULE_AUTHOR = 'module.author' # Variable STRING '(const char*)"module.author"'
 PA_PROP_WINDOW_ICON_NAME = 'window.icon_name' # Variable STRING '(const char*)"window.icon_name"'
 PA_MAJOR = 1 # Variable c_int '1'
-PA_MSEC_PER_SEC = 1000L # Variable c_ulong '1000u'
+PA_MSEC_PER_SEC = long(1000) # Variable c_ulong '1000u'
 PA_PROP_DEVICE_VENDOR_NAME = 'device.vendor.name' # Variable STRING '(const char*)"device.vendor.name"'
 PA_PROP_DEVICE_INTENDED_ROLES = 'device.intended_roles' # Variable STRING '(const char*)"device.intended_roles"'
 PA_SW_CVOLUME_SNPRINT_DB_MAX = 448 # Variable c_int '448'
