@@ -5,13 +5,19 @@
       <summary>Enable auto-close</summary>
       <description>Auto-closes volume control pop-up after time-out.</description>
     </key>
+    <key type="i" name="timeout">
+      <range min="500" max="15000"/>
+      <default>3000</default>
+      <summary>Auto-close timeout</summary>
+      <description>Timeout the slider pop-up closes in seconds.</description>
+    </key>
     <key type="b" name="solo-mute">
       <default>false</default>
       <summary>Enable solo/mute buttons</summary>
       <description>Show solo/mute button for each application.</description>
     </key>
     <key type="i" name="mouse-wheel-step">
-        <range min="5" max="25"/>
+        <range min="3" max="50"/>
         <default>15</default>
         <summary>Mouse wheel step</summary>
         <description>How much mouse wheel changes volume.</description>

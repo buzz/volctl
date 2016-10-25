@@ -120,10 +120,6 @@ class VolCtlTray():
         except AttributeError:
             self.preferences = PreferencesDialog(self.settings)
             response = self.preferences.run()
-            if response == Gtk.ResponseType.OK:
-                print("The OK button was clicked")
-            elif response == Gtk.ResponseType.CANCEL:
-                print("The Cancel button was clicked")
             self.preferences.destroy()
             del self.preferences
 
@@ -169,6 +165,10 @@ class VolCtlTray():
         new_value = old_vol + amount
         new_value = min(PA_VOLUME_NORM, new_value)
         new_value = max(PA_VOLUME_MUTED, new_value)
+
+        # user action prolongs auto-close timer
+        if hasattr(self, 'slider'):
+            self.slider.reset_timeout()
 
         m = self.pa_mgr.pa.pa_mainloop
         pa_threaded_mainloop_lock(m)
@@ -247,6 +247,7 @@ class VolumeSlider:
 
         # timeout
         self.auto_close_timeout = None
+        self.enable_timeout()
 
     def _find_idx_by_scale(self, scale, scales):
         for idx, v in scales.iteritems():
@@ -347,6 +348,21 @@ class VolumeSlider:
         if not mute is None:
             scale.set_sensitive(not mute)
 
+    def enable_timeout(self):
+        if self.volctl.settings.get_boolean('auto-close') and \
+           self.auto_close_timeout is None:
+            self.auto_close_timeout = GLib.timeout_add(
+                self.volctl.settings.get_int('timeout'), self._auto_close)
+
+    def remove_timeout(self):
+        if not self.auto_close_timeout is None:
+            GLib.Source.remove(self.auto_close_timeout)
+            self.auto_close_timeout = None
+
+    def reset_timeout(self):
+        self.remove_timeout()
+        self.enable_timeout()
+
     # called by pa thread
 
     def update_sink_scale(self, idx, volume, mute):
@@ -385,15 +401,20 @@ class VolumeSlider:
         sink_input.set_volume(value)
         pa_threaded_mainloop_unlock(m)
 
-    def cb_enter_notify(self, win, obj):
-        print(win, obj)
-        print('enter')
+    def cb_enter_notify(self, win, event):
+        if event.detail == Gdk.NotifyType.NONLINEAR or \
+           event.detail == Gdk.NotifyType.NONLINEAR_VIRTUAL:
+            self.remove_timeout()
 
-    def cb_leave_notify(self, win, obj):
-        print(win, obj)
-        print('leave')
-        self.auto_close_timeout = GLib.timeout_add(
-            GLib.PRIORITY_DEFAULT, 5000, self.close)
+    def cb_leave_notify(self, win, event):
+        if event.detail == Gdk.NotifyType.NONLINEAR or \
+           event.detail == Gdk.NotifyType.NONLINEAR_VIRTUAL:
+            self.enable_timeout()
 
     def close(self):
         self.win.destroy()
+
+    def _auto_close(self):
+        self.auto_close_timeout = None
+        self.close()
+        return GLib.SOURCE_REMOVE

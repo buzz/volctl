@@ -8,7 +8,9 @@ class PreferencesDialog(Gtk.Dialog):
     def __init__(self, settings):
         Gtk.Dialog.__init__(self, 'Preferences')
         self.settings = settings
-        self.settings_schema = Gio.SettingsSchemaSource.get_default().lookup('apps.volctl', False)
+        self.settings_schema = Gio.SettingsSchemaSource.get_default().lookup(
+            'apps.volctl', False)
+        self.settings.connect('changed', self.cb_settings_changed)
 
         self.set_type_hint(Gdk.WindowTypeHint.NORMAL)
         box = self.get_content_area()
@@ -47,6 +49,31 @@ class PreferencesDialog(Gtk.Dialog):
 
         listbox.add(row)
 
+        # auto-hide timeout
+        k = self.settings_schema.get_key('timeout')
+        row = Gtk.ListBoxRow()
+        row.set_tooltip_text(k.get_description())
+
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        row.add(hbox)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        hbox.pack_start(vbox, True, True, 10)
+
+        label = Gtk.Label('  ' + k.get_summary(), xalign=0)
+        vbox.pack_start(label, True, True, 0)
+        scale = Gtk.Scale().new(Gtk.Orientation.HORIZONTAL)
+        r = k.get_range()
+        scale.set_range(r[1][0], r[1][1])
+        scale.set_digits(False)
+        scale.set_size_request(128, 24)
+        scale.connect('format_value', self.scale_timeout_format)
+        self.settings.bind('timeout', scale.get_adjustment(), 'value',
+                           Gio.SettingsBindFlags.DEFAULT)
+        hbox.pack_start(scale, False, True, 10)
+        self.row_timeout = row
+
+        listbox.add(row)
+
         # toggle solo/mute buttons
         k = self.settings_schema.get_key('solo-mute')
         row = Gtk.ListBoxRow()
@@ -80,12 +107,13 @@ class PreferencesDialog(Gtk.Dialog):
         label = Gtk.Label(k.get_summary(), xalign=0)
         vbox.pack_start(label, True, True, 0)
         scale = Gtk.Scale().new(Gtk.Orientation.HORIZONTAL)
-        scale.set_range(5, 25)
+        r = k.get_range()
+        scale.set_range(r[1][0], r[1][1])
         scale.set_digits(False)
         scale.set_size_request(128, 24)
-        scale.connect('format_value', self.scale_format_value)
-        self.settings.bind(
-            'mouse-wheel-step', scale.get_adjustment(), 'value', Gio.SettingsBindFlags.DEFAULT)
+        scale.connect('format_value', self.scale_mouse_wheel_step_format)
+        self.settings.bind('mouse-wheel-step', scale.get_adjustment(), 'value',
+                           Gio.SettingsBindFlags.DEFAULT)
         hbox.pack_start(scale, False, True, 10)
 
         listbox.add(row)
@@ -110,6 +138,22 @@ class PreferencesDialog(Gtk.Dialog):
         listbox.add(row)
 
         self.show_all()
+        self.set_timeout_show()
 
-    def scale_format_value(self, scale, value):
+    def scale_timeout_format(self, scale, value):
+        return '%.1f sec' % (value / 1000.0)
+
+    def scale_mouse_wheel_step_format(self, scale, value):
         return '%.1f %%' % (100.0 / value)
+
+    def set_timeout_show(self):
+        if self.settings.get_boolean('auto-close'):
+            self.row_timeout.show()
+        else:
+            self.row_timeout.hide()
+
+    # gsettings callback
+
+    def cb_settings_changed(self, settings, key):
+        if key == 'auto-close':
+            self.set_timeout_show()
