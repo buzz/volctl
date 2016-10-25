@@ -1,0 +1,25 @@
+<schemalist>
+  <schema id="apps.volctl" gettext-domain="volctl">
+    <key type="b" name="auto-close">
+      <default>false</default>
+      <summary>Enable auto-close</summary>
+      <description>Auto-closes volume control pop-up after time-out.</description>
+    </key>
+    <key type="b" name="solo-mute">
+      <default>false</default>
+      <summary>Enable solo/mute buttons</summary>
+      <description>Show solo/mute button for each application.</description>
+    </key>
+    <key type="i" name="mouse-wheel-step">
+        <range min="5" max="25"/>
+        <default>15</default>
+        <summary>Mouse wheel step</summary>
+        <description>How much mouse wheel changes volume.</description>
+    </key>
+    <key type="s" name="mixer-command">
+        <default>""</default>
+        <summary>Custom mixer command</summary>
+        <description>Leave empty for pavucontrol.</description>
+    </key>
+  </schema>
+</schemalist>

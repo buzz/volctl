@@ -3,7 +3,7 @@ from math import floor
 from subprocess import Popen
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, Gio, GLib
 
 from lib_pulseaudio import PA_VOLUME_MUTED, PA_VOLUME_NORM, \
      pa_threaded_mainloop_lock, pa_threaded_mainloop_unlock
@@ -13,9 +13,7 @@ from volctl._version import __version__
 from volctl.prefs import PreferencesDialog
 
 
-MIXER_CMD = '/usr/bin/pavucontrol'
-# granularity of volume control
-STEPS = 10
+DEFAULT_MIXER_CMD = '/usr/bin/pavucontrol'
 
 PROGRAM_NAME = 'Volume Control'
 COPYRIGHT =  '(c) buzz'
@@ -26,8 +24,13 @@ WEBSITE = 'https://buzz.github.io/volctl/'
 class VolCtlTray():
 
     def __init__(self):
+        self.settings = Gio.Settings('apps.volctl', path='/apps/volctl/')
+        self.settings.connect('changed', self.cb_settings_changed)
+        self.mouse_wheel_step = self.settings.get_int('mouse-wheel-step')
+
         self.volume = 0
         self.mute = False
+
         # status icon
         self.statusicon = Gtk.StatusIcon()
         self.statusicon.set_title('Volume')
@@ -79,7 +82,10 @@ class VolCtlTray():
         self.pa_mgr = PulseAudioManager(self)
 
     def launch_mixer(self):
-        Popen(MIXER_CMD)
+        mixer_cmd = self.settings.get_string('mixer-command')
+        if mixer_cmd == '':
+            mixer_cmd = DEFAULT_MIXER_CMD
+        Popen(mixer_cmd)
 
     def update_icon(self):
         v = float(self.volume) / float(PA_VOLUME_NORM)
@@ -112,7 +118,7 @@ class VolCtlTray():
         try:
             self.preferences.present()
         except AttributeError:
-            self.preferences = PreferencesDialog()
+            self.preferences = PreferencesDialog(self.settings)
             response = self.preferences.run()
             if response == Gtk.ResponseType.OK:
                 print("The OK button was clicked")
@@ -153,7 +159,7 @@ class VolCtlTray():
 
     def cb_scroll(self, widget, ev):
         old_vol = self.volume
-        amount = PA_VOLUME_NORM / STEPS
+        amount = PA_VOLUME_NORM / self.settings.get_int('mouse-wheel-step')
         if ev.direction == Gdk.ScrollDirection.DOWN:
             amount *= -1
         elif ev.direction == Gdk.ScrollDirection.UP:
@@ -209,6 +215,14 @@ class VolCtlTray():
         if hasattr(self, 'slider'):
             self.slider.update_sink_input_scale(idx, volume, mute)
 
+    # gsettings callback
+
+    def cb_settings_changed(self, settings, key):
+        if key == 'mouse-wheel-step':
+            self.mouse_wheel_step = settings.get_int('mouse-wheel-step')
+            if hasattr(self, 'slider'):
+                self.slider.set_increments()
+
 class VolumeSlider:
     def __init__(self, volctl):
         self.volctl = volctl
@@ -230,6 +244,9 @@ class VolumeSlider:
         self.create_sliders()
         self.win.show_all()
         self.set_position()
+
+        # timeout
+        self.auto_close_timeout = None
 
     def _find_idx_by_scale(self, scale, scales):
         for idx, v in scales.iteritems():
@@ -305,8 +322,8 @@ class VolumeSlider:
         scale.set_range(PA_VOLUME_MUTED, PA_VOLUME_NORM)
         scale.set_inverted(True)
         scale.set_size_request(24, 128)
-        scale.set_increments(PA_VOLUME_NORM / STEPS, PA_VOLUME_NORM / STEPS)
         scale.set_tooltip_text(sink.name)
+        self._set_increments_on_scale(scale)
 
         # icon
         icon = Gtk.Image()
@@ -314,6 +331,16 @@ class VolumeSlider:
         icon.set_from_icon_name(sink.icon_name, Gtk.IconSize.SMALL_TOOLBAR)
 
         return scale, icon
+
+    def set_increments(self):
+        for idx, scale in self.sink_scales.iteritems():
+            self._set_increments_on_scale(scale)
+        for idx, scale in self.sink_input_scales.iteritems():
+            self._set_increments_on_scale(scale)
+
+    def _set_increments_on_scale(self, scale):
+        scale.set_increments(PA_VOLUME_NORM / self.volctl.mouse_wheel_step,
+                             PA_VOLUME_NORM / self.volctl.mouse_wheel_step)
 
     def update_scale(self, scale, volume, mute):
         scale.set_value(volume)
@@ -365,6 +392,8 @@ class VolumeSlider:
     def cb_leave_notify(self, win, obj):
         print(win, obj)
         print('leave')
+        self.auto_close_timeout = GLib.timeout_add(
+            GLib.PRIORITY_DEFAULT, 5000, self.close)
 
     def close(self):
         self.win.destroy()
