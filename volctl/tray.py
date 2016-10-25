@@ -10,6 +10,7 @@ from lib_pulseaudio import PA_VOLUME_MUTED, PA_VOLUME_NORM, \
 from pa_mgr import PulseAudioManager
 
 from volctl._version import __version__
+from volctl.prefs import PreferencesDialog
 
 
 MIXER_CMD = '/usr/bin/pavucontrol'
@@ -37,6 +38,10 @@ class VolCtlTray():
         self.statusicon.connect('scroll-event', self.cb_scroll)
         self.statusicon.connect('query-tooltip', self.cb_tooltip)
 
+        # windows
+        self.about = None
+        self.preferences = None
+
         # popup menu
         self.menu = Gtk.Menu()
         mute_menu_item = Gtk.ImageMenuItem('Mute')
@@ -47,9 +52,15 @@ class VolCtlTray():
 
         mixer_menu_item = Gtk.ImageMenuItem('Mixer')
         img = Gtk.Image.new_from_icon_name(
-            'preferences-desktop', Gtk.IconSize.SMALL_TOOLBAR)
+            'multimedia-volume-control', Gtk.IconSize.SMALL_TOOLBAR)
         mixer_menu_item.set_image(img)
         mixer_menu_item.connect('activate', self.cb_mixer)
+
+        preferences_menu_item = Gtk.ImageMenuItem('Preferences')
+        img = Gtk.Image.new_from_icon_name(
+            'preferences-desktop', Gtk.IconSize.SMALL_TOOLBAR)
+        preferences_menu_item.set_image(img)
+        preferences_menu_item.connect('activate', self.cb_preferences)
 
         about_menu_item = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_ABOUT)
         about_menu_item.connect('activate', self.cb_about)
@@ -59,6 +70,7 @@ class VolCtlTray():
 
         self.menu.append(mute_menu_item)
         self.menu.append(mixer_menu_item)
+        self.menu.append(preferences_menu_item)
         self.menu.append(Gtk.SeparatorMenuItem())
         self.menu.append(about_menu_item)
         self.menu.append(exit_menu_item)
@@ -96,20 +108,45 @@ class VolCtlTray():
     def cb_mixer(self, widget):
         self.launch_mixer()
 
+    def cb_preferences(self, widget):
+        try:
+            self.preferences.present()
+        except AttributeError:
+            self.preferences = PreferencesDialog()
+            response = self.preferences.run()
+            if response == Gtk.ResponseType.OK:
+                print("The OK button was clicked")
+            elif response == Gtk.ResponseType.CANCEL:
+                print("The Cancel button was clicked")
+            self.preferences.destroy()
+            del self.preferences
+
     def cb_about(self, widget):
-        about = Gtk.AboutDialog()
-        about.set_program_name(PROGRAM_NAME)
-        about.set_version(__version__)
-        about.set_copyright(COPYRIGHT)
-        about.set_license_type(LICENSE)
-        about.set_comments(COMMENTS)
-        about.set_website(WEBSITE)
-        about.set_logo_icon_name('audio-volume-high')
-        about.run()
-        about.destroy()
+        try:
+            self.about.present()
+        except AttributeError:
+            self.about = Gtk.AboutDialog()
+            self.about.set_program_name(PROGRAM_NAME)
+            self.about.set_version(__version__)
+            self.about.set_copyright(COPYRIGHT)
+            self.about.set_license_type(LICENSE)
+            self.about.set_comments(COMMENTS)
+            self.about.set_website(WEBSITE)
+            self.about.set_logo_icon_name('audio-volume-high')
+            self.about.run()
+            self.about.destroy()
+            del self.about
 
     def cb_quit(self, widget):
         if Gtk.main_level() > 0:
+            try:
+                self.preferences.response(0)
+            except AttributeError:
+                pass
+            try:
+                self.about.close()
+            except AttributeError:
+                pass
             Gtk.main_quit()
         else:
             exit(1)
@@ -176,6 +213,8 @@ class VolumeSlider:
     def __init__(self, volctl):
         self.volctl = volctl
         self.win = Gtk.Window(type=Gtk.WindowType.POPUP)
+        self.win.connect('enter-notify-event', self.cb_enter_notify)
+        self.win.connect('leave-notify-event', self.cb_leave_notify)
         self.grid = Gtk.Grid()
         self.grid.set_column_spacing(2)
         self.grid.set_row_spacing(6)
@@ -318,6 +357,14 @@ class VolumeSlider:
         sink_input = self.volctl.pa_mgr.pa_sink_inputs[idx]
         sink_input.set_volume(value)
         pa_threaded_mainloop_unlock(m)
+
+    def cb_enter_notify(self, win, obj):
+        print(win, obj)
+        print('enter')
+
+    def cb_leave_notify(self, win, obj):
+        print(win, obj)
+        print('leave')
 
     def close(self):
         self.win.destroy()
