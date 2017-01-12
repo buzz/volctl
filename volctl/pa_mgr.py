@@ -74,12 +74,15 @@ class PulseAudio():
                                             PA_SUBSCRIPTION_MASK_CLIENT
                                             ), self._null_cb, None)
             pa_operation_unref(o)
+            print('PulseAudio: Connection ready', file=sys.stderr)
 
         elif ctc == PA_CONTEXT_FAILED:
+            print('PulseAudio: Connection failed', file=sys.stderr)
             pa_threaded_mainloop_signal(self.pa_mainloop, 0)
             sys.exit(1)
 
         elif ctc == PA_CONTEXT_TERMINATED:
+            print('PulseAudio: Connection terminated', file=sys.stderr)
             pa_threaded_mainloop_signal(self.pa_mainloop, 0)
 
     def pa_request_update(self):
