@@ -11,11 +11,6 @@
       <summary>Auto-close timeout</summary>
       <description>Timeout the slider pop-up closes in seconds.</description>
     </key>
-    <key type="b" name="solo-mute">
-      <default>false</default>
-      <summary>Enable solo/mute buttons</summary>
-      <description>Show solo/mute button for each application.</description>
-    </key>
     <key type="i" name="mouse-wheel-step">
         <range min="3" max="50"/>
         <default>15</default>
