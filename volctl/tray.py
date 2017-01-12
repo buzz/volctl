@@ -5,13 +5,12 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, Gio
 
-from lib_pulseaudio import PA_VOLUME_MUTED, PA_VOLUME_NORM, \
-     pa_threaded_mainloop_lock, pa_threaded_mainloop_unlock
-from pa_mgr import PulseAudioManager
-
-from volctl._version import __version__
-from volctl.prefs import PreferencesDialog
-from volctl.slider import VolumeSlider
+from .lib_pulseaudio import (PA_VOLUME_MUTED, PA_VOLUME_NORM,
+     pa_threaded_mainloop_lock, pa_threaded_mainloop_unlock)
+from .pa_mgr import PulseAudioManager
+from ._version import __version__
+from .prefs import PreferencesDialog
+from .slider import VolumeSlider
 
 
 DEFAULT_MIXER_CMD = '/usr/bin/pavucontrol'

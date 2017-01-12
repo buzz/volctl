@@ -1,7 +1,8 @@
+from __future__ import print_function
 import sys
 from gi.repository import GObject
 
-from lib_pulseaudio import *
+from .lib_pulseaudio import *
 
 
 # if app names do not match correctly to icons
