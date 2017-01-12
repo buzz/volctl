@@ -74,26 +74,6 @@ class PreferencesDialog(Gtk.Dialog):
 
         listbox.add(row)
 
-        # toggle solo/mute buttons
-        k = self.settings_schema.get_key('solo-mute')
-        row = Gtk.ListBoxRow()
-        row.set_tooltip_text(k.get_description())
-
-        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        row.add(hbox)
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        hbox.pack_start(vbox, True, True, 10)
-
-        label = Gtk.Label(k.get_summary(), xalign=0)
-        vbox.pack_start(label, True, True, 0)
-        switch = Gtk.Switch()
-        switch.props.valign = Gtk.Align.CENTER
-        self.settings.bind(
-            'solo-mute', switch, 'active', Gio.SettingsBindFlags.DEFAULT)
-        hbox.pack_start(switch, False, True, 10)
-
-        listbox.add(row)
-
         # mouse wheel step
         k = self.settings_schema.get_key('mouse-wheel-step')
         row = Gtk.ListBoxRow()
