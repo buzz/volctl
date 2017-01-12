@@ -2,8 +2,8 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 
-from lib_pulseaudio import PA_VOLUME_MUTED, PA_VOLUME_NORM, \
-     pa_threaded_mainloop_lock, pa_threaded_mainloop_unlock
+from .lib_pulseaudio import (PA_VOLUME_MUTED, PA_VOLUME_NORM,
+    pa_threaded_mainloop_lock, pa_threaded_mainloop_unlock)
 
 
 class VolumeSlider:
