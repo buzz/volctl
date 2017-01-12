@@ -1,7 +1,7 @@
 <schemalist>
   <schema id="apps.volctl" gettext-domain="volctl">
     <key type="b" name="auto-close">
-      <default>false</default>
+      <default>true</default>
       <summary>Enable auto-close</summary>
       <description>Auto-closes volume control pop-up after time-out.</description>
     </key>
