@@ -23,6 +23,7 @@ setup(name='volctl',
       packages=['volctl'],
       scripts=['bin/volctl'],
       data_files=[
-          ('share/applications', ['volctl.desktop']),
+          ('share/applications', ['data/volctl.desktop']),
+          ('share/glib-2.0/schemas', ['data/apps.volctl.gschema.xml']),
       ],
 )
