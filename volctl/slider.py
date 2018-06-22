@@ -48,12 +48,16 @@ class VolumeSlider:
     def set_position(self):
         a, screen, rect, orient = self.volctl.statusicon.get_geometry()
         win_width, win_height = self.win.get_size()
+        monitor = screen.get_monitor_geometry(
+            screen.get_monitor_at_window(screen.get_active_window()))
+        
         # slider window should not leave screen boundaries
         x = rect.x
-        if x + win_width > screen.width():
-            x = screen.width() - win_width
+        if x + win_width > monitor.width:
+            x = monitor.width - win_width
+            self.win.move(x, rect.y)
         # top or bottom panel?
-        if rect.y > screen.height() / 2:
+        if rect.y > monitor.height / 2:
             self.win.move(x, rect.y - win_height)
         else:
             self.win.move(x, rect.y + rect.height)
