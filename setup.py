@@ -1,29 +1,36 @@
 #!/usr/bin/env python2.7
+"""setup.py for volctl"""
+
 from distutils.core import setup
+import re
+
 
 # parse version (setup.py should not import module!)
-import re
-VERSIONFILE = 'volctl/_version.py'
-with open(VERSIONFILE, 'rt') as f:
-    version_file_content = f.read()
-version_regex = r"^__version__ = ['\"]([^'\"]*)['\"]"
-m = re.search(version_regex, version_file_content, re.M)
-if m:
-    version = m.group(1)
-else:
-    raise RuntimeError('Unable to find version string in %s.' % VERSIONFILE)
+def get_version():
+    """Get version using regex parsing."""
+    versionfile = 'volctl/_version.py'
+    with open(versionfile, 'rt') as file:
+        version_file_content = file.read()
+    match = re.search(
+        r"^__version__ = ['\"]([^'\"]*)['\"]", version_file_content, re.M)
+    if match:
+        return match.group(1)
+    raise RuntimeError(
+        "Unable to find version string in {}.".format(versionfile))
 
-setup(name='volctl',
-      version=version,
-      description='Per-application volume control for GNU/Linux desktops',
-      author='buzz',
-      author_email='buzz@buzz.com',
-      license='GPLv2',
-      url='https://buzz.github.io/volctl/',
-      packages=['volctl'],
-      scripts=['bin/volctl'],
-      data_files=[
-          ('share/applications', ['data/volctl.desktop']),
-          ('share/glib-2.0/schemas', ['data/apps.volctl.gschema.xml']),
-      ],
+
+setup(
+    name='volctl',
+    version=get_version(),
+    description='Per-application volume control for GNU/Linux desktops',
+    author='buzz',
+    author_email='buzz@buzz.com',
+    license='GPLv2',
+    url='https://buzz.github.io/volctl/',
+    packages=['volctl'],
+    scripts=['bin/volctl'],
+    data_files=[
+        ('share/applications', ['data/volctl.desktop']),
+        ('share/glib-2.0/schemas', ['data/apps.volctl.gschema.xml']),
+    ],
 )

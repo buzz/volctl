@@ -1,3 +1,5 @@
+# pylint: disable-all
+
 # ctypes bindings, taken from https://github.com/Valodim/python-pulseaudio
 
 # generation commands

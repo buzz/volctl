@@ -1,5 +1,6 @@
 #!/usr/bin/env python2.7
+"""volctl start script that can be installed to PATH directory."""
+from volctl import main
 
 if __name__ == '__main__':
-   from volctl import main
-   main()
+    main()
