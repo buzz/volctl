@@ -6,8 +6,6 @@ Small window that appears next to tray icon when activated. It displays
 master and app volume sliders.
 """
 
-import gi
-gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 
 from .lib_pulseaudio import (

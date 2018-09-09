@@ -1,5 +1,4 @@
 """volctl main entry point."""
-from .tray import VolCtlTray
 
 
 def main():
@@ -7,8 +6,10 @@ def main():
     import gi
     gi.require_version('Gtk', '3.0')
     from gi.repository import Gtk
-    VolCtlTray()
+    from volctl.app import VolctlApp
+    VolctlApp()
     Gtk.main()
 
 
-main()
+if __name__ == '__main__':
+    main()
