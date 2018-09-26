@@ -8,11 +8,11 @@ import re
 # parse version (setup.py should not import module!)
 def get_version():
     """Get version using regex parsing."""
-    versionfile = 'volctl/_version.py'
+    versionfile = 'volctl/meta.py'
     with open(versionfile, 'rt') as file:
         version_file_content = file.read()
     match = re.search(
-        r"^__version__ = ['\"]([^'\"]*)['\"]", version_file_content, re.M)
+        r"^VERSION = ['\"]([^'\"]*)['\"]", version_file_content, re.M)
     if match:
         return match.group(1)
     raise RuntimeError(
