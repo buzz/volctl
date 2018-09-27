@@ -7,13 +7,10 @@ class PreferencesDialog(Gtk.Dialog):
 
     def __init__(self, settings):
         Gtk.Dialog.__init__(self, 'Preferences')
-
-        self.settings = settings
-        self.settings_schema = Gio.SettingsSchemaSource.get_default().lookup(
-            'apps.volctl', False)
-        self.settings.connect('changed', self._cb_settings_changed)
-
-        self.row_timeout = None
+        self._settings = settings
+        self._schema = settings.get_property('settings-schema')
+        self._settings.connect('changed', self._cb_settings_changed)
+        self._row_timeout = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -44,7 +41,7 @@ class PreferencesDialog(Gtk.Dialog):
         self._set_timeout_show()
 
     def _setup_auto_hide(self):
-        key = self.settings_schema.get_key('auto-close')
+        key = self._schema.get_key('auto-close')
         row = Gtk.ListBoxRow()
         row.set_tooltip_text(key.get_description())
 
@@ -57,14 +54,14 @@ class PreferencesDialog(Gtk.Dialog):
         vbox.pack_start(label, True, True, 0)
         switch = Gtk.Switch()
         switch.props.valign = Gtk.Align.CENTER
-        self.settings.bind(
+        self._settings.bind(
             'auto-close', switch, 'active', Gio.SettingsBindFlags.DEFAULT)
         hbox.pack_start(switch, False, True, 10)
 
         self.listbox.add(row)
 
     def _setup_auto_hide_timeout(self):
-        key = self.settings_schema.get_key('timeout')
+        key = self._schema.get_key('timeout')
         row = Gtk.ListBoxRow()
         row.set_tooltip_text(key.get_description())
 
@@ -81,15 +78,15 @@ class PreferencesDialog(Gtk.Dialog):
         scale.set_digits(False)
         scale.set_size_request(128, 24)
         scale.connect('format_value', self._scale_timeout_format)
-        self.settings.bind('timeout', scale.get_adjustment(), 'value',
-                           Gio.SettingsBindFlags.DEFAULT)
+        self._settings.bind('timeout', scale.get_adjustment(), 'value',
+                            Gio.SettingsBindFlags.DEFAULT)
         hbox.pack_start(scale, False, True, 10)
-        self.row_timeout = row
+        self._row_timeout = row
 
         self.listbox.add(row)
 
     def _setup_mouse_wheel_step(self):
-        key = self.settings_schema.get_key('mouse-wheel-step')
+        key = self._schema.get_key('mouse-wheel-step')
         row = Gtk.ListBoxRow()
         row.set_tooltip_text(key.get_description())
 
@@ -106,14 +103,15 @@ class PreferencesDialog(Gtk.Dialog):
         scale.set_digits(False)
         scale.set_size_request(128, 24)
         scale.connect('format_value', self._scale_mouse_wheel_step_format)
-        self.settings.bind('mouse-wheel-step', scale.get_adjustment(), 'value',
-                           Gio.SettingsBindFlags.DEFAULT)
+        self._settings.bind(
+            'mouse-wheel-step', scale.get_adjustment(), 'value',
+            Gio.SettingsBindFlags.DEFAULT)
         hbox.pack_start(scale, False, True, 10)
 
         self.listbox.add(row)
 
     def _setup_mixer_command(self):
-        key = self.settings_schema.get_key('mixer-command')
+        key = self._schema.get_key('mixer-command')
         row = Gtk.ListBoxRow()
         row.set_tooltip_text(key.get_description())
 
@@ -125,7 +123,7 @@ class PreferencesDialog(Gtk.Dialog):
         label = Gtk.Label(key.get_summary(), xalign=0)
         vbox.pack_start(label, True, True, 0)
         entry = Gtk.Entry().new()
-        self.settings.bind(
+        self._settings.bind(
             'mixer-command', entry, 'text', Gio.SettingsBindFlags.DEFAULT)
         hbox.pack_start(entry, False, True, 10)
 
@@ -140,10 +138,10 @@ class PreferencesDialog(Gtk.Dialog):
         return '%.1f %%' % (100.0 / value)
 
     def _set_timeout_show(self):
-        if self.settings.get_boolean('auto-close'):
-            self.row_timeout.show()
+        if self._settings.get_boolean('auto-close'):
+            self._row_timeout.show()
         else:
-            self.row_timeout.hide()
+            self._row_timeout.hide()
 
     # gsettings callback
 

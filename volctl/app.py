@@ -13,9 +13,6 @@ from volctl.slider_win import VolumeSliders
 
 DEFAULT_MIXER_CMD = '/usr/bin/pavucontrol'
 
-# TODO: Mirror all settings in app class, other classes should not use settings
-#       directly.
-
 
 class VolctlApp():
     """GUI application for volctl."""
