@@ -52,8 +52,8 @@ class VolctlApp():
     def slider_count_changed(self):
         """Amount of sliders changed."""
         try:
-            self._close_slider()
-            self._show_slider()
+            self.close_slider()
+            self.show_slider()
         except AttributeError:
             pass
 

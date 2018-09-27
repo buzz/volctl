@@ -122,12 +122,13 @@ class PulseAudio():
 
             pa_context_set_subscribe_callback(
                 self._context, self.__pa_context_subscribe_cb, None)
+            submask = (pa_subscription_mask_t)(
+                PA_SUBSCRIPTION_MASK_SINK |
+                PA_SUBSCRIPTION_MASK_SINK_INPUT |
+                PA_SUBSCRIPTION_MASK_CLIENT)
             operation = pa_context_subscribe(
                 self._context,
-                (pa_subscription_mask_t)
-                (PA_SUBSCRIPTION_MASK_SINK |
-                 PA_SUBSCRIPTION_MASK_SINK_INPUT |
-                 PA_SUBSCRIPTION_MASK_CLIENT),
+                submask,
                 self.__null_cb,
                 None
             )
@@ -157,12 +158,10 @@ class PulseAudio():
         pa_operation_unref(operation)
 
     def _pa_context_subscribe_cb(self, context, event_type, index, user_data):
-        et_masked = event_type & PA_SUBSCRIPTION_EVENT_FACILITY_MASK
-
-        if et_masked == PA_SUBSCRIPTION_EVENT_CLIENT:
-
-            if event_type & \
-              PA_SUBSCRIPTION_EVENT_TYPE_MASK == PA_SUBSCRIPTION_EVENT_REMOVE:
+        efac = event_type & PA_SUBSCRIPTION_EVENT_FACILITY_MASK
+        etype = event_type & PA_SUBSCRIPTION_EVENT_TYPE_MASK
+        if efac == PA_SUBSCRIPTION_EVENT_CLIENT:
+            if etype == PA_SUBSCRIPTION_EVENT_REMOVE:
                 self.remove_client_cb(int(index))
             else:
                 operation = pa_context_get_client_info(
@@ -170,18 +169,16 @@ class PulseAudio():
                     None)
                 pa_operation_unref(operation)
 
-        elif et_masked == PA_SUBSCRIPTION_EVENT_SINK:
-            if event_type & \
-              PA_SUBSCRIPTION_EVENT_TYPE_MASK == PA_SUBSCRIPTION_EVENT_REMOVE:
+        elif efac == PA_SUBSCRIPTION_EVENT_SINK:
+            if etype == PA_SUBSCRIPTION_EVENT_REMOVE:
                 self.remove_sink_cb(int(index))
             else:
                 operation = pa_context_get_sink_info_by_index(
                     self._context, int(index), self.__pa_sink_info_cb, True)
                 pa_operation_unref(operation)
 
-        elif et_masked == PA_SUBSCRIPTION_EVENT_SINK_INPUT:
-            if event_type & \
-              PA_SUBSCRIPTION_EVENT_TYPE_MASK == PA_SUBSCRIPTION_EVENT_REMOVE:
+        elif efac == PA_SUBSCRIPTION_EVENT_SINK_INPUT:
+            if etype == PA_SUBSCRIPTION_EVENT_REMOVE:
                 self.remove_sink_input_cb(int(index))
             else:
                 operation = pa_context_get_sink_input_info(
@@ -221,7 +218,7 @@ class PulseAudio():
 
 class PulseAudioManager():
     """
-    Main PulseAudio interfaceself.
+    Main PulseAudio interface.
 
     Provides methods to UI. Internally uses PulseAudio object. Keeps track of
     connected clients, sinks, sink inputs.
@@ -229,10 +226,10 @@ class PulseAudioManager():
 
     def __init__(self, volctl):
         self.volctl = volctl
-        self.pa_clients = {}
-        self.pa_sinks = {}
-        self.pa_sink_inputs = {}
-        self.pulseaudio = PulseAudio(
+        self._pa_clients = {}
+        self._pa_sinks = {}
+        self._pa_sink_inputs = {}
+        self._pulseaudio = PulseAudio(
             self._on_new_pa_client,
             self._on_remove_pa_client,
             self._on_new_pa_sink,
@@ -243,28 +240,28 @@ class PulseAudioManager():
 
     def close(self):
         """Close PA manager."""
-        self.pulseaudio.disconnect()
+        self._pulseaudio.disconnect()
 
     # called by Sink, SinkInput objects
 
     def get_first_sink(self):
         """Returns first sink (master volume)"""
         try:
-            return self.pa_sinks[0]
+            return self._pa_sinks[0]
         except IndexError:
             return None
 
     def set_sink_volume(self, index, cvolume):
         """Set sink volume by index."""
-        self.pulseaudio.set_sink_volume(index, cvolume)
+        self._pulseaudio.set_sink_volume(index, cvolume)
 
     def set_sink_mute(self, index, mute):
         """Set sink mute by index."""
-        self.pulseaudio.set_sink_mute(index, mute)
+        self._pulseaudio.set_sink_mute(index, mute)
 
     def set_sink_input_volume(self, index, cvolume):
         """Set sink input volume by index."""
-        self.pulseaudio.set_sink_input_volume(index, cvolume)
+        self._pulseaudio.set_sink_input_volume(index, cvolume)
 
     # called by gui thread -> lock pa thread
 
@@ -280,23 +277,23 @@ class PulseAudioManager():
     # callbacks called by pulseaudio
 
     def _on_new_pa_client(self, index, struct, props):
-        if index not in self.pa_clients:
-            self.pa_clients[index] = Client(self, index)
-        self.pa_clients[index].update(struct, props)
+        if index not in self._pa_clients:
+            self._pa_clients[index] = Client(self, index)
+        self._pa_clients[index].update(struct, props)
 
     def _on_remove_pa_client(self, index):
-        if index in self.pa_clients:
-            del self.pa_clients[index]
+        if index in self._pa_clients:
+            del self._pa_clients[index]
 
     def _on_new_pa_sink(self, index, struct, _):
-        if index not in self.pa_sinks:
-            self.pa_sinks[index] = Sink(self, index)
+        if index not in self._pa_sinks:
+            self._pa_sinks[index] = Sink(self, index)
             # notify gui thread
             GObject.idle_add(self.volctl.slider_count_changed)
-        self.pa_sinks[index].update(struct)
+        self._pa_sinks[index].update(struct)
 
     def _on_remove_pa_sink(self, index):
-        del self.pa_sinks[index]
+        del self._pa_sinks[index]
         # notify gui thread
         GObject.idle_add(self.volctl.slider_count_changed)
 
@@ -308,15 +305,15 @@ class PulseAudioManager():
         # but seems to keep away things like loopback module etc.
         if 'protocol-native' not in struct.driver.decode('utf-8'):
             return
-        if index not in self.pa_sink_inputs:
-            self.pa_sink_inputs[index] = SinkInput(self, index)
+        if index not in self._pa_sink_inputs:
+            self._pa_sink_inputs[index] = SinkInput(self, index)
             # notify gui thread
             GObject.idle_add(self.volctl.slider_count_changed)
-        self.pa_sink_inputs[index].update(struct)
+        self._pa_sink_inputs[index].update(struct)
 
     def _on_remove_pa_sink_input(self, index):
-        if index in self.pa_sink_inputs:
-            del self.pa_sink_inputs[index]
+        if index in self._pa_sink_inputs:
+            del self._pa_sink_inputs[index]
             # notify gui thread
             GObject.idle_add(self.volctl.slider_count_changed)
 

@@ -1,4 +1,4 @@
 [flake8]
-ignore = E402
+ignore = E402, W504
 exclude = .git,volctl/lib_pulseaudio.py
 max-complexity = 10
