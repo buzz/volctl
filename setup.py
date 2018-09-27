@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/usr/bin/env python
 """setup.py for volctl"""
 
 from distutils.core import setup
@@ -28,7 +28,11 @@ setup(
     license='GPLv2',
     url='https://buzz.github.io/volctl/',
     packages=['volctl'],
-    scripts=['bin/volctl'],
+    entry_points={
+        'gui_scripts': [
+            'volctl = volctl.__main__:main',
+        ],
+    },
     data_files=[
         ('share/applications', ['data/volctl.desktop']),
         ('share/glib-2.0/schemas', ['data/apps.volctl.gschema.xml']),
