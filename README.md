@@ -30,11 +30,18 @@ Check the [homepage](https://buzz.github.io/volctl/) for details.
 
 ## Development
 
-[Deploy](https://setuptools.readthedocs.io/en/latest/setuptools.html#develop-deploy-the-project-source-in-development-mode) the source in a `virtualenv`.
+###### Deploy dev version in Virtualenv
+
+You can start volctl from the source tree.
 
 ```sh
 $ python -m venv --system-site-packages venv
 $ ./setup.py develop
+$ venv/bin/volctl
 ```
 
-Start by typing `volctl`.
+###### Linting
+
+```sh
+$ make lint
+```

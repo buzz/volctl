@@ -3,7 +3,7 @@ all: lint
 lint: pylint flake8
 
 pylint:
-	pylint volctl bin setup.py
+	pylint volctl setup.py
 
 flake8:
-	flake8
+	flake8 volctl setup.py

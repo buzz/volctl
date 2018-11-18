@@ -9,18 +9,18 @@
       <range min="500" max="15000"/>
       <default>3000</default>
       <summary>Auto-close timeout</summary>
-      <description>Timeout the slider pop-up closes in seconds.</description>
+      <description>Time in milliseconds after the pop-up auto-closes.</description>
     </key>
     <key type="i" name="mouse-wheel-step">
         <range min="3" max="50"/>
         <default>15</default>
         <summary>Mouse wheel step</summary>
-        <description>How much mouse wheel changes volume.</description>
+        <description>The sensitivity of mouse wheel volume changes.</description>
     </key>
     <key type="s" name="mixer-command">
         <default>""</default>
         <summary>Custom mixer command</summary>
-        <description>Leave empty for pavucontrol.</description>
+        <description>Default: pavucontrol</description>
     </key>
   </schema>
 </schemalist>

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """setup.py for volctl"""
 
-from setuptools import setup
 import re
+from setuptools import setup
 
 
 # parse version (setup.py should not import module!)
