@@ -9,7 +9,7 @@
       <range min="500" max="15000"/>
       <default>3000</default>
       <summary>Auto-close timeout</summary>
-      <description>Time in milliseconds after the pop-up auto-closes.</description>
+      <description>Time after the pop-up auto-closes.</description>
     </key>
     <key type="i" name="mouse-wheel-step">
         <range min="3" max="50"/>
