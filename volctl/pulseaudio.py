@@ -238,6 +238,25 @@ class PulseAudioManager():
             self._on_remove_pa_sink_input
         )
 
+    @property
+    def mainloop(self):
+        """Get PulseAudio mainloop."""
+        return self._pulseaudio.pa_mainloop
+
+    @property
+    def pa_sinks(self):
+        """Get PulseAudio sinks."""
+        return self._pa_sinks
+
+    @property
+    def pa_sink_inputs(self):
+        """Get PulseAudio sink inputs."""
+        return self._pa_sink_inputs
+
+    def get_pa_client(self, client):
+        """Return PulseAudio client."""
+        return self._pa_clients[client]
+
     def close(self):
         """Close PA manager."""
         self._pulseaudio.disconnect()
@@ -383,7 +402,7 @@ class SinkInput():
                          self.volume, self.mute)
 
     def _get_client(self):
-        return self.pa_mgr.pa_clients[self.client]
+        return self.pa_mgr.get_pa_client(self.client)
 
     def set_volume(self, volume):
         """Set volume for this sink input."""

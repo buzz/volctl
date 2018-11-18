@@ -51,11 +51,9 @@ class VolctlApp():
 
     def slider_count_changed(self):
         """Amount of sliders changed."""
-        try:
+        if self._sliders_win:
             self.close_slider()
             self.show_slider()
-        except AttributeError:
-            pass
 
     # updates coming from pulseaudio
 
@@ -132,6 +130,7 @@ class VolctlApp():
         try:
             self._sliders_win.close()
             del self._sliders_win
+            self._sliders_win = None
             return True
         except AttributeError:
             return False

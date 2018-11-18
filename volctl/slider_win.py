@@ -21,34 +21,34 @@ class VolumeSliders:
 
     def __init__(self, volctl):
         self.volctl = volctl
-        self.win = Gtk.Window(type=Gtk.WindowType.POPUP)
-        self.win.connect('enter-notify-event', self._cb_enter_notify)
-        self.win.connect('leave-notify-event', self._cb_leave_notify)
-        self.grid = Gtk.Grid()
-        self.grid.set_column_spacing(2)
-        self.grid.set_row_spacing(self.SPACING)
-        self.frame = Gtk.Frame()
-        self.frame.set_shadow_type(Gtk.ShadowType.OUT)
-        self.frame.add(self.grid)
-        self.win.add(self.frame)
+        self._win = Gtk.Window(type=Gtk.WindowType.POPUP)
+        self._win.connect('enter-notify-event', self._cb_enter_notify)
+        self._win.connect('leave-notify-event', self._cb_leave_notify)
+        self._grid = Gtk.Grid()
+        self._grid.set_column_spacing(2)
+        self._grid.set_row_spacing(self.SPACING)
+        self._frame = Gtk.Frame()
+        self._frame.set_shadow_type(Gtk.ShadowType.OUT)
+        self._frame.add(self._grid)
+        self._win.add(self._frame)
 
         # gui objects by index
-        self.sink_scales = {}
-        self.sink_input_scales = {}
+        self._sink_scales = {}
+        self._sink_input_scales = {}
 
         self._create_sliders()
-        self.win.show_all()
+        self._win.show_all()
         self._set_position()
 
         # timeout
-        self.auto_close_timeout = None
+        self._timeout = None
         self._enable_timeout()
 
     def set_increments(self):
         """Set sliders increment step."""
-        for _, scale in self.sink_scales.items():
+        for _, scale in self._sink_scales.items():
             self._set_increments_on_scale(scale)
-        for _, scale in self.sink_input_scales.items():
+        for _, scale in self._sink_input_scales.items():
             self._set_increments_on_scale(scale)
 
     def reset_timeout(self):
@@ -58,7 +58,7 @@ class VolumeSliders:
 
     def close(self):
         """Close slider."""
-        self.win.destroy()
+        self._win.destroy()
 
     def _set_increments_on_scale(self, scale):
         scale.set_increments(PA_VOLUME_NORM / self.volctl.mouse_wheel_step,
@@ -66,7 +66,7 @@ class VolumeSliders:
 
     def _set_position(self):
         _, screen, rect, _ = self.volctl.statusicon_geometry
-        win_width, win_height = self.win.get_size()
+        win_width, win_height = self._win.get_size()
         monitor = screen.get_monitor_geometry(
             screen.get_monitor_at_window(screen.get_active_window()))
 
@@ -74,52 +74,52 @@ class VolumeSliders:
         xcoord = rect.x
         if xcoord + win_width > monitor.width:
             xcoord = monitor.width - win_width
-            self.win.move(xcoord, rect.y)
+            self._win.move(xcoord, rect.y)
         # top or bottom panel?
         if rect.y > monitor.height / 2:
-            self.win.move(xcoord, rect.y - win_height)
+            self._win.move(xcoord, rect.y - win_height)
         else:
-            self.win.move(xcoord, rect.y + rect.height)
+            self._win.move(xcoord, rect.y + rect.height)
 
     def _create_sliders(self):
-        num = 0
+        pos = 0
 
         # touching pa objects here!
-        pa_threaded_mainloop_lock(self.volctl.pa_mgr.pulseaudio.pa_mainloop)
+        pa_threaded_mainloop_lock(self.volctl.pa_mgr.mainloop)
 
         # sinks
         for _, sink in self.volctl.pa_mgr.pa_sinks.items():
             scale, icon = self._add_scale(sink)
-            self.sink_scales[sink.idx] = scale
+            self._sink_scales[sink.idx] = scale
             scale.connect('value-changed', self._cb_sink_scale_change)
             self._update_scale(scale, sink.volume, sink.mute)
             scale.set_margin_top(self.SPACING)
             icon.set_margin_bottom(self.SPACING)
-            self.grid.attach(scale, num, 0, 1, 1)
-            self.grid.attach(icon, num, 1, 1, 1)
-            num += 1
+            self._grid.attach(scale, pos, 0, 1, 1)
+            self._grid.attach(icon, pos, 1, 1, 1)
+            pos += 1
 
         # separator
         if not self.volctl.pa_mgr.pa_sink_inputs:
             separator = Gtk.Separator().new(Gtk.Orientation.VERTICAL)
             separator.set_margin_top(self.SPACING)
             separator.set_margin_bottom(self.SPACING)
-            self.grid.attach(separator, num, 0, 1, 2)
-            num += 1
+            self._grid.attach(separator, pos, 0, 1, 2)
+            pos += 1
 
         # sink inputs
         for _, sink_input in self.volctl.pa_mgr.pa_sink_inputs.items():
             scale, icon = self._add_scale(sink_input)
-            self.sink_input_scales[sink_input.idx] = scale
+            self._sink_input_scales[sink_input.idx] = scale
             scale.connect('value-changed', self._cb_sink_input_scale_change)
             self._update_scale(scale, sink_input.volume, sink_input.mute)
             scale.set_margin_top(self.SPACING)
             icon.set_margin_bottom(self.SPACING)
-            self.grid.attach(scale, num, 0, 1, 1)
-            self.grid.attach(icon, num, 1, 1, 1)
-            num += 1
+            self._grid.attach(scale, pos, 0, 1, 1)
+            self._grid.attach(icon, pos, 1, 1, 1)
+            pos += 1
 
-        pa_threaded_mainloop_unlock(self.volctl.pa_mgr.pulseaudio.pa_mainloop)
+        pa_threaded_mainloop_unlock(self.volctl.pa_mgr.mainloop)
 
     def _add_scale(self, sink):
         # scale
@@ -147,21 +147,21 @@ class VolumeSliders:
 
     def _enable_timeout(self):
         if self.volctl.settings.get_boolean('auto-close') and \
-           self.auto_close_timeout is None:
-            self.auto_close_timeout = GLib.timeout_add(
-                self.volctl.settings.get_int('timeout'), self._auto_close)
+           self._timeout is None:
+            self._timeout = GLib.timeout_add(
+                self.volctl.settings.get_int('timeout'), self._cb_auto_close)
 
     def _remove_timeout(self):
-        if self.auto_close_timeout is not None:
-            GLib.Source.remove(self.auto_close_timeout)
-            self.auto_close_timeout = None
+        if self._timeout is not None:
+            GLib.Source.remove(self._timeout)
+            self._timeout = None
 
     # called by pa thread
 
     def update_sink_scale(self, idx, volume, mute):
         """Update sink scale by index."""
         try:
-            scale = self.sink_scales[idx]
+            scale = self._sink_scales[idx]
         except KeyError:
             return
         self._update_scale(scale, volume, mute)
@@ -169,7 +169,7 @@ class VolumeSliders:
     def update_sink_input_scale(self, idx, volume, mute):
         """Update sink input scale by index."""
         try:
-            scale = self.sink_input_scales[idx]
+            scale = self._sink_input_scales[idx]
         except KeyError:
             return
         self._update_scale(scale, volume, mute)
@@ -180,21 +180,19 @@ class VolumeSliders:
         value = int(scale.get_value())
         idx = self._find_sink_idx_by_scale(scale)
 
-        mainloop = self.volctl.pa_mgr.pulseaudio.pa_mainloop
-        pa_threaded_mainloop_lock(mainloop)
+        pa_threaded_mainloop_lock(self.volctl.pa_mgr.mainloop)
         sink = self.volctl.pa_mgr.pa_sinks[idx]
         sink.set_volume(value)
-        pa_threaded_mainloop_unlock(mainloop)
+        pa_threaded_mainloop_unlock(self.volctl.pa_mgr.mainloop)
 
     def _cb_sink_input_scale_change(self, scale):
         value = int(scale.get_value())
         idx = self._find_sink_input_idx_by_scale(scale)
 
-        mainloop = self.volctl.pa_mgr.pulseaudio.pa_mainloop
-        pa_threaded_mainloop_lock(mainloop)
+        pa_threaded_mainloop_lock(self.volctl.pa_mgr.mainloop)
         sink_input = self.volctl.pa_mgr.pa_sink_inputs[idx]
         sink_input.set_volume(value)
-        pa_threaded_mainloop_unlock(mainloop)
+        pa_threaded_mainloop_unlock(self.volctl.pa_mgr.mainloop)
 
     def _cb_enter_notify(self, win, event):
         if event.detail == Gdk.NotifyType.NONLINEAR or \
@@ -206,18 +204,18 @@ class VolumeSliders:
            event.detail == Gdk.NotifyType.NONLINEAR_VIRTUAL:
             self._enable_timeout()
 
-    def _auto_close(self):
-        self.auto_close_timeout = None
-        self.close()
+    def _cb_auto_close(self):
+        self._timeout = None
+        self.volctl.close_slider()
         return GLib.SOURCE_REMOVE
 
     # find sinks
 
     def _find_sink_idx_by_scale(self, scale):
-        return self._find_idx_by_scale(scale, self.sink_scales)
+        return self._find_idx_by_scale(scale, self._sink_scales)
 
     def _find_sink_input_idx_by_scale(self, scale):
-        return self._find_idx_by_scale(scale, self.sink_input_scales)
+        return self._find_idx_by_scale(scale, self._sink_input_scales)
 
     @staticmethod
     def _find_idx_by_scale(scale, scales):

@@ -97,10 +97,9 @@ class TrayIcon():
         return True
 
     def _cb_menu_mute(self, widget):
-        mainloop = self._app.pa_mgr.pulseaudio.pa_mainloop
-        pa_threaded_mainloop_lock(mainloop)
+        pa_threaded_mainloop_lock(self._app.pa_mgr.mainloop)
         self._app.pa_mgr.toggle_main_mute()
-        pa_threaded_mainloop_unlock(mainloop)
+        pa_threaded_mainloop_unlock(self._app.pa_mgr.mainloop)
 
     def _cb_menu_mixer(self, widget):
         self._app.launch_mixer()
@@ -126,6 +125,7 @@ class TrayIcon():
         new_value = old_vol + amount
         new_value = min(PA_VOLUME_NORM, new_value)
         new_value = max(PA_VOLUME_MUTED, new_value)
+        new_value = int(new_value)
 
         # user action prolongs auto-close timer
         try:
@@ -133,10 +133,9 @@ class TrayIcon():
         except AttributeError:
             pass
 
-        mainloop = self._app.pa_mgr.pulseaudio.pa_mainloop
-        pa_threaded_mainloop_lock(mainloop)
+        pa_threaded_mainloop_lock(self._app.pa_mgr.mainloop)
         self._app.pa_mgr.set_main_volume(new_value)
-        pa_threaded_mainloop_unlock(mainloop)
+        pa_threaded_mainloop_unlock(self._app.pa_mgr.mainloop)
 
     def _cb_button_press(self, widget, event):
         if event.button == 1:
