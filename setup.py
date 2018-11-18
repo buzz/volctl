@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """setup.py for volctl"""
 
-from distutils.core import setup
+from setuptools import setup
 import re
 
 
@@ -24,7 +24,7 @@ setup(
     version=get_version(),
     description='Per-application volume control for GNU/Linux desktops',
     author='buzz',
-    author_email='buzz@buzz.com',
+    author_email='buzz@users.noreply.github.com',
     license='GPLv2',
     url='https://buzz.github.io/volctl/',
     packages=['volctl'],

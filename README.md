@@ -27,3 +27,14 @@ application. If you're looking for that check out the excellent
 ## Installation
 
 Check the [homepage](https://buzz.github.io/volctl/) for details.
+
+## Development
+
+[Deploy](https://setuptools.readthedocs.io/en/latest/setuptools.html#develop-deploy-the-project-source-in-development-mode) the source in a `virtualenv`.
+
+```sh
+$ python -m venv --system-site-packages venv
+$ ./setup.py develop
+```
+
+Start by typing `volctl`.
