@@ -266,9 +266,11 @@ class PulseAudioManager():
     def get_first_sink(self):
         """Returns first sink (master volume)"""
         try:
-            return self._pa_sinks[0]
+            first_key = list(self._pa_sinks.keys())[0]
+            return self._pa_sinks[first_key]
         except IndexError:
-            return None
+            pass
+        return None
 
     def set_sink_volume(self, index, cvolume):
         """Set sink volume by index."""
