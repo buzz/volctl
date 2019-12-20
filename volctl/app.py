@@ -11,7 +11,7 @@ from volctl.pulseaudio import PulseAudioManager
 from volctl.prefs import PreferencesDialog
 from volctl.slider_win import VolumeSliders
 
-DEFAULT_MIXER_CMD = '/usr/bin/pavucontrol'
+DEFAULT_MIXER_CMD = 'pavucontrol'
 
 
 class VolctlApp():
