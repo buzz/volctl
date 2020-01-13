@@ -37,12 +37,6 @@ from .lib_pulseaudio import (
 )
 
 
-# if app names do not match correctly to icons
-APP_TO_ICON_NAME = {
-    'Chromium': 'chromium',
-}
-
-
 def cvolume_from_volume(volume, channels):
     """Convert single-value volume to PA cvolume."""
     cvolume = pa_cvolume()
@@ -437,10 +431,4 @@ class Client():
     def update(self, struct, props):
         """Update client name and icon."""
         self.name = struct.name.decode('utf-8')
-        try:
-            self.icon_name = props['application.icon_name']
-        except KeyError:
-            try:
-                self.icon_name = APP_TO_ICON_NAME[self.name]
-            except KeyError:
-                self.icon_name = 'multimedia-volume-control'
+        self.icon_name = props.get(b'application.icon_name', b'multimedia-volume-control').decode('utf-8')
