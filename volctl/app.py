@@ -36,6 +36,7 @@ class VolctlApp:
         self._sliders_win = None
         self._about_win = None
         self._preferences = None
+        self._mixer_process = None
 
     def quit(self):
         """Gracefully shut down application."""
@@ -126,7 +127,8 @@ class VolctlApp:
         mixer_cmd = self._settings.get_string("mixer-command")
         if mixer_cmd == "":
             mixer_cmd = DEFAULT_MIXER_CMD
-        Popen(mixer_cmd)
+        if self._mixer_process is None or not self._mixer_process.poll() is None:
+            self._mixer_process = Popen(mixer_cmd)
 
     def show_slider(self):
         """Show mini window with application volume sliders."""
