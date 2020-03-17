@@ -9,7 +9,9 @@ master and app volume sliders.
 from gi.repository import Gtk, Gdk, GLib
 
 from .lib_pulseaudio import (
-    PA_VOLUME_MUTED, PA_VOLUME_NORM, pa_threaded_mainloop_lock,
+    PA_VOLUME_MUTED,
+    PA_VOLUME_NORM,
+    pa_threaded_mainloop_lock,
     pa_threaded_mainloop_unlock,
 )
 
@@ -22,8 +24,8 @@ class VolumeSliders:
     def __init__(self, volctl):
         self.volctl = volctl
         self._win = Gtk.Window(type=Gtk.WindowType.POPUP)
-        self._win.connect('enter-notify-event', self._cb_enter_notify)
-        self._win.connect('leave-notify-event', self._cb_leave_notify)
+        self._win.connect("enter-notify-event", self._cb_enter_notify)
+        self._win.connect("leave-notify-event", self._cb_leave_notify)
         self._grid = Gtk.Grid()
         self._grid.set_column_spacing(2)
         self._grid.set_row_spacing(self.SPACING)
@@ -61,14 +63,17 @@ class VolumeSliders:
         self._win.destroy()
 
     def _set_increments_on_scale(self, scale):
-        scale.set_increments(PA_VOLUME_NORM / self.volctl.mouse_wheel_step,
-                             PA_VOLUME_NORM / self.volctl.mouse_wheel_step)
+        scale.set_increments(
+            PA_VOLUME_NORM / self.volctl.mouse_wheel_step,
+            PA_VOLUME_NORM / self.volctl.mouse_wheel_step,
+        )
 
     def _set_position(self):
         _, screen, rect, _ = self.volctl.statusicon_geometry
         win_width, win_height = self._win.get_size()
         monitor = screen.get_monitor_geometry(
-            screen.get_monitor_at_window(screen.get_active_window()))
+            screen.get_monitor_at_window(screen.get_active_window())
+        )
 
         # slider window should not leave screen boundaries
         xcoord = rect.x
@@ -91,7 +96,7 @@ class VolumeSliders:
         for _, sink in self.volctl.pa_mgr.pa_sinks.items():
             scale, icon = self._add_scale(sink)
             self._sink_scales[sink.idx] = scale
-            scale.connect('value-changed', self._cb_sink_scale_change)
+            scale.connect("value-changed", self._cb_sink_scale_change)
             self._update_scale(scale, sink.volume, sink.mute)
             scale.set_margin_top(self.SPACING)
             icon.set_margin_bottom(self.SPACING)
@@ -111,7 +116,7 @@ class VolumeSliders:
         for _, sink_input in self.volctl.pa_mgr.pa_sink_inputs.items():
             scale, icon = self._add_scale(sink_input)
             self._sink_input_scales[sink_input.idx] = scale
-            scale.connect('value-changed', self._cb_sink_input_scale_change)
+            scale.connect("value-changed", self._cb_sink_input_scale_change)
             self._update_scale(scale, sink_input.volume, sink_input.mute)
             scale.set_margin_top(self.SPACING)
             icon.set_margin_bottom(self.SPACING)
@@ -146,10 +151,10 @@ class VolumeSliders:
             scale.set_sensitive(not mute)
 
     def _enable_timeout(self):
-        if self.volctl.settings.get_boolean('auto-close') and \
-           self._timeout is None:
+        if self.volctl.settings.get_boolean("auto-close") and self._timeout is None:
             self._timeout = GLib.timeout_add(
-                self.volctl.settings.get_int('timeout'), self._cb_auto_close)
+                self.volctl.settings.get_int("timeout"), self._cb_auto_close
+            )
 
     def _remove_timeout(self):
         if self._timeout is not None:
@@ -195,13 +200,17 @@ class VolumeSliders:
         pa_threaded_mainloop_unlock(self.volctl.pa_mgr.mainloop)
 
     def _cb_enter_notify(self, win, event):
-        if event.detail == Gdk.NotifyType.NONLINEAR or \
-           event.detail == Gdk.NotifyType.NONLINEAR_VIRTUAL:
+        if (
+            event.detail == Gdk.NotifyType.NONLINEAR
+            or event.detail == Gdk.NotifyType.NONLINEAR_VIRTUAL
+        ):
             self._remove_timeout()
 
     def _cb_leave_notify(self, win, event):
-        if event.detail == Gdk.NotifyType.NONLINEAR or \
-           event.detail == Gdk.NotifyType.NONLINEAR_VIRTUAL:
+        if (
+            event.detail == Gdk.NotifyType.NONLINEAR
+            or event.detail == Gdk.NotifyType.NONLINEAR_VIRTUAL
+        ):
             self._enable_timeout()
 
     def _cb_auto_close(self):
@@ -223,4 +232,4 @@ class VolumeSliders:
             if scale == val:
                 return idx
         # should never happen
-        raise ValueError('Sink index not found for scale!')
+        raise ValueError("Sink index not found for scale!")

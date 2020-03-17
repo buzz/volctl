@@ -6,10 +6,10 @@ class PreferencesDialog(Gtk.Dialog):
     """Preferences dialog for volctl"""
 
     def __init__(self, settings):
-        Gtk.Dialog.__init__(self, 'Preferences')
+        Gtk.Dialog.__init__(self, "Preferences")
         self._settings = settings
-        self._schema = settings.get_property('settings-schema')
-        self._settings.connect('changed', self._cb_settings_changed)
+        self._schema = settings.get_property("settings-schema")
+        self._settings.connect("changed", self._cb_settings_changed)
         self._row_timeout = None
         self._setup_ui()
 
@@ -28,7 +28,7 @@ class PreferencesDialog(Gtk.Dialog):
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         row.add(hbox)
         label = Gtk.Label(xalign=0)
-        label.set_markup('<b>volctl settings</b>')
+        label.set_markup("<b>volctl settings</b>")
         hbox.pack_start(label, False, True, 10)
         self.listbox.add(row)
 
@@ -41,7 +41,7 @@ class PreferencesDialog(Gtk.Dialog):
         self._set_timeout_show()
 
     def _setup_auto_hide(self):
-        key = self._schema.get_key('auto-close')
+        key = self._schema.get_key("auto-close")
         row = Gtk.ListBoxRow()
         row.set_tooltip_text(key.get_description())
 
@@ -55,13 +55,14 @@ class PreferencesDialog(Gtk.Dialog):
         switch = Gtk.Switch()
         switch.props.valign = Gtk.Align.CENTER
         self._settings.bind(
-            'auto-close', switch, 'active', Gio.SettingsBindFlags.DEFAULT)
+            "auto-close", switch, "active", Gio.SettingsBindFlags.DEFAULT
+        )
         hbox.pack_start(switch, False, True, 10)
 
         self.listbox.add(row)
 
     def _setup_auto_hide_timeout(self):
-        key = self._schema.get_key('timeout')
+        key = self._schema.get_key("timeout")
         row = Gtk.ListBoxRow()
         row.set_tooltip_text(key.get_description())
 
@@ -70,23 +71,24 @@ class PreferencesDialog(Gtk.Dialog):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         hbox.pack_start(vbox, True, True, 10)
 
-        label = Gtk.Label('  ' + key.get_summary(), xalign=0)
+        label = Gtk.Label("  " + key.get_summary(), xalign=0)
         vbox.pack_start(label, True, True, 0)
         scale = Gtk.Scale().new(Gtk.Orientation.HORIZONTAL)
         key_range = key.get_range()
         scale.set_range(key_range[1][0], key_range[1][1])
         scale.set_digits(False)
         scale.set_size_request(128, 24)
-        scale.connect('format_value', self._scale_timeout_format)
-        self._settings.bind('timeout', scale.get_adjustment(), 'value',
-                            Gio.SettingsBindFlags.DEFAULT)
+        scale.connect("format_value", self._scale_timeout_format)
+        self._settings.bind(
+            "timeout", scale.get_adjustment(), "value", Gio.SettingsBindFlags.DEFAULT,
+        )
         hbox.pack_start(scale, False, True, 10)
         self._row_timeout = row
 
         self.listbox.add(row)
 
     def _setup_mouse_wheel_step(self):
-        key = self._schema.get_key('mouse-wheel-step')
+        key = self._schema.get_key("mouse-wheel-step")
         row = Gtk.ListBoxRow()
         row.set_tooltip_text(key.get_description())
 
@@ -102,16 +104,19 @@ class PreferencesDialog(Gtk.Dialog):
         scale.set_range(key_range[1][0], key_range[1][1])
         scale.set_digits(False)
         scale.set_size_request(128, 24)
-        scale.connect('format_value', self._scale_mouse_wheel_step_format)
+        scale.connect("format_value", self._scale_mouse_wheel_step_format)
         self._settings.bind(
-            'mouse-wheel-step', scale.get_adjustment(), 'value',
-            Gio.SettingsBindFlags.DEFAULT)
+            "mouse-wheel-step",
+            scale.get_adjustment(),
+            "value",
+            Gio.SettingsBindFlags.DEFAULT,
+        )
         hbox.pack_start(scale, False, True, 10)
 
         self.listbox.add(row)
 
     def _setup_mixer_command(self):
-        key = self._schema.get_key('mixer-command')
+        key = self._schema.get_key("mixer-command")
         row = Gtk.ListBoxRow()
         row.set_tooltip_text(key.get_description())
 
@@ -124,21 +129,22 @@ class PreferencesDialog(Gtk.Dialog):
         vbox.pack_start(label, True, True, 0)
         entry = Gtk.Entry().new()
         self._settings.bind(
-            'mixer-command', entry, 'text', Gio.SettingsBindFlags.DEFAULT)
+            "mixer-command", entry, "text", Gio.SettingsBindFlags.DEFAULT
+        )
         hbox.pack_start(entry, False, True, 10)
 
         self.listbox.add(row)
 
     @staticmethod
     def _scale_timeout_format(_, value):
-        return '%.1f sec' % (value / 1000.0)
+        return "%.1f sec" % (value / 1000.0)
 
     @staticmethod
     def _scale_mouse_wheel_step_format(_, value):
-        return '%.1f %%' % (100.0 / value)
+        return "%.1f %%" % (100.0 / value)
 
     def _set_timeout_show(self):
-        if self._settings.get_boolean('auto-close'):
+        if self._settings.get_boolean("auto-close"):
             self._row_timeout.show()
         else:
             self._row_timeout.hide()
@@ -146,5 +152,5 @@ class PreferencesDialog(Gtk.Dialog):
     # gsettings callback
 
     def _cb_settings_changed(self, settings, key):
-        if key == 'auto-close':
+        if key == "auto-close":
             self._set_timeout_show()

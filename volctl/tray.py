@@ -4,12 +4,14 @@ from math import floor
 from gi.repository import Gtk, Gdk
 
 from volctl.lib_pulseaudio import (
-    PA_VOLUME_MUTED, PA_VOLUME_NORM,
-    pa_threaded_mainloop_lock, pa_threaded_mainloop_unlock
+    PA_VOLUME_MUTED,
+    PA_VOLUME_NORM,
+    pa_threaded_mainloop_lock,
+    pa_threaded_mainloop_unlock,
 )
 
 
-class TrayIcon():
+class TrayIcon:
     """Volume control tray icon."""
 
     def __init__(self, app):
@@ -35,47 +37,50 @@ class TrayIcon():
         """Update status icon according to volume state."""
         value = float(self._volume) / float(PA_VOLUME_NORM)
         if self._mute:
-            state = 'muted'
+            state = "muted"
         else:
             idx = min(int(floor(value * 3)), 2)
-            state = ['low', 'medium', 'high'][idx]
-        icon_name = 'audio-volume-%s' % state
+            state = ["low", "medium", "high"][idx]
+        icon_name = "audio-volume-%s" % state
         self._statusicon.set_from_icon_name(icon_name)
 
     # gui setup
 
     def _setup_statusicon(self):
-        self._statusicon.set_title('Volume')
+        self._statusicon.set_title("Volume")
         self._statusicon.set_has_tooltip(True)
-        self._statusicon.connect('popup-menu', self._cb_popup)
-        self._statusicon.connect('button-press-event', self._cb_button_press)
-        self._statusicon.connect('scroll-event', self._cb_scroll)
-        self._statusicon.connect('query-tooltip', self._cb_tooltip)
+        self._statusicon.connect("popup-menu", self._cb_popup)
+        self._statusicon.connect("button-press-event", self._cb_button_press)
+        self._statusicon.connect("scroll-event", self._cb_scroll)
+        self._statusicon.connect("query-tooltip", self._cb_tooltip)
 
     def _setup_menu(self):
-        mute_menu_item = Gtk.ImageMenuItem('Mute')
+        mute_menu_item = Gtk.ImageMenuItem("Mute")
         img = Gtk.Image.new_from_icon_name(
-            'audio-volume-muted', Gtk.IconSize.SMALL_TOOLBAR)
+            "audio-volume-muted", Gtk.IconSize.SMALL_TOOLBAR
+        )
         mute_menu_item.set_image(img)
-        mute_menu_item.connect('activate', self._cb_menu_mute)
+        mute_menu_item.connect("activate", self._cb_menu_mute)
 
-        mixer_menu_item = Gtk.ImageMenuItem('Mixer')
+        mixer_menu_item = Gtk.ImageMenuItem("Mixer")
         img = Gtk.Image.new_from_icon_name(
-            'multimedia-volume-control', Gtk.IconSize.SMALL_TOOLBAR)
+            "multimedia-volume-control", Gtk.IconSize.SMALL_TOOLBAR
+        )
         mixer_menu_item.set_image(img)
-        mixer_menu_item.connect('activate', self._cb_menu_mixer)
+        mixer_menu_item.connect("activate", self._cb_menu_mixer)
 
-        preferences_menu_item = Gtk.ImageMenuItem('Preferences')
+        preferences_menu_item = Gtk.ImageMenuItem("Preferences")
         img = Gtk.Image.new_from_icon_name(
-            'preferences-desktop', Gtk.IconSize.SMALL_TOOLBAR)
+            "preferences-desktop", Gtk.IconSize.SMALL_TOOLBAR
+        )
         preferences_menu_item.set_image(img)
-        preferences_menu_item.connect('activate', self._cb_menu_preferences)
+        preferences_menu_item.connect("activate", self._cb_menu_preferences)
 
         about_menu_item = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_ABOUT)
-        about_menu_item.connect('activate', self._cb_menu_about)
+        about_menu_item.connect("activate", self._cb_menu_about)
 
         exit_menu_item = Gtk.ImageMenuItem.new_from_stock(Gtk.STOCK_QUIT)
-        exit_menu_item.connect('activate', self._cb_menu_quit)
+        exit_menu_item.connect("activate", self._cb_menu_quit)
 
         self._menu.append(mute_menu_item)
         self._menu.append(mixer_menu_item)
@@ -90,7 +95,7 @@ class TrayIcon():
     def _cb_tooltip(self, item, xcoord, ycoord, keyboard_mode, tooltip):
         # pylint: disable=too-many-arguments
         perc = float(self._volume) / float(PA_VOLUME_NORM) * 100
-        text = 'Volume: %.0f%%' % perc
+        text = "Volume: %.0f%%" % perc
         if self._mute:
             text += ' <span weight="bold">(muted)</span>'
         tooltip.set_markup(text)

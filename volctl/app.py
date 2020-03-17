@@ -1,26 +1,33 @@
 """volctl application"""
 
 from subprocess import Popen
+import sys
 from gi.repository import Gio
 from gi.repository import Gtk
 
-from volctl.meta import (PROGRAM_NAME, COPYRIGHT, LICENSE, COMMENTS, WEBSITE,
-                         VERSION)
+from volctl.meta import (
+    PROGRAM_NAME,
+    COPYRIGHT,
+    LICENSE,
+    COMMENTS,
+    WEBSITE,
+    VERSION,
+)
 from volctl.tray import TrayIcon
 from volctl.pulseaudio import PulseAudioManager
 from volctl.prefs import PreferencesDialog
 from volctl.slider_win import VolumeSliders
 
-DEFAULT_MIXER_CMD = 'pavucontrol'
+DEFAULT_MIXER_CMD = "pavucontrol"
 
 
-class VolctlApp():
+class VolctlApp:
     """GUI application for volctl."""
 
     def __init__(self):
-        self._settings = Gio.Settings('apps.volctl', path='/apps/volctl/')
-        self._settings.connect('changed', self._cb_settings_changed)
-        self._mouse_wheel_step = self._settings.get_int('mouse-wheel-step')
+        self._settings = Gio.Settings("apps.volctl", path="/apps/volctl/")
+        self._settings.connect("changed", self._cb_settings_changed)
+        self._mouse_wheel_step = self._settings.get_int("mouse-wheel-step")
 
         self._pa_mgr = PulseAudioManager(self)
 
@@ -47,7 +54,7 @@ class VolctlApp():
                 pass
             Gtk.main_quit()
         else:
-            exit(1)
+            sys.exit(1)
 
     def slider_count_changed(self):
         """Amount of sliders changed."""
@@ -78,8 +85,8 @@ class VolctlApp():
     # gsettings callback
 
     def _cb_settings_changed(self, settings, key):
-        if key == 'mouse-wheel-step':
-            self._mouse_wheel_step = settings.get_int('mouse-wheel-step')
+        if key == "mouse-wheel-step":
+            self._mouse_wheel_step = settings.get_int("mouse-wheel-step")
             try:
                 self._sliders_win.set_increments()
             except AttributeError:
@@ -109,15 +116,15 @@ class VolctlApp():
             self._about_win.set_license_type(LICENSE)
             self._about_win.set_comments(COMMENTS)
             self._about_win.set_website(WEBSITE)
-            self._about_win.set_logo_icon_name('audio-volume-high')
+            self._about_win.set_logo_icon_name("audio-volume-high")
             self._about_win.run()
             self._about_win.destroy()
             del self._about_win
 
     def launch_mixer(self):
         """Launch external mixer."""
-        mixer_cmd = self._settings.get_string('mixer-command')
-        if mixer_cmd == '':
+        mixer_cmd = self._settings.get_string("mixer-command")
+        if mixer_cmd == "":
             mixer_cmd = DEFAULT_MIXER_CMD
         Popen(mixer_cmd)
 

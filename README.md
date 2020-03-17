@@ -42,6 +42,14 @@ $ venv/bin/volctl
 
 ###### Linting
 
+Use pylint and flake8 for linting the sources.
+
 ```sh
 $ make lint
+```
+
+Use black to auto-format the code.
+
+```sh
+$ make black
 ```

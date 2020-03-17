@@ -9,31 +9,53 @@ import sys
 from gi.repository import GObject
 from .lib_pulseaudio import (
     # types
-    pa_cvolume, pa_volume_t, pa_subscription_mask_t,
-    pa_sink_info_cb_t, pa_context_notify_cb_t,
-    pa_context_subscribe_cb_t, pa_client_info_cb_t, pa_sink_input_info_cb_t,
+    pa_cvolume,
+    pa_volume_t,
+    pa_subscription_mask_t,
+    pa_sink_info_cb_t,
+    pa_context_notify_cb_t,
+    pa_context_subscribe_cb_t,
+    pa_client_info_cb_t,
+    pa_sink_input_info_cb_t,
     pa_context_success_cb_t,
     # mainloop
-    pa_threaded_mainloop_new, pa_threaded_mainloop_get_api,
-    pa_threaded_mainloop_start, pa_threaded_mainloop_signal,
+    pa_threaded_mainloop_new,
+    pa_threaded_mainloop_get_api,
+    pa_threaded_mainloop_start,
+    pa_threaded_mainloop_signal,
     # context
-    pa_context_new, pa_context_connect, pa_context_disconnect,
+    pa_context_new,
+    pa_context_connect,
+    pa_context_disconnect,
     pa_context_set_state_callback,
-    pa_context_subscribe, pa_context_set_subscribe_callback,
-    pa_context_get_state, pa_context_get_client_info_list,
-    pa_context_get_sink_info_list, pa_context_get_sink_input_info_list,
-    pa_context_get_client_info, pa_context_get_sink_info_by_index,
-    pa_context_get_sink_input_info, pa_context_set_sink_volume_by_index,
-    pa_context_set_sink_mute_by_index, pa_context_set_sink_input_volume,
+    pa_context_subscribe,
+    pa_context_set_subscribe_callback,
+    pa_context_get_state,
+    pa_context_get_client_info_list,
+    pa_context_get_sink_info_list,
+    pa_context_get_sink_input_info_list,
+    pa_context_get_client_info,
+    pa_context_get_sink_info_by_index,
+    pa_context_get_sink_input_info,
+    pa_context_set_sink_volume_by_index,
+    pa_context_set_sink_mute_by_index,
+    pa_context_set_sink_input_volume,
     # misc
-    pa_operation_unref, pa_proplist_to_string,
+    pa_operation_unref,
+    pa_proplist_to_string,
     # constants
-    PA_CONTEXT_READY, PA_SUBSCRIPTION_MASK_SINK,
-    PA_SUBSCRIPTION_MASK_SINK_INPUT, PA_SUBSCRIPTION_MASK_CLIENT,
-    PA_CONTEXT_FAILED, PA_CONTEXT_TERMINATED,
-    PA_SUBSCRIPTION_EVENT_FACILITY_MASK, PA_SUBSCRIPTION_EVENT_CLIENT,
-    PA_SUBSCRIPTION_EVENT_REMOVE, PA_SUBSCRIPTION_EVENT_SINK,
-    PA_SUBSCRIPTION_EVENT_TYPE_MASK, PA_SUBSCRIPTION_EVENT_SINK_INPUT,
+    PA_CONTEXT_READY,
+    PA_SUBSCRIPTION_MASK_SINK,
+    PA_SUBSCRIPTION_MASK_SINK_INPUT,
+    PA_SUBSCRIPTION_MASK_CLIENT,
+    PA_CONTEXT_FAILED,
+    PA_CONTEXT_TERMINATED,
+    PA_SUBSCRIPTION_EVENT_FACILITY_MASK,
+    PA_SUBSCRIPTION_EVENT_CLIENT,
+    PA_SUBSCRIPTION_EVENT_REMOVE,
+    PA_SUBSCRIPTION_EVENT_SINK,
+    PA_SUBSCRIPTION_EVENT_TYPE_MASK,
+    PA_SUBSCRIPTION_EVENT_SINK_INPUT,
 )
 
 
@@ -48,12 +70,20 @@ def cvolume_from_volume(volume, channels):
     return cvolume
 
 
-class PulseAudio():
+class PulseAudio:
     """Handles connection to PA. Sets up callbacks."""
+
     # pylint: disable=too-many-instance-attributes
 
-    def __init__(self, new_client_cb, remove_client_cb, new_sink_cb,
-                 remove_sink_cb, new_sink_input_cb, remove_sink_input_cb):
+    def __init__(
+        self,
+        new_client_cb,
+        remove_client_cb,
+        new_sink_cb,
+        remove_sink_cb,
+        new_sink_input_cb,
+        remove_sink_input_cb,
+    ):
         # pylint: disable=too-many-arguments
 
         self.new_client_cb = new_client_cb
@@ -66,42 +96,43 @@ class PulseAudio():
         self.pa_mainloop = pa_threaded_mainloop_new()
         self.pa_mainloop_api = pa_threaded_mainloop_get_api(self.pa_mainloop)
 
-        self._context = pa_context_new(
-            self.pa_mainloop_api, 'volctl'.encode('utf-8'))
-        self.__context_notify_cb = pa_context_notify_cb_t(
-            self._context_notify_cb)
-        pa_context_set_state_callback(
-            self._context, self.__context_notify_cb, None)
+        self._context = pa_context_new(self.pa_mainloop_api, "volctl".encode("utf-8"))
+        self.__context_notify_cb = pa_context_notify_cb_t(self._context_notify_cb)
+        pa_context_set_state_callback(self._context, self.__context_notify_cb, None)
         pa_context_connect(self._context, None, 0, None)
 
         # create callbacks
         self.__null_cb = pa_context_success_cb_t(self._null_cb)
         self.__pa_sink_info_cb = pa_sink_info_cb_t(self._pa_sink_info_cb)
         self.__pa_context_subscribe_cb = pa_context_subscribe_cb_t(
-            self._pa_context_subscribe_cb)
+            self._pa_context_subscribe_cb
+        )
         self.__pa_sink_input_info_list_cb = pa_sink_input_info_cb_t(
-            self._pa_sink_input_info_cb)
-        self.__pa_client_info_list_cb = pa_client_info_cb_t(
-            self._pa_client_info_cb)
+            self._pa_sink_input_info_cb
+        )
+        self.__pa_client_info_list_cb = pa_client_info_cb_t(self._pa_client_info_cb)
 
         pa_threaded_mainloop_start(self.pa_mainloop)
 
     def set_sink_volume(self, index, cvolume):
         """Set volume for a sink by index."""
         operation = pa_context_set_sink_volume_by_index(
-            self._context, index, cvolume, self.__null_cb, None)
+            self._context, index, cvolume, self.__null_cb, None
+        )
         pa_operation_unref(operation)
 
     def set_sink_mute(self, index, mute):
         """Set mute for a sink by index."""
         operation = pa_context_set_sink_mute_by_index(
-            self._context, index, mute, self.__null_cb, None)
+            self._context, index, mute, self.__null_cb, None
+        )
         pa_operation_unref(operation)
 
     def set_sink_input_volume(self, index, cvolume):
         """Set mute for a sink input by index."""
         operation = pa_context_set_sink_input_volume(
-            self._context, index, cvolume, self.__null_cb, None)
+            self._context, index, cvolume, self.__null_cb, None
+        )
         pa_operation_unref(operation)
 
     def disconnect(self):
@@ -115,40 +146,42 @@ class PulseAudio():
             self._request_update()
 
             pa_context_set_subscribe_callback(
-                self._context, self.__pa_context_subscribe_cb, None)
+                self._context, self.__pa_context_subscribe_cb, None
+            )
             submask = (pa_subscription_mask_t)(
-                PA_SUBSCRIPTION_MASK_SINK |
-                PA_SUBSCRIPTION_MASK_SINK_INPUT |
-                PA_SUBSCRIPTION_MASK_CLIENT)
+                PA_SUBSCRIPTION_MASK_SINK
+                | PA_SUBSCRIPTION_MASK_SINK_INPUT
+                | PA_SUBSCRIPTION_MASK_CLIENT
+            )
             operation = pa_context_subscribe(
-                self._context,
-                submask,
-                self.__null_cb,
-                None
+                self._context, submask, self.__null_cb, None
             )
             pa_operation_unref(operation)
-            print('PulseAudio: Connection ready', file=sys.stderr)
+            print("PulseAudio: Connection ready", file=sys.stderr)
 
         elif state == PA_CONTEXT_FAILED:
-            print('PulseAudio: Connection failed', file=sys.stderr)
+            print("PulseAudio: Connection failed", file=sys.stderr)
             pa_threaded_mainloop_signal(self.pa_mainloop, 0)
             sys.exit(1)
 
         elif state == PA_CONTEXT_TERMINATED:
-            print('PulseAudio: Connection terminated', file=sys.stderr)
+            print("PulseAudio: Connection terminated", file=sys.stderr)
             pa_threaded_mainloop_signal(self.pa_mainloop, 0)
 
     def _request_update(self):
         operation = pa_context_get_client_info_list(
-            self._context, self.__pa_client_info_list_cb, None)
+            self._context, self.__pa_client_info_list_cb, None
+        )
         pa_operation_unref(operation)
 
         operation = pa_context_get_sink_info_list(
-            self._context, self.__pa_sink_info_cb, None)
+            self._context, self.__pa_sink_info_cb, None
+        )
         pa_operation_unref(operation)
 
         operation = pa_context_get_sink_input_info_list(
-            self._context, self.__pa_sink_input_info_list_cb, True)
+            self._context, self.__pa_sink_input_info_list_cb, True
+        )
         pa_operation_unref(operation)
 
     def _pa_context_subscribe_cb(self, context, event_type, index, user_data):
@@ -159,8 +192,8 @@ class PulseAudio():
                 self.remove_client_cb(int(index))
             else:
                 operation = pa_context_get_client_info(
-                    self._context, index, self.__pa_client_info_list_cb,
-                    None)
+                    self._context, index, self.__pa_client_info_list_cb, None
+                )
                 pa_operation_unref(operation)
 
         elif efac == PA_SUBSCRIPTION_EVENT_SINK:
@@ -168,7 +201,8 @@ class PulseAudio():
                 self.remove_sink_cb(int(index))
             else:
                 operation = pa_context_get_sink_info_by_index(
-                    self._context, int(index), self.__pa_sink_info_cb, True)
+                    self._context, int(index), self.__pa_sink_info_cb, True
+                )
                 pa_operation_unref(operation)
 
         elif efac == PA_SUBSCRIPTION_EVENT_SINK_INPUT:
@@ -176,15 +210,17 @@ class PulseAudio():
                 self.remove_sink_input_cb(int(index))
             else:
                 operation = pa_context_get_sink_input_info(
-                    self._context, int(index),
-                    self.__pa_sink_input_info_list_cb, True)
+                    self._context, int(index), self.__pa_sink_input_info_list_cb, True,
+                )
                 pa_operation_unref(operation)
 
     def _pa_client_info_cb(self, context, struct, c_int, user_data):
         if struct:
             self.new_client_cb(
-                struct.contents.index, struct.contents,
-                self._dict_from_proplist(struct.contents.proplist))
+                struct.contents.index,
+                struct.contents,
+                self._dict_from_proplist(struct.contents.proplist),
+            )
 
     def _pa_sink_input_info_cb(self, context, struct, index, user_data):
         if struct and user_data:
@@ -193,8 +229,10 @@ class PulseAudio():
     def _pa_sink_info_cb(self, context, struct, index, data):
         if struct:
             self.new_sink_cb(
-                int(struct.contents.index), struct.contents,
-                self._dict_from_proplist(struct.contents.proplist))
+                int(struct.contents.index),
+                struct.contents,
+                self._dict_from_proplist(struct.contents.proplist),
+            )
 
     @staticmethod
     def _null_cb(param_a=None, param_b=None, param_c=None, param_d=None):
@@ -203,14 +241,14 @@ class PulseAudio():
     @staticmethod
     def _dict_from_proplist(proplist):
         props = {}
-        proplist = pa_proplist_to_string(proplist).split('\n'.encode('utf-8'))
+        proplist = pa_proplist_to_string(proplist).split("\n".encode("utf-8"))
         for prop in proplist:
-            left, _, right = prop.partition('='.encode('utf-8'))
+            left, _, right = prop.partition("=".encode("utf-8"))
             props[left.strip()] = right.strip()[1:-1]
         return props
 
 
-class PulseAudioManager():
+class PulseAudioManager:
     """
     Main PulseAudio interface.
 
@@ -229,7 +267,7 @@ class PulseAudioManager():
             self._on_new_pa_sink,
             self._on_remove_pa_sink,
             self._on_new_pa_sink_input,
-            self._on_remove_pa_sink_input
+            self._on_remove_pa_sink_input,
         )
 
     @property
@@ -314,11 +352,11 @@ class PulseAudioManager():
 
     def _on_new_pa_sink_input(self, index, struct):
         # filter out strange events
-        if struct.name == 'audio-volume-change':
+        if struct.name == "audio-volume-change":
             return
         # unknown if this is the right way to filter for applications
         # but seems to keep away things like loopback module etc.
-        if 'protocol-native' not in struct.driver.decode('utf-8'):
+        if "protocol-native" not in struct.driver.decode("utf-8"):
             return
         if index not in self._pa_sink_inputs:
             self._pa_sink_inputs[index] = SinkInput(self, index)
@@ -333,16 +371,16 @@ class PulseAudioManager():
             GObject.idle_add(self.volctl.slider_count_changed)
 
 
-class Sink():
+class Sink:
     """An audio interface."""
 
-    icon_name = 'audio-card'
+    icon_name = "audio-card"
 
     def __init__(self, pa_mgr, idx):
         self.pa_mgr = pa_mgr
         self.idx = idx
         self.scale = None
-        self.name = ''
+        self.name = ""
         self.volume = 0
         self.channels = 0
         self.mute = False
@@ -350,17 +388,17 @@ class Sink():
     def update(self, struct):
         """Update sink values."""
         # set values
-        self.name = struct.description.decode('utf-8')
+        self.name = struct.description.decode("utf-8")
         self.volume = struct.volume.values[0]
         self.channels = struct.volume.channels
         self.mute = bool(struct.mute)
         # tray icon update (first sound card)
         if self == self.pa_mgr.get_first_sink():
-            GObject.idle_add(
-                self.pa_mgr.volctl.update_values, self.volume, self.mute)
+            GObject.idle_add(self.pa_mgr.volctl.update_values, self.volume, self.mute)
         # scale update
-        GObject.idle_add(self.pa_mgr.volctl.update_sink_scale, self.idx,
-                         self.volume, self.mute)
+        GObject.idle_add(
+            self.pa_mgr.volctl.update_sink_scale, self.idx, self.volume, self.mute,
+        )
 
     def set_volume(self, volume):
         """Set volume for this sink."""
@@ -374,7 +412,7 @@ class Sink():
         self.pa_mgr.set_sink_mute(self.idx, mute and 1 or 0)
 
 
-class SinkInput():
+class SinkInput:
     """An audio stream coming from a client."""
 
     def __init__(self, pa_mgr, idx):
@@ -394,8 +432,12 @@ class SinkInput():
         self.mute = bool(struct.mute)
         self.client = struct.client
         # scale update
-        GObject.idle_add(self.pa_mgr.volctl.update_sink_input_scale, self.idx,
-                         self.volume, self.mute)
+        GObject.idle_add(
+            self.pa_mgr.volctl.update_sink_input_scale,
+            self.idx,
+            self.volume,
+            self.mute,
+        )
 
     def _get_client(self):
         return self.pa_mgr.get_pa_client(self.client)
@@ -417,7 +459,7 @@ class SinkInput():
         return self._get_client().name
 
 
-class Client():
+class Client:
     """Represents an audio emitting application connected to PA."""
 
     # pylint: disable=too-few-public-methods
@@ -425,10 +467,12 @@ class Client():
     def __init__(self, pa_mgr, idx):
         self.pa_mgr = pa_mgr
         self.idx = idx
-        self.name = ''
+        self.name = ""
         self.icon_name = None
 
     def update(self, struct, props):
         """Update client name and icon."""
-        self.name = struct.name.decode('utf-8')
-        self.icon_name = props.get(b'application.icon_name', b'multimedia-volume-control').decode('utf-8')
+        self.name = struct.name.decode("utf-8")
+        self.icon_name = props.get(
+            b"application.icon_name", b"multimedia-volume-control"
+        ).decode("utf-8")
