@@ -49,17 +49,11 @@
           >volctl
         </h1>
 
-        <p>
-          <img
-            src="https://buzz.github.io/volctl/screenshot.png"
-            alt="Screenshot"
-          />
-        </p>
+        <h2>About</h2>
 
-        <p>
-          <a href="http://www.freedesktop.org/wiki/Software/PulseAudio/"
-            >PulseAudio</a
-          >-enabled tray icon volume control for GNU/Linux desktops.
+        </p>
+        <a href="https://www.freedesktop.org/wiki/Software/PulseAudio/">PulseAudio</a>-enabled
+        tray icon volume control for GNU/Linux desktops.
         </p>
 
         <p>
@@ -100,7 +94,28 @@
           </li>
           <li>Double-click opens <code>pavucontrol</code></li>
           <li>Mouse-wheel support</li>
+          <li>On-screen volume display (OSD)</li>
         </ul>
+
+        <h2>Screenshots</h2>
+
+        <h3>Tray icon with per-application volume sliders</h3>
+
+        <p>
+          <img
+            src="https://buzz.github.io/volctl/screenshot.png"
+            alt="Screenshot"
+          />
+        </p>
+
+        <h3>On-screen volume display (OSD)</h3>
+
+        <p>
+          <img
+            src="https://buzz.github.io/volctl/screenshot-osd.png"
+            alt="Screenshot OSD"
+          />
+        </p>
 
         <h2>
           <a
@@ -116,7 +131,12 @@
 
         <ol>
           <li>Clone this repository somewhere and cd into it.</li>
-          <li>To install: <code>sudo ./setup.py install</code></li>
+          <li>
+            To install: <code>sudo ./setup.py install</code>
+            <br />
+            Note: You might need to copy <code>data/apps.volctl.gschema.xml</code>
+            to <code>/usr/share/glib-2.0/schemas/</code> manually.
+          </li>
           <li>
             For the application icon to show up in the menu:
             <code>sudo update-desktop-database</code>
@@ -153,7 +173,13 @@
           <li>pulseaudio</li>
           <li>python-gobject</li>
         </ul>
+
+        <h2>License</h2>
+
+        <p><a href="https://github.com/buzz/volctl/blob/master/LICENSE.txt">GPL-2.0</a></p>
+
       </section>
+
       <footer>
         <p>
           This project is maintained by
