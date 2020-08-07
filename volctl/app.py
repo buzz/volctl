@@ -68,8 +68,9 @@ class VolctlApp:
     # updates coming from pulseaudio
 
     def update_values(self, volume, mute):
-        """Main sink values are reflected in status icon."""
+        """Main sink update."""
         self._tray_icon.update_values(volume, mute)
+        self._volume_overlay.update_values(volume, mute)
 
     def update_sink_scale(self, idx, volume, mute):
         """Notify sink scale if update is coming from pulseaudio."""

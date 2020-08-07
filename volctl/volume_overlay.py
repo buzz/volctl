@@ -7,8 +7,9 @@ Various code snippets taken from https://github.com/kozec/sc-controller
 """
 
 import cairo
-from gi.repository import Gdk, Gtk, GdkX11
+from gi.repository import Gdk, Gtk, GdkX11, GLib
 
+from volctl.lib.pulseaudio import PA_VOLUME_NORM
 import volctl.lib.xwrappers as X
 
 
@@ -18,12 +19,19 @@ class VolumeOverlay(Gtk.Window):
     WIDTH = 200
     HEIGHT = 200
     MARGIN = 20
+    BG_OPACITY = 0.5
+    TEXT_OPACITY = 0.8
 
     def __init__(self, volctl):
         super(VolumeOverlay, self).__init__()
         self.volctl = volctl
         self.position = (-self.MARGIN, -self.MARGIN)
         self.set_default_size(self.WIDTH, self.HEIGHT)
+        self._volume = 0
+        self._mute = False
+        self._hide_timeout = None
+        self._fadeout_timeout = None
+        self._opacity = 0.0
 
         self.set_decorated(False)
         self.stick()
@@ -39,32 +47,60 @@ class VolumeOverlay(Gtk.Window):
             self.set_visual(self.visual)
 
         self.set_app_paintable(True)
-        self.connect("draw", self.draw_osd)
+        self.connect("draw", self._draw_osd)
 
         self.show()
 
-    def draw_osd(self, _, cr):
+    def update_values(self, volume, mute):
+        """Remember current volume and mute values."""
+        self._volume = volume
+        self._mute = mute
+        self._unhide()
+        if self._hide_timeout is not None:
+            GLib.Source.remove(self._hide_timeout)
+        self._hide_timeout = GLib.timeout_add(
+            self.volctl.settings.get_int("timeout"), self._cb_hide_timeout
+        )
+
+    def show(self):
+        """Show window."""
+        self.realize()
+        self.get_window().set_override_redirect(True)
+
+        xpos, ypos = self._compute_position()
+        if xpos < 0:  # Negative X position is counted from right border
+            xpos = Gdk.Screen.width() - self.get_allocated_width() + xpos + 1
+        if ypos < 0:  # Negative Y position is counted from bottom border
+            ypos = Gdk.Screen.height() - self.get_allocated_height() + ypos + 1
+
+        self.move(xpos, ypos)
+        Gtk.Window.show(self)
+        self._make_window_clicktrough()
+
+    def _draw_osd(self, _, cr):
         """Draw on-screen volume display."""
+        value = round(100.0 * float(self._volume) / float(PA_VOLUME_NORM))
+
         # transparent background
-        cr.set_source_rgba(0.2, 0.2, 0.2, 0.8)
+        cr.set_source_rgba(0.1, 0.1, 0.1, self.BG_OPACITY * self._opacity)
         cr.set_operator(cairo.OPERATOR_SOURCE)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
 
         # text
-        text = "20 %"
-        cr.set_source_rgba(1.0, 1.0, 1.0, 0.9)
+        text = "{:d} %".format(value)
+        cr.set_source_rgba(1.0, 1.0, 1.0, self.TEXT_OPACITY * self._opacity)
         cr.select_font_face("sans-serif")
         cr.set_font_size(42)
         _, _, width, _, _, _ = cr.text_extents(text)
         cr.move_to(self.WIDTH / 2 - width / 2, self.HEIGHT - 12)
         cr.show_text(text)
 
-    def compute_position(self):
+    def _compute_position(self):
         """Adjusts position for currently active screen (display)."""
         xpos, ypos = self.position
-        width, height = self.get_window_size()
-        geometry = self.get_active_screen_geometry()
+        width, height = self._get_window_size()
+        geometry = self._get_active_screen_geometry()
         if geometry:
             if xpos < 0:
                 xpos = xpos + geometry.x + geometry.width - width
@@ -77,7 +113,7 @@ class VolumeOverlay(Gtk.Window):
 
         return xpos, ypos
 
-    def make_window_clicktrough(self):
+    def _make_window_clicktrough(self):
         """Make events pass through window."""
         dpy = X.Display(hash(GdkX11.x11_get_default_xdisplay()))
         win = X.XID(self.get_window().get_xid())
@@ -86,7 +122,7 @@ class VolumeOverlay(Gtk.Window):
         X.set_window_shape_region(dpy, win, X.SHAPE_INPUT, 0, 0, reg)
         X.destroy_region(dpy, reg)
 
-    def get_active_screen_geometry(self):
+    def _get_active_screen_geometry(self):
         """
         Returns geometry of active screen or None if active screen
         cannot be determined.
@@ -99,20 +135,29 @@ class VolumeOverlay(Gtk.Window):
                 return screen.get_monitor_geometry(monitor)
         return None
 
-    def get_window_size(self):
+    def _get_window_size(self):
         return self.get_window().get_width(), self.get_window().get_height()
 
-    def show(self):
-        """Show window."""
-        self.realize()
-        self.get_window().set_override_redirect(True)
+    def _hide(self):
+        self._fadeout_timeout = GLib.timeout_add(30, self._cb_fadeout_timeout)
+        self.queue_draw()
 
-        xpos, ypos = self.compute_position()
-        if xpos < 0:  # Negative X position is counted from right border
-            xpos = Gdk.Screen.width() - self.get_allocated_width() + xpos + 1
-        if ypos < 0:  # Negative Y position is counted from bottom border
-            ypos = Gdk.Screen.height() - self.get_allocated_height() + ypos + 1
+    def _unhide(self):
+        if self._fadeout_timeout is not None:
+            GLib.Source.remove(self._fadeout_timeout)
+            self._fadeout_timeout = None
+        self._opacity = 1.0
+        self.queue_draw()
 
-        self.move(xpos, ypos)
-        Gtk.Window.show(self)
-        self.make_window_clicktrough()
+    def _cb_fadeout_timeout(self):
+        self._opacity -= 0.05
+        self.queue_draw()
+        if self._opacity >= 0:
+            return True
+        self._opacity = 0.0
+        self._fadeout_timeout = None
+        return False
+
+    def _cb_hide_timeout(self):
+        self._hide_timeout = None
+        self._hide()

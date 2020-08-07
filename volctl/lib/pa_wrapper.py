@@ -393,7 +393,7 @@ class Sink:
         self.volume = struct.volume.values[0]
         self.channels = struct.volume.channels
         self.mute = bool(struct.mute)
-        # tray icon update (first sound card)
+        # notify volctl about update (first sound card)
         if self == self.pa_mgr.get_first_sink():
             GObject.idle_add(self.pa_mgr.volctl.update_values, self.volume, self.mute)
         # scale update
