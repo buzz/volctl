@@ -6,6 +6,7 @@ A transparent OSD volume indicator for the bottom-right corner.
 Various code snippets taken from https://github.com/kozec/sc-controller
 """
 
+import math
 import cairo
 from gi.repository import Gdk, Gtk, GdkX11, GLib
 
@@ -18,14 +19,17 @@ class VolumeOverlay(Gtk.Window):
 
     WIDTH = 200
     HEIGHT = 200
-    MARGIN = 20
-    BG_OPACITY = 0.5
+    SCREEN_MARGIN = 64
+    PADDING = 24
+    BG_OPACITY = 0.85
+    MUTE_OPACITY = 0.2
     TEXT_OPACITY = 0.8
+    NUM_BARS = 16
 
     def __init__(self, volctl):
         super(VolumeOverlay, self).__init__()
         self.volctl = volctl
-        self.position = (-self.MARGIN, -self.MARGIN)
+        self.position = (-self.SCREEN_MARGIN, -self.SCREEN_MARGIN)
         self.set_default_size(self.WIDTH, self.HEIGHT)
         self._volume = 0
         self._mute = False
@@ -79,7 +83,9 @@ class VolumeOverlay(Gtk.Window):
 
     def _draw_osd(self, _, cr):
         """Draw on-screen volume display."""
-        value = round(100.0 * float(self._volume) / float(PA_VOLUME_NORM))
+        val = float(self._volume) / float(PA_VOLUME_NORM)
+        mute_opacity = self.MUTE_OPACITY if self._mute else 1.0
+        xcenter = self.WIDTH / 2
 
         # transparent background
         cr.set_source_rgba(0.1, 0.1, 0.1, self.BG_OPACITY * self._opacity)
@@ -87,14 +93,33 @@ class VolumeOverlay(Gtk.Window):
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
 
+        # color
+        cr.set_source_rgba(
+            1.0, 1.0, 1.0, self.TEXT_OPACITY * mute_opacity * self._opacity
+        )
+
         # text
-        text = "{:d} %".format(value)
-        cr.set_source_rgba(1.0, 1.0, 1.0, self.TEXT_OPACITY * self._opacity)
+        text = "{:d} %".format(round(100 * val))
         cr.select_font_face("sans-serif")
         cr.set_font_size(42)
-        _, _, width, _, _, _ = cr.text_extents(text)
-        cr.move_to(self.WIDTH / 2 - width / 2, self.HEIGHT - 12)
+        _, _, text_width, text_height, _, _ = cr.text_extents(text)
+        cr.move_to(xcenter - text_width / 2, self.HEIGHT - self.PADDING)
         cr.show_text(text)
+
+        # volume indicator
+        ind_height = self.HEIGHT - 3 * self.PADDING - text_height
+        outer_radius = ind_height / 2
+        inner_radius = outer_radius / 1.618
+        bars = min(round(self.NUM_BARS * val), self.NUM_BARS)
+        cr.set_line_width(3)
+        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        for i in range(bars):
+            cr.identity_matrix()
+            cr.translate(xcenter, self.PADDING + ind_height / 2)
+            cr.rotate(math.pi + 2 * math.pi / self.NUM_BARS * i)
+            cr.move_to(0.0, -inner_radius)
+            cr.line_to(0.0, -outer_radius)
+            cr.stroke()
 
     def _compute_position(self):
         """Adjusts position for currently active screen (display)."""
