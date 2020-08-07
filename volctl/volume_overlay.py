@@ -50,11 +50,14 @@ class VolumeOverlay(Gtk.Window):
         self.visual = self.screen.get_rgba_visual()
         if self.visual is not None and self.screen.is_composited():
             self.set_visual(self.visual)
-
         self.set_app_paintable(True)
         self.connect("draw", self._draw_osd)
 
-        self.show()
+        self.realize()
+        self.get_window().set_override_redirect(True)
+        self._move_to_corner()
+        Gtk.Window.show(self)
+        self._make_window_clicktrough()
 
     def update_values(self, volume, mute):
         """Remember current volume and mute values."""
@@ -67,14 +70,6 @@ class VolumeOverlay(Gtk.Window):
             self.volctl.settings.get_int("osd-timeout"), self._cb_hide_timeout
         )
 
-    def show(self):
-        """Show window."""
-        self.realize()
-        self.get_window().set_override_redirect(True)
-        self._move_to_corner()
-        Gtk.Window.show(self)
-        self._make_window_clicktrough()
-
     def _move_to_corner(self):
         xpos, ypos = self._compute_position()
         if xpos < 0:  # Negative X position is counted from right border
@@ -84,7 +79,7 @@ class VolumeOverlay(Gtk.Window):
 
         self.move(xpos, ypos)
 
-    def _draw_osd(self, _, cr):
+    def _draw_osd(self, _, cairo_r):
         """Draw on-screen volume display."""
         val = float(self._volume) / float(PA_VOLUME_NORM)
         mute_opacity = self.MUTE_OPACITY if self._mute else 1.0
@@ -92,69 +87,69 @@ class VolumeOverlay(Gtk.Window):
 
         # background
         deg = math.pi / 180.0
-        cr.new_sub_path()
-        cr.arc(
+        cairo_r.new_sub_path()
+        cairo_r.arc(
             self.WIDTH - self.BG_CORNER_RADIUS,
             self.BG_CORNER_RADIUS,
             self.BG_CORNER_RADIUS,
             -90 * deg,
             0,
         )
-        cr.arc(
+        cairo_r.arc(
             self.WIDTH - self.BG_CORNER_RADIUS,
             self.HEIGHT - self.BG_CORNER_RADIUS,
             self.BG_CORNER_RADIUS,
             0,
             90 * deg,
         )
-        cr.arc(
+        cairo_r.arc(
             self.BG_CORNER_RADIUS,
             self.HEIGHT - self.BG_CORNER_RADIUS,
             self.BG_CORNER_RADIUS,
             90 * deg,
             180 * deg,
         )
-        cr.arc(
+        cairo_r.arc(
             self.BG_CORNER_RADIUS,
             self.BG_CORNER_RADIUS,
             self.BG_CORNER_RADIUS,
             180 * deg,
             270 * deg,
         )
-        cr.close_path()
+        cairo_r.close_path()
 
-        cr.set_source_rgba(0.1, 0.1, 0.1, self.BG_OPACITY * self._opacity)
-        cr.set_operator(cairo.OPERATOR_SOURCE)
-        cr.fill()
-        cr.set_operator(cairo.OPERATOR_OVER)
+        cairo_r.set_source_rgba(0.1, 0.1, 0.1, self.BG_OPACITY * self._opacity)
+        cairo_r.set_operator(cairo.OPERATOR_SOURCE)
+        cairo_r.fill()
+        cairo_r.set_operator(cairo.OPERATOR_OVER)
 
         # color
-        cr.set_source_rgba(
+        cairo_r.set_source_rgba(
             1.0, 1.0, 1.0, self.TEXT_OPACITY * mute_opacity * self._opacity
         )
 
         # text
         text = "{:d} %".format(round(100 * val))
-        cr.select_font_face("sans-serif")
-        cr.set_font_size(42)
-        _, _, text_width, text_height, _, _ = cr.text_extents(text)
-        cr.move_to(xcenter - text_width / 2, self.HEIGHT - self.PADDING)
-        cr.show_text(text)
+        cairo_r.select_font_face("sans-serif")
+        cairo_r.set_font_size(42)
+        _, _, text_width, text_height, _, _ = cairo_r.text_extents(text)
+        cairo_r.move_to(xcenter - text_width / 2, self.HEIGHT - self.PADDING)
+        cairo_r.show_text(text)
 
         # volume indicator
         ind_height = self.HEIGHT - 3 * self.PADDING - text_height
         outer_radius = ind_height / 2
         inner_radius = outer_radius / 1.618
         bars = min(round(self.NUM_BARS * val), self.NUM_BARS)
-        cr.set_line_width(5)
-        cr.set_line_cap(cairo.LINE_CAP_ROUND)
+        cairo_r.set_line_width(5)
+        cairo_r.set_line_cap(cairo.LINE_CAP_ROUND)
         for i in range(bars):
-            cr.identity_matrix()
-            cr.translate(xcenter, self.PADDING + ind_height / 2)
-            cr.rotate(math.pi + 2 * math.pi / self.NUM_BARS * i)
-            cr.move_to(0.0, -inner_radius)
-            cr.line_to(0.0, -outer_radius)
-            cr.stroke()
+            cairo_r.identity_matrix()
+            cairo_r.translate(xcenter, self.PADDING + ind_height / 2)
+            cairo_r.rotate(math.pi + 2 * math.pi / self.NUM_BARS * i)
+            cairo_r.move_to(0.0, -inner_radius)
+            cairo_r.line_to(0.0, -outer_radius)
+            cairo_r.stroke()
 
     def _compute_position(self):
         """Adjusts position for currently active screen (display)."""

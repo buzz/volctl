@@ -30,6 +30,10 @@ XserverRegion = c_ulong
 
 # Structures
 class XRectangle(Structure):
+    """X11 XRectangle structure"""
+
+    # pylint: disable=too-few-public-methods
+
     _fields_ = [
         ("x", c_short),
         ("y", c_short),
