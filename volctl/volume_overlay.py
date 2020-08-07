@@ -71,7 +71,11 @@ class VolumeOverlay(Gtk.Window):
         """Show window."""
         self.realize()
         self.get_window().set_override_redirect(True)
+        self._move_to_corner()
+        Gtk.Window.show(self)
+        self._make_window_clicktrough()
 
+    def _move_to_corner(self):
         xpos, ypos = self._compute_position()
         if xpos < 0:  # Negative X position is counted from right border
             xpos = Gdk.Screen.width() - self.get_allocated_width() + xpos + 1
@@ -79,8 +83,6 @@ class VolumeOverlay(Gtk.Window):
             ypos = Gdk.Screen.height() - self.get_allocated_height() + ypos + 1
 
         self.move(xpos, ypos)
-        Gtk.Window.show(self)
-        self._make_window_clicktrough()
 
     def _draw_osd(self, _, cr):
         """Draw on-screen volume display."""
@@ -204,6 +206,7 @@ class VolumeOverlay(Gtk.Window):
         if self._fadeout_timeout is not None:
             GLib.Source.remove(self._fadeout_timeout)
             self._fadeout_timeout = None
+        self._move_to_corner()
         self._opacity = 1.0
         self.queue_draw()
 
