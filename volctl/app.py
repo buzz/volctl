@@ -37,7 +37,9 @@ class VolctlApp:
         self._sliders_win = None
         self._about_win = None
         self._preferences = None
-        self._volume_overlay = VolumeOverlay(self)
+        self._volume_overlay = None
+        if self._settings.get_boolean("osd-enabled"):
+            self._volume_overlay = VolumeOverlay(self)
         self._mixer_process = None
 
     def quit(self):
@@ -70,7 +72,10 @@ class VolctlApp:
     def update_values(self, volume, mute):
         """Main sink update."""
         self._tray_icon.update_values(volume, mute)
-        self._volume_overlay.update_values(volume, mute)
+        if self._settings.get_boolean("osd-enabled"):
+            if self._volume_overlay is None:
+                self._volume_overlay = VolumeOverlay(self)
+            self._volume_overlay.update_values(volume, mute)
 
     def update_sink_scale(self, idx, volume, mute):
         """Notify sink scale if update is coming from pulseaudio."""

@@ -64,7 +64,7 @@ class VolumeOverlay(Gtk.Window):
         if self._hide_timeout is not None:
             GLib.Source.remove(self._hide_timeout)
         self._hide_timeout = GLib.timeout_add(
-            self.volctl.settings.get_int("timeout"), self._cb_hide_timeout
+            self.volctl.settings.get_int("osd-timeout"), self._cb_hide_timeout
         )
 
     def show(self):

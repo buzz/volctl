@@ -11,6 +11,7 @@ class PreferencesDialog(Gtk.Dialog):
         self._schema = settings.get_property("settings-schema")
         self._settings.connect("changed", self._cb_settings_changed)
         self._row_timeout = None
+        self._row_osd_timeout = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -35,10 +36,13 @@ class PreferencesDialog(Gtk.Dialog):
         self._setup_auto_hide()
         self._setup_auto_hide_timeout()
         self._setup_mouse_wheel_step()
+        self._setup_osd_enabled()
+        self._setup_osd_timeout()
         self._setup_mixer_command()
 
         self.show_all()
         self._set_timeout_show()
+        self._set_osd_timeout_show()
 
     def _setup_auto_hide(self):
         key = self._schema.get_key("auto-close")
@@ -115,6 +119,56 @@ class PreferencesDialog(Gtk.Dialog):
 
         self.listbox.add(row)
 
+    def _setup_osd_enabled(self):
+        key = self._schema.get_key("osd-enabled")
+        row = Gtk.ListBoxRow()
+        row.set_tooltip_text(key.get_description())
+
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        row.add(hbox)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        hbox.pack_start(vbox, True, True, 10)
+
+        label = Gtk.Label(key.get_summary(), xalign=0)
+        vbox.pack_start(label, True, True, 0)
+        switch = Gtk.Switch()
+        switch.props.valign = Gtk.Align.CENTER
+        self._settings.bind(
+            "osd-enabled", switch, "active", Gio.SettingsBindFlags.DEFAULT
+        )
+        hbox.pack_start(switch, False, True, 10)
+
+        self.listbox.add(row)
+
+    def _setup_osd_timeout(self):
+        key = self._schema.get_key("osd-timeout")
+        row = Gtk.ListBoxRow()
+        row.set_tooltip_text(key.get_description())
+
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        row.add(hbox)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        hbox.pack_start(vbox, True, True, 10)
+
+        label = Gtk.Label("  " + key.get_summary(), xalign=0)
+        vbox.pack_start(label, True, True, 0)
+        scale = Gtk.Scale().new(Gtk.Orientation.HORIZONTAL)
+        key_range = key.get_range()
+        scale.set_range(key_range[1][0], key_range[1][1])
+        scale.set_digits(False)
+        scale.set_size_request(128, 24)
+        scale.connect("format_value", self._scale_timeout_format)
+        self._settings.bind(
+            "osd-timeout",
+            scale.get_adjustment(),
+            "value",
+            Gio.SettingsBindFlags.DEFAULT,
+        )
+        hbox.pack_start(scale, False, True, 10)
+        self._row_osd_timeout = row
+
+        self.listbox.add(row)
+
     def _setup_mixer_command(self):
         key = self._schema.get_key("mixer-command")
         row = Gtk.ListBoxRow()
@@ -149,8 +203,16 @@ class PreferencesDialog(Gtk.Dialog):
         else:
             self._row_timeout.hide()
 
+    def _set_osd_timeout_show(self):
+        if self._settings.get_boolean("osd-enabled"):
+            self._row_osd_timeout.show()
+        else:
+            self._row_osd_timeout.hide()
+
     # gsettings callback
 
     def _cb_settings_changed(self, settings, key):
         if key == "auto-close":
             self._set_timeout_show()
+        elif key == "osd-enabled":
+            self._set_osd_timeout_show()

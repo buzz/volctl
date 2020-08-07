@@ -2,14 +2,14 @@
   <schema id="apps.volctl" gettext-domain="volctl">
     <key type="b" name="auto-close">
       <default>true</default>
-      <summary>Enable auto-close</summary>
-      <description>Auto-closes volume control pop-up after time-out.</description>
+      <summary>Enable sliders auto-close</summary>
+      <description>Auto-closes volume control pop-up after timeout.</description>
     </key>
     <key type="i" name="timeout">
       <range min="500" max="15000"/>
       <default>3000</default>
-      <summary>Auto-close timeout</summary>
-      <description>Time after the pop-up auto-closes.</description>
+      <summary>Timeout</summary>
+      <description>Time after the pop-up automatically closes.</description>
     </key>
     <key type="i" name="mouse-wheel-step">
         <range min="3" max="50"/>
@@ -21,6 +21,17 @@
         <default>""</default>
         <summary>Custom mixer command</summary>
         <description>Default: pavucontrol</description>
+    </key>
+    <key type="b" name="osd-enabled">
+      <default>true</default>
+      <summary>Enable OSD</summary>
+      <description>Shows an on-screen display on volume change.</description>
+    </key>
+    <key type="i" name="osd-timeout">
+      <range min="0" max="10000"/>
+      <default>1000</default>
+      <summary>Timeout</summary>
+      <description>Time the OSD is being shown.</description>
     </key>
   </schema>
 </schemalist>
