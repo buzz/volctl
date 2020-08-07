@@ -2,7 +2,7 @@
 """setup.py for volctl"""
 
 import re
-from setuptools import setup
+from setuptools import find_packages, setup
 
 
 # parse version (setup.py should not import module!)
@@ -25,7 +25,7 @@ setup(
     author_email="buzz@users.noreply.github.com",
     license="GPLv2",
     url="https://buzz.github.io/volctl/",
-    packages=["volctl"],
+    packages=find_packages(),
     entry_points={"gui_scripts": ["volctl = volctl.__main__:main"]},
     data_files=[
         ("share/applications", ["data/volctl.desktop"]),
