@@ -7,3 +7,4 @@ ThumbsDB
 *.pyc
 build
 volctl.egg-info
+/venv

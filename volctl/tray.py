@@ -3,7 +3,7 @@
 from math import floor
 from gi.repository import Gtk, Gdk
 
-from volctl.lib_pulseaudio import (
+from volctl.lib.pulseaudio import (
     PA_VOLUME_MUTED,
     PA_VOLUME_NORM,
     pa_threaded_mainloop_lock,

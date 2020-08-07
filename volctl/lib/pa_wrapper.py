@@ -7,7 +7,8 @@ Interacts with auto-generated lib_pulseaudio ctypes bindings.
 from __future__ import print_function
 import sys
 from gi.repository import GObject
-from .lib_pulseaudio import (
+
+from volctl.lib.pulseaudio import (
     # types
     pa_cvolume,
     pa_volume_t,

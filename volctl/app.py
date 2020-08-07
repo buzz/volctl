@@ -14,9 +14,10 @@ from volctl.meta import (
     VERSION,
 )
 from volctl.tray import TrayIcon
-from volctl.pulseaudio import PulseAudioManager
+from volctl.lib.pa_wrapper import PulseAudioManager
 from volctl.prefs import PreferencesDialog
 from volctl.slider_win import VolumeSliders
+from volctl.volume_overlay import VolumeOverlay
 
 DEFAULT_MIXER_CMD = "pavucontrol"
 
@@ -36,6 +37,7 @@ class VolctlApp:
         self._sliders_win = None
         self._about_win = None
         self._preferences = None
+        self._volume_overlay = VolumeOverlay(self)
         self._mixer_process = None
 
     def quit(self):

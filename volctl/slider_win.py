@@ -8,7 +8,7 @@ master and app volume sliders.
 
 from gi.repository import Gtk, Gdk, GLib
 
-from .lib_pulseaudio import (
+from volctl.lib.pulseaudio import (
     PA_VOLUME_MUTED,
     PA_VOLUME_NORM,
     pa_threaded_mainloop_lock,
@@ -69,6 +69,8 @@ class VolumeSliders:
         )
 
     def _set_position(self):
+        # TODO: take screen into account (as in volume_overlay.py)
+
         _, screen, rect, _ = self.volctl.statusicon_geometry
         win_width, win_height = self._win.get_size()
         monitor = screen.get_monitor_geometry(
