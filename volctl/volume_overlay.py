@@ -22,6 +22,7 @@ class VolumeOverlay(Gtk.Window):
     SCREEN_MARGIN = 64
     PADDING = 24
     BG_OPACITY = 0.85
+    BG_CORNER_RADIUS = 8
     MUTE_OPACITY = 0.2
     TEXT_OPACITY = 0.8
     NUM_BARS = 16
@@ -87,10 +88,42 @@ class VolumeOverlay(Gtk.Window):
         mute_opacity = self.MUTE_OPACITY if self._mute else 1.0
         xcenter = self.WIDTH / 2
 
-        # transparent background
+        # background
+        deg = math.pi / 180.0
+        cr.new_sub_path()
+        cr.arc(
+            self.WIDTH - self.BG_CORNER_RADIUS,
+            self.BG_CORNER_RADIUS,
+            self.BG_CORNER_RADIUS,
+            -90 * deg,
+            0,
+        )
+        cr.arc(
+            self.WIDTH - self.BG_CORNER_RADIUS,
+            self.HEIGHT - self.BG_CORNER_RADIUS,
+            self.BG_CORNER_RADIUS,
+            0,
+            90 * deg,
+        )
+        cr.arc(
+            self.BG_CORNER_RADIUS,
+            self.HEIGHT - self.BG_CORNER_RADIUS,
+            self.BG_CORNER_RADIUS,
+            90 * deg,
+            180 * deg,
+        )
+        cr.arc(
+            self.BG_CORNER_RADIUS,
+            self.BG_CORNER_RADIUS,
+            self.BG_CORNER_RADIUS,
+            180 * deg,
+            270 * deg,
+        )
+        cr.close_path()
+
         cr.set_source_rgba(0.1, 0.1, 0.1, self.BG_OPACITY * self._opacity)
         cr.set_operator(cairo.OPERATOR_SOURCE)
-        cr.paint()
+        cr.fill()
         cr.set_operator(cairo.OPERATOR_OVER)
 
         # color
@@ -111,7 +144,7 @@ class VolumeOverlay(Gtk.Window):
         outer_radius = ind_height / 2
         inner_radius = outer_radius / 1.618
         bars = min(round(self.NUM_BARS * val), self.NUM_BARS)
-        cr.set_line_width(3)
+        cr.set_line_width(5)
         cr.set_line_cap(cairo.LINE_CAP_ROUND)
         for i in range(bars):
             cr.identity_matrix()
