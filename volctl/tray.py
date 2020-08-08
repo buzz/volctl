@@ -133,10 +133,8 @@ class TrayIcon:
         new_value = int(new_value)
 
         # user action prolongs auto-close timer
-        try:
-            self._sliders_win.reset_timeout()
-        except AttributeError:
-            pass
+        if self._app.sliders_win is not None:
+            self._app.sliders_win.reset_timeout()
 
         pa_threaded_mainloop_lock(self._app.pa_mgr.mainloop)
         self._app.pa_mgr.set_main_volume(new_value)

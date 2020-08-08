@@ -34,7 +34,7 @@ class VolctlApp:
 
         # GUI
         self._tray_icon = TrayIcon(self)
-        self._sliders_win = None
+        self.sliders_win = None
         self._about_win = None
         self._preferences = None
         self._volume_overlay = None
@@ -47,8 +47,8 @@ class VolctlApp:
         except AttributeError:
             pass
         if Gtk.main_level() > 0:
-            if self._sliders_win:
-                self._sliders_win.destroy()
+            if self.sliders_win:
+                self.sliders_win.destroy()
             if self._about_win:
                 self._about_win.destroy()
             if self._preferences:
@@ -61,7 +61,7 @@ class VolctlApp:
 
     def slider_count_changed(self):
         """Amount of sliders changed."""
-        if self._sliders_win:
+        if self.sliders_win:
             self.close_slider()
             self.show_slider()
 
@@ -88,21 +88,21 @@ class VolctlApp:
 
     def update_sink_scale(self, idx, volume, mute):
         """Notify sink scale if update is coming from pulseaudio."""
-        if self._sliders_win:
-            self._sliders_win.update_sink_scale(idx, volume, mute)
+        if self.sliders_win:
+            self.sliders_win.update_sink_scale(idx, volume, mute)
 
     def update_sink_input_scale(self, idx, volume, mute):
         """Notify sink input scale if update is coming from pulseaudio."""
-        if self._sliders_win:
-            self._sliders_win.update_sink_input_scale(idx, volume, mute)
+        if self.sliders_win:
+            self.sliders_win.update_sink_input_scale(idx, volume, mute)
 
     # gsettings callback
 
     def _cb_settings_changed(self, settings, key):
         if key == "mouse-wheel-step":
             self._mouse_wheel_step = settings.get_int("mouse-wheel-step")
-            if self._sliders_win:
-                self._sliders_win.set_increments()
+            if self.sliders_win:
+                self.sliders_win.set_increments()
 
     # GUI
 
@@ -145,14 +145,14 @@ class VolctlApp:
 
     def show_slider(self):
         """Show mini window with application volume sliders."""
-        self._sliders_win = VolumeSliders(self)
+        self.sliders_win = VolumeSliders(self)
 
     def close_slider(self):
         """Close mini window with application volume sliders."""
-        if self._sliders_win:
-            self._sliders_win.destroy()
-            del self._sliders_win
-            self._sliders_win = None
+        if self.sliders_win:
+            self.sliders_win.destroy()
+            del self.sliders_win
+            self.sliders_win = None
             return True
         return False
 

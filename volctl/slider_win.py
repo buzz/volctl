@@ -16,31 +16,33 @@ from volctl.lib.pulseaudio import (
 )
 
 
-class VolumeSliders:
+class VolumeSliders(Gtk.Window):
     """Window that displays volume sliders."""
 
     SPACING = 6
 
     def __init__(self, volctl):
+        super(VolumeSliders, self).__init__(type=Gtk.WindowType.POPUP)
         self.volctl = volctl
-        self._win = Gtk.Window(type=Gtk.WindowType.POPUP)
-        self._win.connect("enter-notify-event", self._cb_enter_notify)
-        self._win.connect("leave-notify-event", self._cb_leave_notify)
+
+        self.connect("enter-notify-event", self._cb_enter_notify)
+        self.connect("leave-notify-event", self._cb_leave_notify)
+
         self._grid = Gtk.Grid()
         self._grid.set_column_spacing(2)
         self._grid.set_row_spacing(self.SPACING)
         self._frame = Gtk.Frame()
         self._frame.set_shadow_type(Gtk.ShadowType.OUT)
         self._frame.add(self._grid)
-        self._win.add(self._frame)
+        self.add(self._frame)
 
         # gui objects by index
         self._sink_scales = {}
         self._sink_input_scales = {}
 
         self._create_sliders()
-        self._win.show_all()
         self._set_position()
+        self.show_all()
 
         # timeout
         self._timeout = None
@@ -58,10 +60,6 @@ class VolumeSliders:
         self._remove_timeout()
         self._enable_timeout()
 
-    def close(self):
-        """Close slider."""
-        self._win.destroy()
-
     def _set_increments_on_scale(self, scale):
         scale.set_increments(
             PA_VOLUME_NORM / self.volctl.mouse_wheel_step,
@@ -72,21 +70,21 @@ class VolumeSliders:
         # TODO: take screen into account (as in volume_overlay.py)
 
         _, screen, rect, _ = self.volctl.statusicon_geometry
-        win_width, win_height = self._win.get_size()
+        width, height = self.get_size()
         monitor = screen.get_monitor_geometry(
             screen.get_monitor_at_window(screen.get_active_window())
         )
 
         # slider window should not leave screen boundaries
         xcoord = rect.x
-        if xcoord + win_width > monitor.width:
-            xcoord = monitor.width - win_width
-            self._win.move(xcoord, rect.y)
+        if xcoord + width > monitor.width:
+            xcoord = monitor.width - width
+            self.move(xcoord, rect.y)
         # top or bottom panel?
         if rect.y > monitor.height / 2:
-            self._win.move(xcoord, rect.y - win_height)
+            self.move(xcoord, rect.y - height)
         else:
-            self._win.move(xcoord, rect.y + rect.height)
+            self.move(xcoord, rect.y + rect.height)
 
     def _create_sliders(self):
         pos = 0
