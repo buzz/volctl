@@ -29,7 +29,7 @@ class VolumeOverlay(Gtk.Window):
 
     def __init__(self, volctl):
         super().__init__()
-        self.volctl = volctl
+        self._volctl = volctl
         self.position = (-self.SCREEN_MARGIN, -self.SCREEN_MARGIN)
         self.set_default_size(self.WIDTH, self.HEIGHT)
         self._volume = 0
@@ -73,7 +73,7 @@ class VolumeOverlay(Gtk.Window):
         if self._hide_timeout is not None:
             GLib.Source.remove(self._hide_timeout)
         self._hide_timeout = GLib.timeout_add(
-            self.volctl.settings.get_int("osd-timeout"), self._cb_hide_timeout
+            self._volctl.settings.get_int("osd-timeout"), self._cb_hide_timeout
         )
 
     def _move_to_corner(self):

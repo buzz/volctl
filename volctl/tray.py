@@ -14,9 +14,9 @@ from volctl.lib.pulseaudio import (
 class TrayIcon(Gtk.StatusIcon):
     """Volume control tray icon."""
 
-    def __init__(self, app):
+    def __init__(self, volctl):
         super().__init__()
-        self._app = app
+        self._volctl = volctl
         self._volume = 0
         self._mute = False
         self._menu = Gtk.Menu()
@@ -98,25 +98,25 @@ class TrayIcon(Gtk.StatusIcon):
         return True
 
     def _cb_menu_mute(self, widget):
-        pa_threaded_mainloop_lock(self._app.pa_mgr.mainloop)
-        self._app.pa_mgr.toggle_main_mute()
-        pa_threaded_mainloop_unlock(self._app.pa_mgr.mainloop)
+        pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
+        self._volctl.pa_mgr.toggle_main_mute()
+        pa_threaded_mainloop_unlock(self._volctl.pa_mgr.mainloop)
 
     def _cb_menu_mixer(self, widget):
-        self._app.launch_mixer()
+        self._volctl.launch_mixer()
 
     def _cb_menu_preferences(self, widget):
-        self._app.show_preferences()
+        self._volctl.show_preferences()
 
     def _cb_menu_about(self, widget):
-        self._app.show_about()
+        self._volctl.show_about()
 
     def _cb_menu_quit(self, widget):
-        self._app.quit()
+        self._volctl.quit()
 
     def _cb_scroll(self, widget, event):
         old_vol = self._volume
-        amount = PA_VOLUME_NORM / self._app.mouse_wheel_step
+        amount = PA_VOLUME_NORM / self._volctl.mouse_wheel_step
         if event.direction == Gdk.ScrollDirection.DOWN:
             amount *= -1
         elif event.direction == Gdk.ScrollDirection.UP:
@@ -129,20 +129,20 @@ class TrayIcon(Gtk.StatusIcon):
         new_value = int(new_value)
 
         # user action prolongs auto-close timer
-        if self._app.sliders_win is not None:
-            self._app.sliders_win.reset_timeout()
+        if self._volctl.sliders_win is not None:
+            self._volctl.sliders_win.reset_timeout()
 
-        pa_threaded_mainloop_lock(self._app.pa_mgr.mainloop)
-        self._app.pa_mgr.set_main_volume(new_value)
-        pa_threaded_mainloop_unlock(self._app.pa_mgr.mainloop)
+        pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
+        self._volctl.pa_mgr.set_main_volume(new_value)
+        pa_threaded_mainloop_unlock(self._volctl.pa_mgr.mainloop)
 
     def _cb_button_press(self, widget, event):
         if event.button == 1:
             if event.type == Gdk.EventType.BUTTON_PRESS:
-                if not self._app.close_slider():
-                    self._app.show_slider()
+                if not self._volctl.close_slider():
+                    self._volctl.show_slider()
             if event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS:
-                self._app.launch_mixer()
+                self._volctl.launch_mixer()
 
     def _cb_popup(self, icon, button, time):
         self._menu.popup(None, None, None, None, button, time)

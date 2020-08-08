@@ -26,14 +26,14 @@ class VolctlApp:
     """GUI application for volctl."""
 
     def __init__(self):
-        self._settings = Gio.Settings("apps.volctl", path="/apps/volctl/")
-        self._settings.connect("changed", self._cb_settings_changed)
-        self._mouse_wheel_step = self._settings.get_int("mouse-wheel-step")
+        self.settings = Gio.Settings("apps.volctl", path="/apps/volctl/")
+        self.settings.connect("changed", self._cb_settings_changed)
+        self.mouse_wheel_step = self.settings.get_int("mouse-wheel-step")
 
-        self._pa_mgr = PulseAudioManager(self)
+        self.pa_mgr = PulseAudioManager(self)
 
         # GUI
-        self._tray_icon = TrayIcon(self)
+        self.tray_icon = TrayIcon(self)
         self.sliders_win = None
         self._about_win = None
         self._preferences = None
@@ -43,7 +43,7 @@ class VolctlApp:
     def quit(self):
         """Gracefully shut down application."""
         try:
-            self._pa_mgr.close()
+            self.pa_mgr.close()
         except AttributeError:
             pass
         if Gtk.main_level() > 0:
@@ -78,8 +78,8 @@ class VolctlApp:
 
     def update_values(self, volume, mute):
         """Main sink update."""
-        self._tray_icon.update_values(volume, mute)
-        if self._settings.get_boolean("osd-enabled"):
+        self.tray_icon.update_values(volume, mute)
+        if self.settings.get_boolean("osd-enabled"):
             if self._volume_overlay is None:
                 self._create_volume_overlay()
             self._volume_overlay.update_values(volume, mute)
@@ -100,7 +100,7 @@ class VolctlApp:
 
     def _cb_settings_changed(self, settings, key):
         if key == "mouse-wheel-step":
-            self._mouse_wheel_step = settings.get_int("mouse-wheel-step")
+            self.mouse_wheel_step = settings.get_int("mouse-wheel-step")
             if self.sliders_win:
                 self.sliders_win.set_increments()
 
@@ -111,7 +111,7 @@ class VolctlApp:
         if self._preferences:
             self._preferences.present()
         else:
-            self._preferences = PreferencesDialog(self._settings)
+            self._preferences = PreferencesDialog(self.settings)
             self._preferences.run()
             self._preferences.destroy()
             del self._preferences
@@ -137,7 +137,7 @@ class VolctlApp:
 
     def launch_mixer(self):
         """Launch external mixer."""
-        mixer_cmd = self._settings.get_string("mixer-command")
+        mixer_cmd = self.settings.get_string("mixer-command")
         if mixer_cmd == "":
             mixer_cmd = DEFAULT_MIXER_CMD
         if self._mixer_process is None or not self._mixer_process.poll() is None:
@@ -155,25 +155,3 @@ class VolctlApp:
             self.sliders_win = None
             return True
         return False
-
-    # some stuff is exposed to the outside
-
-    @property
-    def mouse_wheel_step(self):
-        """Get increment for one mouse wheel tick."""
-        return self._mouse_wheel_step
-
-    @property
-    def statusicon_geometry(self):
-        """Get status icon geometry."""
-        return self._tray_icon.get_geometry()
-
-    @property
-    def settings(self):
-        """Get GSettings instance."""
-        return self._settings
-
-    @property
-    def pa_mgr(self):
-        """Get PulseAudioManager instance."""
-        return self._pa_mgr

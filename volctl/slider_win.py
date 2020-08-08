@@ -23,7 +23,7 @@ class VolumeSliders(Gtk.Window):
 
     def __init__(self, volctl):
         super().__init__(type=Gtk.WindowType.POPUP)
-        self.volctl = volctl
+        self._volctl = volctl
 
         self.connect("enter-notify-event", self._cb_enter_notify)
         self.connect("leave-notify-event", self._cb_leave_notify)
@@ -62,14 +62,13 @@ class VolumeSliders(Gtk.Window):
 
     def _set_increments_on_scale(self, scale):
         scale.set_increments(
-            PA_VOLUME_NORM / self.volctl.mouse_wheel_step,
-            PA_VOLUME_NORM / self.volctl.mouse_wheel_step,
+            PA_VOLUME_NORM / self._volctl.mouse_wheel_step,
+            PA_VOLUME_NORM / self._volctl.mouse_wheel_step,
         )
 
     def _set_position(self):
         # TODO: take screen into account (as in volume_overlay.py)
-
-        _, screen, rect, _ = self.volctl.statusicon_geometry
+        _, screen, rect, _ = self._volctl.tray_icon.get_geometry()
         width, height = self.get_size()
         monitor = screen.get_monitor_geometry(
             screen.get_monitor_at_window(screen.get_active_window())
@@ -90,10 +89,10 @@ class VolumeSliders(Gtk.Window):
         pos = 0
 
         # touching pa objects here!
-        pa_threaded_mainloop_lock(self.volctl.pa_mgr.mainloop)
+        pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
 
         # sinks
-        for _, sink in self.volctl.pa_mgr.pa_sinks.items():
+        for _, sink in self._volctl.pa_mgr.pa_sinks.items():
             scale, icon = self._add_scale(sink)
             self._sink_scales[sink.idx] = scale
             scale.connect("value-changed", self._cb_sink_scale_change)
@@ -105,7 +104,7 @@ class VolumeSliders(Gtk.Window):
             pos += 1
 
         # separator
-        if not self.volctl.pa_mgr.pa_sink_inputs:
+        if not self._volctl.pa_mgr.pa_sink_inputs:
             separator = Gtk.Separator().new(Gtk.Orientation.VERTICAL)
             separator.set_margin_top(self.SPACING)
             separator.set_margin_bottom(self.SPACING)
@@ -113,7 +112,7 @@ class VolumeSliders(Gtk.Window):
             pos += 1
 
         # sink inputs
-        for _, sink_input in self.volctl.pa_mgr.pa_sink_inputs.items():
+        for _, sink_input in self._volctl.pa_mgr.pa_sink_inputs.items():
             scale, icon = self._add_scale(sink_input)
             self._sink_input_scales[sink_input.idx] = scale
             scale.connect("value-changed", self._cb_sink_input_scale_change)
@@ -124,7 +123,7 @@ class VolumeSliders(Gtk.Window):
             self._grid.attach(icon, pos, 1, 1, 1)
             pos += 1
 
-        pa_threaded_mainloop_unlock(self.volctl.pa_mgr.mainloop)
+        pa_threaded_mainloop_unlock(self._volctl.pa_mgr.mainloop)
 
     def _add_scale(self, sink):
         # scale
@@ -151,9 +150,9 @@ class VolumeSliders(Gtk.Window):
             scale.set_sensitive(not mute)
 
     def _enable_timeout(self):
-        if self.volctl.settings.get_boolean("auto-close") and self._timeout is None:
+        if self._volctl.settings.get_boolean("auto-close") and self._timeout is None:
             self._timeout = GLib.timeout_add(
-                self.volctl.settings.get_int("timeout"), self._cb_auto_close
+                self._volctl.settings.get_int("timeout"), self._cb_auto_close
             )
 
     def _remove_timeout(self):
@@ -185,19 +184,19 @@ class VolumeSliders(Gtk.Window):
         value = int(scale.get_value())
         idx = self._find_sink_idx_by_scale(scale)
 
-        pa_threaded_mainloop_lock(self.volctl.pa_mgr.mainloop)
-        sink = self.volctl.pa_mgr.pa_sinks[idx]
+        pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
+        sink = self._volctl.pa_mgr.pa_sinks[idx]
         sink.set_volume(value)
-        pa_threaded_mainloop_unlock(self.volctl.pa_mgr.mainloop)
+        pa_threaded_mainloop_unlock(self._volctl.pa_mgr.mainloop)
 
     def _cb_sink_input_scale_change(self, scale):
         value = int(scale.get_value())
         idx = self._find_sink_input_idx_by_scale(scale)
 
-        pa_threaded_mainloop_lock(self.volctl.pa_mgr.mainloop)
-        sink_input = self.volctl.pa_mgr.pa_sink_inputs[idx]
+        pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
+        sink_input = self._volctl.pa_mgr.pa_sink_inputs[idx]
         sink_input.set_volume(value)
-        pa_threaded_mainloop_unlock(self.volctl.pa_mgr.mainloop)
+        pa_threaded_mainloop_unlock(self._volctl.pa_mgr.mainloop)
 
     def _cb_enter_notify(self, win, event):
         if (
@@ -215,7 +214,7 @@ class VolumeSliders(Gtk.Window):
 
     def _cb_auto_close(self):
         self._timeout = None
-        self.volctl.close_slider()
+        self._volctl.close_slider()
         return GLib.SOURCE_REMOVE
 
     # find sinks
