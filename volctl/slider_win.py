@@ -67,8 +67,8 @@ class VolumeSliders(Gtk.Window):
         )
 
     def _set_position(self):
-        # TODO: take screen into account (as in volume_overlay.py)
         _, screen, rect, _ = self._volctl.tray_icon.get_geometry()
+        self.set_screen(screen)
         width, height = self.get_size()
         monitor = screen.get_monitor_geometry(
             screen.get_monitor_at_window(screen.get_active_window())
