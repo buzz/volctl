@@ -62,7 +62,7 @@ class VolctlApp:
 
     def slider_count_changed(self):
         """Amount of sliders changed."""
-        if self.sliders_win:
+        if self.tray_icon and self.tray_icon.initialized and self.sliders_win:
             self.close_slider()
             self.show_slider()
 

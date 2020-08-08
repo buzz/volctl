@@ -16,6 +16,7 @@ class TrayIcon(Gtk.StatusIcon):
 
     def __init__(self, volctl):
         super().__init__()
+        self.initialized = False
         self._volctl = volctl
         self._volume = 0
         self._mute = False
@@ -28,6 +29,8 @@ class TrayIcon(Gtk.StatusIcon):
         self._volume = volume
         self._mute = mute
         self._update_icon()
+        # Consider completely initialized when first volume update was processed
+        self.initialized = True
 
     def _update_icon(self):
         """Update status icon according to volume state."""
