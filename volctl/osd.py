@@ -64,9 +64,6 @@ class VolumeOverlay(Gtk.Window):
 
     def update_values(self, volume, mute):
         """Remember current volume and mute values."""
-        if volume == self._volume and mute == self._mute:
-            # ignore if values did not actually change
-            return
         self._volume = volume
         self._mute = mute
         self._unhide()

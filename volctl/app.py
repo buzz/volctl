@@ -17,7 +17,7 @@ from volctl.tray import TrayIcon
 from volctl.lib.pa_wrapper import PulseAudioManager
 from volctl.prefs import PreferencesDialog
 from volctl.slider_win import VolumeSliders
-from volctl.volume_overlay import VolumeOverlay
+from volctl.osd import VolumeOverlay
 
 DEFAULT_MIXER_CMD = "pavucontrol"
 
@@ -30,6 +30,8 @@ class VolctlApp:
         self.settings.connect("changed", self._cb_settings_changed)
         self.mouse_wheel_step = self.settings.get_int("mouse-wheel-step")
         self._first_volume_update = True
+        self._volume = 0
+        self._mute = False
 
         self.pa_mgr = PulseAudioManager(self)
 
@@ -38,7 +40,7 @@ class VolctlApp:
         self.sliders_win = None
         self._about_win = None
         self._preferences = None
-        self._volume_overlay = None
+        self._osd = None
         self._mixer_process = None
 
     def quit(self):
@@ -54,8 +56,8 @@ class VolctlApp:
                 self._about_win.destroy()
             if self._preferences:
                 self._preferences.destroy()
-            if self._volume_overlay:
-                self._volume_overlay.destroy()
+            if self._osd:
+                self._osd.destroy()
             Gtk.main_quit()
         else:
             sys.exit(1)
@@ -66,30 +68,40 @@ class VolctlApp:
             self.close_slider()
             self.show_slider()
 
-    def _create_volume_overlay(self):
-        self._volume_overlay = VolumeOverlay(self)
-        self._volume_overlay.connect("destroy", self.on_volume_overlay_destroy)
+    def _create_osd(self):
+        self._osd = VolumeOverlay(self)
+        self._osd.connect("destroy", self.on_osd_destroy)
 
-    def on_volume_overlay_destroy(self, _):
-        self._volume_overlay.disconnect_by_func(self.on_volume_overlay_destroy)
-        del self._volume_overlay
-        self._volume_overlay = None
+    def on_osd_destroy(self, _):
+        self._osd.disconnect_by_func(self.on_osd_destroy)
+        del self._osd
+        self._osd = None
 
     # updates coming from pulseaudio
 
     def update_values(self, volume, mute):
         """Main sink update."""
+        # no need to update if values didn't change
+        if volume == self._volume and mute == self._mute:
+            return
+
+        self._volume = volume
+        self._mute = mute
+
+        # tray icon
         self.tray_icon.update_values(volume, mute)
+
+        # OSD
+        if self._first_volume_update:
+            # Avoid showing on program start
+            self._first_volume_update = False
+            return
         if self.settings.get_boolean("osd-enabled"):
-            if self._first_volume_update:
-                # Don't show OSD on program start
-                self._first_volume_update = False
-            else:
-                if self._volume_overlay is None:
-                    self._create_volume_overlay()
-                self._volume_overlay.update_values(volume, mute)
-        elif self._volume_overlay is not None:
-            self._volume_overlay.destroy()
+            if self._osd is None:
+                self._create_osd()
+            self._osd.update_values(volume, mute)
+        elif self._osd is not None:
+            self._osd.destroy()
 
     def update_sink_scale(self, idx, volume, mute):
         """Notify sink scale if update is coming from pulseaudio."""
