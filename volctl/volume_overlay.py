@@ -200,8 +200,10 @@ class VolumeOverlay(Gtk.Window):
         return self.get_window().get_width(), self.get_window().get_height()
 
     def _hide(self):
-        self._fadeout_timeout = GLib.timeout_add(30, self._cb_fadeout_timeout)
-        self.queue_draw()
+        if self._compositing:
+            self._fadeout_timeout = GLib.timeout_add(30, self._cb_fadeout_timeout)
+        else:
+            self.destroy()
 
     def _unhide(self):
         if self._fadeout_timeout is not None:
