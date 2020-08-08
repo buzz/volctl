@@ -47,14 +47,14 @@ class VolctlApp:
         except AttributeError:
             pass
         if Gtk.main_level() > 0:
-            try:
-                self._preferences.response(0)
-            except AttributeError:
-                pass
-            try:
-                self._about_win.close()
-            except AttributeError:
-                pass
+            if self._sliders_win:
+                self._sliders_win.destroy()
+            if self._about_win:
+                self._about_win.destroy()
+            if self._preferences:
+                self._preferences.destroy()
+            if self._volume_overlay:
+                self._volume_overlay.destroy()
             Gtk.main_quit()
         else:
             sys.exit(1)
@@ -71,6 +71,7 @@ class VolctlApp:
 
     def on_volume_overlay_destroy(self, _):
         self._volume_overlay.disconnect_by_func(self.on_volume_overlay_destroy)
+        del self._volume_overlay
         self._volume_overlay = None
 
     # updates coming from pulseaudio
@@ -84,49 +85,43 @@ class VolctlApp:
             self._volume_overlay.update_values(volume, mute)
         elif self._volume_overlay is not None:
             self._volume_overlay.destroy()
-            self._volume_overlay = None
 
     def update_sink_scale(self, idx, volume, mute):
         """Notify sink scale if update is coming from pulseaudio."""
-        try:
+        if self._sliders_win:
             self._sliders_win.update_sink_scale(idx, volume, mute)
-        except AttributeError:
-            pass
 
     def update_sink_input_scale(self, idx, volume, mute):
         """Notify sink input scale if update is coming from pulseaudio."""
-        try:
+        if self._sliders_win:
             self._sliders_win.update_sink_input_scale(idx, volume, mute)
-        except AttributeError:
-            pass
 
     # gsettings callback
 
     def _cb_settings_changed(self, settings, key):
         if key == "mouse-wheel-step":
             self._mouse_wheel_step = settings.get_int("mouse-wheel-step")
-            try:
+            if self._sliders_win:
                 self._sliders_win.set_increments()
-            except AttributeError:
-                pass
 
     # GUI
 
     def show_preferences(self):
         """Bring preferences to focus or create if it doesn't exist."""
-        try:
+        if self._preferences:
             self._preferences.present()
-        except AttributeError:
+        else:
             self._preferences = PreferencesDialog(self._settings)
             self._preferences.run()
             self._preferences.destroy()
             del self._preferences
+            self._preferences = None
 
     def show_about(self):
         """Bring about window to focus or create if it doesn't exist."""
-        try:
+        if self._about_win is not None:
             self._about_win.present()
-        except AttributeError:
+        else:
             self._about_win = Gtk.AboutDialog()
             self._about_win.set_program_name(PROGRAM_NAME)
             self._about_win.set_version(VERSION)
@@ -138,6 +133,7 @@ class VolctlApp:
             self._about_win.run()
             self._about_win.destroy()
             del self._about_win
+            self._about_win = None
 
     def launch_mixer(self):
         """Launch external mixer."""
@@ -153,13 +149,12 @@ class VolctlApp:
 
     def close_slider(self):
         """Close mini window with application volume sliders."""
-        try:
-            self._sliders_win.close()
+        if self._sliders_win:
+            self._sliders_win.destroy()
             del self._sliders_win
             self._sliders_win = None
             return True
-        except AttributeError:
-            return False
+        return False
 
     # some stuff is exposed to the outside
 
