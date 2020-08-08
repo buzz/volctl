@@ -49,7 +49,10 @@ class VolumeOverlay(Gtk.Window):
         self.screen = self.get_screen()
         self.visual = self.screen.get_rgba_visual()
         if self.visual is not None and self.screen.is_composited():
+            self._compositing = True
             self.set_visual(self.visual)
+        else:
+            self._compositing = False
         self.set_app_paintable(True)
         self.connect("draw", self._draw_osd)
 
@@ -215,6 +218,7 @@ class VolumeOverlay(Gtk.Window):
             return True
         self._opacity = 0.0
         self._fadeout_timeout = None
+        self.destroy()
         return False
 
     def _cb_hide_timeout(self):
