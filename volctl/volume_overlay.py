@@ -28,7 +28,7 @@ class VolumeOverlay(Gtk.Window):
     NUM_BARS = 16
 
     def __init__(self, volctl):
-        super(VolumeOverlay, self).__init__()
+        super().__init__()
         self.volctl = volctl
         self.position = (-self.SCREEN_MARGIN, -self.SCREEN_MARGIN)
         self.set_default_size(self.WIDTH, self.HEIGHT)

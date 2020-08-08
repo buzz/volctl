@@ -6,7 +6,7 @@ class PreferencesDialog(Gtk.Dialog):
     """Preferences dialog for volctl"""
 
     def __init__(self, settings):
-        Gtk.Dialog.__init__(self, "Preferences")
+        super().__init__("Preferences")
         self._settings = settings
         self._schema = settings.get_property("settings-schema")
         self._settings.connect("changed", self._cb_settings_changed)

@@ -22,7 +22,7 @@ class VolumeSliders(Gtk.Window):
     SPACING = 6
 
     def __init__(self, volctl):
-        super(VolumeSliders, self).__init__(type=Gtk.WindowType.POPUP)
+        super().__init__(type=Gtk.WindowType.POPUP)
         self.volctl = volctl
 
         self.connect("enter-notify-event", self._cb_enter_notify)
