@@ -11,14 +11,14 @@ from volctl.lib.pulseaudio import (
 )
 
 
-class TrayIcon:
+class TrayIcon(Gtk.StatusIcon):
     """Volume control tray icon."""
 
     def __init__(self, app):
+        super().__init__()
         self._app = app
         self._volume = 0
         self._mute = False
-        self._statusicon = Gtk.StatusIcon()
         self._menu = Gtk.Menu()
         self._setup_statusicon()
         self._setup_menu()
@@ -29,10 +29,6 @@ class TrayIcon:
         self._mute = mute
         self._update_icon()
 
-    def get_geometry(self):
-        """Get status icon geometry."""
-        return self._statusicon.get_geometry()
-
     def _update_icon(self):
         """Update status icon according to volume state."""
         value = float(self._volume) / float(PA_VOLUME_NORM)
@@ -42,17 +38,17 @@ class TrayIcon:
             idx = min(int(floor(value * 3)), 2)
             state = ["low", "medium", "high"][idx]
         icon_name = "audio-volume-%s" % state
-        self._statusicon.set_from_icon_name(icon_name)
+        self.set_from_icon_name(icon_name)
 
     # gui setup
 
     def _setup_statusicon(self):
-        self._statusicon.set_title("Volume")
-        self._statusicon.set_has_tooltip(True)
-        self._statusicon.connect("popup-menu", self._cb_popup)
-        self._statusicon.connect("button-press-event", self._cb_button_press)
-        self._statusicon.connect("scroll-event", self._cb_scroll)
-        self._statusicon.connect("query-tooltip", self._cb_tooltip)
+        self.set_title("Volume")
+        self.set_has_tooltip(True)
+        self.connect("popup-menu", self._cb_popup)
+        self.connect("button-press-event", self._cb_button_press)
+        self.connect("scroll-event", self._cb_scroll)
+        self.connect("query-tooltip", self._cb_tooltip)
 
     def _setup_menu(self):
         mute_menu_item = Gtk.ImageMenuItem("Mute")
