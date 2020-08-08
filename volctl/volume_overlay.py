@@ -36,7 +36,7 @@ class VolumeOverlay(Gtk.Window):
         self._mute = False
         self._hide_timeout = None
         self._fadeout_timeout = None
-        self._opacity = 0.0
+        self._opacity = 1.0
 
         self.set_decorated(False)
         self.stick()

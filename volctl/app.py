@@ -29,6 +29,7 @@ class VolctlApp:
         self.settings = Gio.Settings("apps.volctl", path="/apps/volctl/")
         self.settings.connect("changed", self._cb_settings_changed)
         self.mouse_wheel_step = self.settings.get_int("mouse-wheel-step")
+        self._first_volume_update = True
 
         self.pa_mgr = PulseAudioManager(self)
 
@@ -80,9 +81,13 @@ class VolctlApp:
         """Main sink update."""
         self.tray_icon.update_values(volume, mute)
         if self.settings.get_boolean("osd-enabled"):
-            if self._volume_overlay is None:
-                self._create_volume_overlay()
-            self._volume_overlay.update_values(volume, mute)
+            if self._first_volume_update:
+                # Don't show OSD on program start
+                self._first_volume_update = False
+            else:
+                if self._volume_overlay is None:
+                    self._create_volume_overlay()
+                self._volume_overlay.update_values(volume, mute)
         elif self._volume_overlay is not None:
             self._volume_overlay.destroy()
 
