@@ -65,8 +65,7 @@ class VolctlApp:
     def slider_count_changed(self):
         """Amount of sliders changed."""
         if self.tray_icon and self.tray_icon.initialized and self.sliders_win:
-            self.close_slider()
-            self.show_slider()
+            self.sliders_win.create_sliders()
 
     def _create_osd(self):
         self._osd = VolumeOverlay(self)
@@ -161,9 +160,9 @@ class VolctlApp:
         if self._mixer_process is None or not self._mixer_process.poll() is None:
             self._mixer_process = Popen(mixer_cmd)
 
-    def show_slider(self):
+    def show_slider(self, monitor_rect):
         """Show mini window with application volume sliders."""
-        self.sliders_win = VolumeSliders(self)
+        self.sliders_win = VolumeSliders(self, monitor_rect)
 
     def close_slider(self):
         """Close mini window with application volume sliders."""

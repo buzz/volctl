@@ -143,7 +143,11 @@ class TrayIcon(Gtk.StatusIcon):
         if event.button == 1:
             if event.type == Gdk.EventType.BUTTON_PRESS:
                 if not self._volctl.close_slider():
-                    self._volctl.show_slider()
+                    monitor = Gdk.Display.get_default().get_monitor_at_point(
+                        event.x_root, event.y_root
+                    )
+                    monitor_rect = monitor.get_workarea()
+                    self._volctl.show_slider(monitor_rect)
             if event.type == Gdk.EventType.DOUBLE_BUTTON_PRESS:
                 self._volctl.launch_mixer()
 
