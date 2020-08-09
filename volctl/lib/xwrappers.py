@@ -7,6 +7,8 @@ Adapted from:
 https://github.com/kozec/sc-controller/blob/master/scc/lib/xwrappers.py
 """
 
+# pylint: disable=invalid-name
+
 from ctypes import c_int, c_short, c_ulong, c_ushort, c_void_p, CDLL, POINTER, Structure
 
 

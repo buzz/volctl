@@ -73,6 +73,7 @@ class VolctlApp:
         self._osd.connect("destroy", self.on_osd_destroy)
 
     def on_osd_destroy(self, _):
+        """OSD window destroy callback."""
         self._osd.disconnect_by_func(self.on_osd_destroy)
         del self._osd
         self._osd = None
