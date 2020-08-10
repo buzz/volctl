@@ -62,11 +62,6 @@ class VolctlApp:
         else:
             sys.exit(1)
 
-    def slider_count_changed(self):
-        """Amount of sliders changed."""
-        if self.tray_icon and self.tray_icon.initialized and self.sliders_win:
-            self.sliders_win.create_sliders()
-
     def _create_osd(self):
         self._osd = VolumeOverlay(self)
         self._osd.connect("destroy", self.on_osd_destroy)
@@ -104,14 +99,29 @@ class VolctlApp:
             self._osd.destroy()
 
     def update_sink_scale(self, idx, volume, mute):
-        """Notify sink scale if update is coming from pulseaudio."""
+        """Notify sink scale when update is coming from pulseaudio."""
         if self.sliders_win:
             self.sliders_win.update_sink_scale(idx, volume, mute)
 
     def update_sink_input_scale(self, idx, volume, mute):
-        """Notify sink input scale if update is coming from pulseaudio."""
+        """Notify sink input scale when update is coming from pulseaudio."""
         if self.sliders_win:
             self.sliders_win.update_sink_input_scale(idx, volume, mute)
+
+    def update_sink_peak(self, idx, val):
+        """Notify sink scale when update is coming from pulseaudio."""
+        if self.sliders_win:
+            self.sliders_win.update_sink_scale_peak(idx, val)
+
+    def update_sink_input_peak(self, idx, val):
+        """Notify sink input scale when update is coming from pulseaudio."""
+        if self.sliders_win:
+            self.sliders_win.update_sink_input_scale_peak(idx, val)
+
+    def slider_count_changed(self):
+        """Amount of sliders changed."""
+        if self.tray_icon and self.tray_icon.initialized and self.sliders_win:
+            self.sliders_win.create_sliders()
 
     # gsettings callback
 
@@ -159,6 +169,7 @@ class VolctlApp:
             mixer_cmd = DEFAULT_MIXER_CMD
         if self._mixer_process is None or not self._mixer_process.poll() is None:
             self._mixer_process = Popen(mixer_cmd)
+        # TODO: bring mixer win to front otherwise
 
     def show_slider(self, monitor_rect):
         """Show mini window with application volume sliders."""

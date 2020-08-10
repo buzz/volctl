@@ -115,7 +115,7 @@ class VolumeSliders(Gtk.Window):
             scale, icon = self._add_scale(sink)
             self._sink_scales[sink.idx] = scale
             scale.connect("value-changed", self._cb_sink_scale_change)
-            self._update_scale(scale, sink.volume, sink.mute)
+            self._update_scale_vol(scale, sink.volume, sink.mute)
             scale.set_margin_top(self.SPACING)
             icon.set_margin_bottom(self.SPACING)
             self._grid.attach(scale, pos, 0, 1, 1)
@@ -135,7 +135,7 @@ class VolumeSliders(Gtk.Window):
             scale, icon = self._add_scale(sink_input)
             self._sink_input_scales[sink_input.idx] = scale
             scale.connect("value-changed", self._cb_sink_input_scale_change)
-            self._update_scale(scale, sink_input.volume, sink_input.mute)
+            self._update_scale_vol(scale, sink_input.volume, sink_input.mute)
             scale.set_margin_top(self.SPACING)
             icon.set_margin_bottom(self.SPACING)
             self._grid.attach(scale, pos, 0, 1, 1)
@@ -163,6 +163,11 @@ class VolumeSliders(Gtk.Window):
         else:
             scale.set_draw_value(False)
 
+        scale.set_has_origin(False)
+        scale.set_show_fill_level(False)
+        scale.set_fill_level(0)
+        scale.set_restrict_to_fill_level(False)
+
         # icon
         icon = Gtk.Image()
         icon.set_tooltip_text(sink.name)
@@ -171,10 +176,19 @@ class VolumeSliders(Gtk.Window):
         return scale, icon
 
     @staticmethod
-    def _update_scale(scale, volume, mute):
+    def _update_scale_vol(scale, volume, mute):
         scale.set_value(volume)
         if mute is not None:
             scale.set_sensitive(not mute)
+
+    @staticmethod
+    def _update_scale_peak(scale, val):
+        if val > 0:
+            scale.set_show_fill_level(True)
+            scale.set_fill_level(val * PA_VOLUME_NORM)
+        else:
+            scale.set_show_fill_level(False)
+            scale.set_fill_level(0)
 
     def _enable_timeout(self):
         if self._volctl.settings.get_boolean("auto-close") and self._timeout is None:
@@ -195,7 +209,7 @@ class VolumeSliders(Gtk.Window):
             scale = self._sink_scales[idx]
         except KeyError:
             return
-        self._update_scale(scale, volume, mute)
+        self._update_scale_vol(scale, volume, mute)
 
     def update_sink_input_scale(self, idx, volume, mute):
         """Update sink input scale by index."""
@@ -203,11 +217,29 @@ class VolumeSliders(Gtk.Window):
             scale = self._sink_input_scales[idx]
         except KeyError:
             return
-        self._update_scale(scale, volume, mute)
+        self._update_scale_vol(scale, volume, mute)
+
+    def update_sink_scale_peak(self, idx, val):
+        """Update sink scale peak value by index."""
+        try:
+            scale = self._sink_scales[idx]
+        except KeyError:
+            return
+        self._update_scale_peak(scale, val)
+
+    def update_sink_input_scale_peak(self, idx, val):
+        """Update sink input peak value by index."""
+        try:
+            scale = self._sink_input_scales[idx]
+        except KeyError:
+            return
+        self._update_scale_peak(scale, val)
 
     # gui callbacks
 
-    def _cb_format_value(self, scale, val):
+    @staticmethod
+    def _cb_format_value(scale, val):
+        """Format scale label"""
         return "{:d}%".format(round(100 * val / PA_VOLUME_NORM))
 
     def _cb_sink_scale_change(self, scale):
