@@ -12,15 +12,15 @@
       <description>Time after the pop-up automatically closes.</description>
     </key>
     <key type="i" name="mouse-wheel-step">
-        <range min="3" max="50"/>
-        <default>15</default>
-        <summary>Mouse wheel step</summary>
-        <description>The sensitivity of mouse wheel volume changes.</description>
+      <range min="3" max="50"/>
+      <default>15</default>
+      <summary>Mouse wheel step</summary>
+      <description>The sensitivity of mouse wheel volume changes.</description>
     </key>
     <key type="s" name="mixer-command">
-        <default>""</default>
-        <summary>Custom mixer command</summary>
-        <description>Default: pavucontrol</description>
+      <default>""</default>
+      <summary>Custom mixer command</summary>
+      <description>Default: pavucontrol</description>
     </key>
     <key type="b" name="osd-enabled">
       <default>true</default>
@@ -32,6 +32,11 @@
       <default>1000</default>
       <summary>Timeout</summary>
       <description>Time the OSD is being shown.</description>
+    </key>
+    <key type="b" name="show-percentage">
+      <default>false</default>
+      <summary>Show percentage</summary>
+      <description>Shows percentage under volume sliders.</description>
     </key>
   </schema>
 </schemalist>

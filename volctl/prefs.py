@@ -33,6 +33,7 @@ class PreferencesDialog(Gtk.Dialog):
         hbox.pack_start(label, False, True, 10)
         self.listbox.add(row)
 
+        self._setup_show_percentage()
         self._setup_auto_hide()
         self._setup_auto_hide_timeout()
         self._setup_mouse_wheel_step()
@@ -166,6 +167,27 @@ class PreferencesDialog(Gtk.Dialog):
         )
         hbox.pack_start(scale, False, True, 10)
         self._row_osd_timeout = row
+
+        self.listbox.add(row)
+
+    def _setup_show_percentage(self):
+        key = self._schema.get_key("show-percentage")
+        row = Gtk.ListBoxRow()
+        row.set_tooltip_text(key.get_description())
+
+        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        row.add(hbox)
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        hbox.pack_start(vbox, True, True, 10)
+
+        label = Gtk.Label(key.get_summary(), xalign=0)
+        vbox.pack_start(label, True, True, 0)
+        switch = Gtk.Switch()
+        switch.props.valign = Gtk.Align.CENTER
+        self._settings.bind(
+            "show-percentage", switch, "active", Gio.SettingsBindFlags.DEFAULT
+        )
+        hbox.pack_start(switch, False, True, 10)
 
         self.listbox.add(row)
 

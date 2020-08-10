@@ -26,6 +26,7 @@ class VolumeSliders(Gtk.Window):
         self._volctl = volctl
         self._monitor_rect = monitor_rect
         self._grid = None
+        self._show_percentage = self._volctl.settings.get_boolean("show-percentage")
 
         # gui objects by index
         self._sink_scales = None
@@ -150,13 +151,17 @@ class VolumeSliders(Gtk.Window):
     def _add_scale(self, sink):
         # scale
         scale = Gtk.Scale().new(Gtk.Orientation.VERTICAL)
-        scale.set_draw_value(False)
-        scale.set_value_pos(Gtk.PositionType.BOTTOM)
         scale.set_range(PA_VOLUME_MUTED, PA_VOLUME_NORM)
         scale.set_inverted(True)
         scale.set_size_request(24, 128)
         scale.set_tooltip_text(sink.name)
         self._set_increments_on_scale(scale)
+        if self._show_percentage:
+            scale.set_draw_value(True)
+            scale.set_value_pos(Gtk.PositionType.BOTTOM)
+            scale.connect("format_value", self._cb_format_value)
+        else:
+            scale.set_draw_value(False)
 
         # icon
         icon = Gtk.Image()
@@ -201,6 +206,9 @@ class VolumeSliders(Gtk.Window):
         self._update_scale(scale, volume, mute)
 
     # gui callbacks
+
+    def _cb_format_value(self, scale, val):
+        return "{:d}%".format(round(100 * val / PA_VOLUME_NORM))
 
     def _cb_sink_scale_change(self, scale):
         value = int(scale.get_value())
