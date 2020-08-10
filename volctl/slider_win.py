@@ -214,7 +214,7 @@ class VolumeSliders(Gtk.Window):
         value = int(scale.get_value())
         idx = self._find_sink_idx_by_scale(scale)
 
-        if idx > 0:
+        if idx >= 0:
             pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
             sink = self._volctl.pa_mgr.pa_sinks[idx]
             sink.set_volume(value)
@@ -224,7 +224,7 @@ class VolumeSliders(Gtk.Window):
         value = int(scale.get_value())
         idx = self._find_sink_input_idx_by_scale(scale)
 
-        if idx > 0:
+        if idx >= 0:
             pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
             sink_input = self._volctl.pa_mgr.pa_sink_inputs[idx]
             sink_input.set_volume(value)
