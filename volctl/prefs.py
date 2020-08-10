@@ -45,6 +45,7 @@ class PreferencesDialog(Gtk.Dialog):
         self._add_entry("mixer-command", self._default_mixer_cmd)
 
         self._update_rows()
+        self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
         self.show_all()
 
     def _add_switch(self, name):
