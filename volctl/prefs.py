@@ -5,13 +5,14 @@ from gi.repository import Gtk, Gdk, Gio
 class PreferencesDialog(Gtk.Dialog):
     """Preferences dialog for volctl"""
 
-    def __init__(self, settings):
+    def __init__(self, settings, default_mixer_cmd):
         super().__init__("Preferences")
         self._settings = settings
         self._schema = settings.get_property("settings-schema")
-        self._settings.connect("changed", self._cb_settings_changed)
+        self._default_mixer_cmd = default_mixer_cmd
         self._row_timeout = None
         self._row_osd_timeout = None
+        self._settings.connect("changed", self._cb_settings_changed)
         self._setup_ui()
 
     def _setup_ui(self):
@@ -33,20 +34,21 @@ class PreferencesDialog(Gtk.Dialog):
         hbox.pack_start(label, False, True, 10)
         self.listbox.add(row)
 
-        self._setup_show_percentage()
-        self._setup_auto_hide()
-        self._setup_auto_hide_timeout()
-        self._setup_mouse_wheel_step()
-        self._setup_osd_enabled()
-        self._setup_osd_timeout()
-        self._setup_mixer_command()
+        self._add_switch("show-percentage")
+        self._add_switch("auto-close")
+        self._row_timeout = self._add_scale("timeout", self._scale_timeout_format)
+        self._add_scale("mouse-wheel-step", self._scale_mouse_wheel_step_format)
+        self._add_switch("osd-enabled")
+        self._row_osd_timeout = self._add_scale(
+            "osd-timeout", self._scale_timeout_format
+        )
+        self._add_entry("mixer-command", self._default_mixer_cmd)
 
+        self._update_rows()
         self.show_all()
-        self._set_timeout_show()
-        self._set_osd_timeout_show()
 
-    def _setup_auto_hide(self):
-        key = self._schema.get_key("auto-close")
+    def _add_switch(self, name):
+        key = self._schema.get_key(name)
         row = Gtk.ListBoxRow()
         row.set_tooltip_text(key.get_description())
 
@@ -59,15 +61,13 @@ class PreferencesDialog(Gtk.Dialog):
         vbox.pack_start(label, True, True, 0)
         switch = Gtk.Switch()
         switch.props.valign = Gtk.Align.CENTER
-        self._settings.bind(
-            "auto-close", switch, "active", Gio.SettingsBindFlags.DEFAULT
-        )
+        self._settings.bind(name, switch, "active", Gio.SettingsBindFlags.DEFAULT)
         hbox.pack_start(switch, False, True, 10)
 
         self.listbox.add(row)
 
-    def _setup_auto_hide_timeout(self):
-        key = self._schema.get_key("timeout")
+    def _add_scale(self, name, format_func):
+        key = self._schema.get_key(name)
         row = Gtk.ListBoxRow()
         row.set_tooltip_text(key.get_description())
 
@@ -83,116 +83,16 @@ class PreferencesDialog(Gtk.Dialog):
         scale.set_range(key_range[1][0], key_range[1][1])
         scale.set_digits(False)
         scale.set_size_request(128, 24)
-        scale.connect("format_value", self._scale_timeout_format)
+        scale.connect("format_value", format_func)
         self._settings.bind(
-            "timeout", scale.get_adjustment(), "value", Gio.SettingsBindFlags.DEFAULT,
+            name, scale.get_adjustment(), "value", Gio.SettingsBindFlags.DEFAULT,
         )
         hbox.pack_start(scale, False, True, 10)
-        self._row_timeout = row
-
         self.listbox.add(row)
+        return row
 
-    def _setup_mouse_wheel_step(self):
-        key = self._schema.get_key("mouse-wheel-step")
-        row = Gtk.ListBoxRow()
-        row.set_tooltip_text(key.get_description())
-
-        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        row.add(hbox)
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        hbox.pack_start(vbox, True, True, 10)
-
-        label = Gtk.Label(key.get_summary(), xalign=0)
-        vbox.pack_start(label, True, True, 0)
-        scale = Gtk.Scale().new(Gtk.Orientation.HORIZONTAL)
-        key_range = key.get_range()
-        scale.set_range(key_range[1][0], key_range[1][1])
-        scale.set_digits(False)
-        scale.set_size_request(128, 24)
-        scale.connect("format_value", self._scale_mouse_wheel_step_format)
-        self._settings.bind(
-            "mouse-wheel-step",
-            scale.get_adjustment(),
-            "value",
-            Gio.SettingsBindFlags.DEFAULT,
-        )
-        hbox.pack_start(scale, False, True, 10)
-
-        self.listbox.add(row)
-
-    def _setup_osd_enabled(self):
-        key = self._schema.get_key("osd-enabled")
-        row = Gtk.ListBoxRow()
-        row.set_tooltip_text(key.get_description())
-
-        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        row.add(hbox)
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        hbox.pack_start(vbox, True, True, 10)
-
-        label = Gtk.Label(key.get_summary(), xalign=0)
-        vbox.pack_start(label, True, True, 0)
-        switch = Gtk.Switch()
-        switch.props.valign = Gtk.Align.CENTER
-        self._settings.bind(
-            "osd-enabled", switch, "active", Gio.SettingsBindFlags.DEFAULT
-        )
-        hbox.pack_start(switch, False, True, 10)
-
-        self.listbox.add(row)
-
-    def _setup_osd_timeout(self):
-        key = self._schema.get_key("osd-timeout")
-        row = Gtk.ListBoxRow()
-        row.set_tooltip_text(key.get_description())
-
-        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        row.add(hbox)
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        hbox.pack_start(vbox, True, True, 10)
-
-        label = Gtk.Label("  " + key.get_summary(), xalign=0)
-        vbox.pack_start(label, True, True, 0)
-        scale = Gtk.Scale().new(Gtk.Orientation.HORIZONTAL)
-        key_range = key.get_range()
-        scale.set_range(key_range[1][0], key_range[1][1])
-        scale.set_digits(False)
-        scale.set_size_request(128, 24)
-        scale.connect("format_value", self._scale_timeout_format)
-        self._settings.bind(
-            "osd-timeout",
-            scale.get_adjustment(),
-            "value",
-            Gio.SettingsBindFlags.DEFAULT,
-        )
-        hbox.pack_start(scale, False, True, 10)
-        self._row_osd_timeout = row
-
-        self.listbox.add(row)
-
-    def _setup_show_percentage(self):
-        key = self._schema.get_key("show-percentage")
-        row = Gtk.ListBoxRow()
-        row.set_tooltip_text(key.get_description())
-
-        hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        row.add(hbox)
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        hbox.pack_start(vbox, True, True, 10)
-
-        label = Gtk.Label(key.get_summary(), xalign=0)
-        vbox.pack_start(label, True, True, 0)
-        switch = Gtk.Switch()
-        switch.props.valign = Gtk.Align.CENTER
-        self._settings.bind(
-            "show-percentage", switch, "active", Gio.SettingsBindFlags.DEFAULT
-        )
-        hbox.pack_start(switch, False, True, 10)
-
-        self.listbox.add(row)
-
-    def _setup_mixer_command(self):
-        key = self._schema.get_key("mixer-command")
+    def _add_entry(self, name, placeholder):
+        key = self._schema.get_key(name)
         row = Gtk.ListBoxRow()
         row.set_tooltip_text(key.get_description())
 
@@ -204,9 +104,8 @@ class PreferencesDialog(Gtk.Dialog):
         label = Gtk.Label(key.get_summary(), xalign=0)
         vbox.pack_start(label, True, True, 0)
         entry = Gtk.Entry().new()
-        self._settings.bind(
-            "mixer-command", entry, "text", Gio.SettingsBindFlags.DEFAULT
-        )
+        entry.set_placeholder_text(placeholder)
+        self._settings.bind(name, entry, "text", Gio.SettingsBindFlags.DEFAULT)
         hbox.pack_start(entry, False, True, 10)
 
         self.listbox.add(row)
@@ -219,13 +118,11 @@ class PreferencesDialog(Gtk.Dialog):
     def _scale_mouse_wheel_step_format(_, value):
         return "%.1f %%" % (100.0 / value)
 
-    def _set_timeout_show(self):
+    def _update_rows(self):
         if self._settings.get_boolean("auto-close"):
             self._row_timeout.show()
         else:
             self._row_timeout.hide()
-
-    def _set_osd_timeout_show(self):
         if self._settings.get_boolean("osd-enabled"):
             self._row_osd_timeout.show()
         else:
@@ -234,7 +131,4 @@ class PreferencesDialog(Gtk.Dialog):
     # gsettings callback
 
     def _cb_settings_changed(self, settings, key):
-        if key == "auto-close":
-            self._set_timeout_show()
-        elif key == "osd-enabled":
-            self._set_osd_timeout_show()
+        self._update_rows()

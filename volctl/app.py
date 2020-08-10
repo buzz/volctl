@@ -128,7 +128,7 @@ class VolctlApp:
         if self._preferences:
             self._preferences.present()
         else:
-            self._preferences = PreferencesDialog(self.settings)
+            self._preferences = PreferencesDialog(self.settings, DEFAULT_MIXER_CMD)
             self._preferences.run()
             self._preferences.destroy()
             del self._preferences
