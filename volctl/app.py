@@ -15,9 +15,11 @@ from volctl.meta import (
 )
 from volctl.tray import TrayIcon
 from volctl.lib.pa_wrapper import PulseAudioManager
+from volctl.lib.pulseaudio import pa_threaded_mainloop_lock, pa_threaded_mainloop_unlock
 from volctl.prefs import PreferencesDialog
 from volctl.slider_win import VolumeSliders
 from volctl.osd import VolumeOverlay
+
 
 DEFAULT_MIXER_CMD = "pavucontrol"
 
@@ -50,6 +52,7 @@ class VolctlApp:
         except AttributeError:
             pass
         if Gtk.main_level() > 0:
+            self.stop_vu()
             if self.sliders_win:
                 self.sliders_win.destroy()
             if self._about_win:
@@ -71,6 +74,23 @@ class VolctlApp:
         self._osd.disconnect_by_func(self.on_osd_destroy)
         del self._osd
         self._osd = None
+
+    def start_vu(self):
+        if self.settings.get_boolean("vu-enabled"):
+            pa_threaded_mainloop_lock(self.pa_mgr.mainloop)
+            for _, sink in self.pa_mgr.pa_sinks.items():
+                sink.monitor_stream()
+            for _, sink_input in self.pa_mgr.pa_sink_inputs.items():
+                sink_input.monitor_stream()
+            pa_threaded_mainloop_unlock(self.pa_mgr.mainloop)
+
+    def stop_vu(self):
+        pa_threaded_mainloop_lock(self.pa_mgr.mainloop)
+        for _, sink in self.pa_mgr.pa_sinks.items():
+            sink.stop_monitor_stream()
+        for _, sink_input in self.pa_mgr.pa_sink_inputs.items():
+            sink_input.stop_monitor_stream()
+        pa_threaded_mainloop_unlock(self.pa_mgr.mainloop)
 
     # updates coming from pulseaudio
 
@@ -122,6 +142,7 @@ class VolctlApp:
         """Amount of sliders changed."""
         if self.tray_icon and self.tray_icon.initialized and self.sliders_win:
             self.sliders_win.create_sliders()
+            self.start_vu()
 
     # gsettings callback
 
@@ -174,6 +195,7 @@ class VolctlApp:
     def show_slider(self, monitor_rect):
         """Show mini window with application volume sliders."""
         self.sliders_win = VolumeSliders(self, monitor_rect)
+        self.start_vu()
 
     def close_slider(self):
         """Close mini window with application volume sliders."""
@@ -181,5 +203,6 @@ class VolctlApp:
             self.sliders_win.destroy()
             del self.sliders_win
             self.sliders_win = None
+            self.stop_vu()
             return True
         return False

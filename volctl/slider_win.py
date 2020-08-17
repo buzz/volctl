@@ -163,10 +163,11 @@ class VolumeSliders(Gtk.Window):
         else:
             scale.set_draw_value(False)
 
-        scale.set_has_origin(False)
-        scale.set_show_fill_level(False)
-        scale.set_fill_level(0)
-        scale.set_restrict_to_fill_level(False)
+        if self._volctl.settings.get_boolean("vu-enabled"):
+            scale.set_has_origin(False)
+            scale.set_show_fill_level(False)
+            scale.set_fill_level(0)
+            scale.set_restrict_to_fill_level(False)
 
         # icon
         icon = Gtk.Image()

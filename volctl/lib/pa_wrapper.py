@@ -410,8 +410,6 @@ class AbstractMonitorableSink:
         self._stream = None
         self._on_stream_read_ctypes = pa_stream_request_cb_t(self._on_stream_read)
         self._is_sink_input = isinstance(self, SinkInput)
-        # TODO create setting for disabling monitoring
-        self._monitor_stream()
 
     def update(self, struct, _):
         """Update sink properties."""
@@ -434,7 +432,7 @@ class AbstractMonitorableSink:
         """Sink index"""
         return self.idx
 
-    def _monitor_stream(self):
+    def monitor_stream(self):
         if self._stream is not None:
             pa_stream_disconnect(self._stream)
 
@@ -450,6 +448,11 @@ class AbstractMonitorableSink:
             None,
             PA_STREAM_DONT_MOVE | PA_STREAM_PEAK_DETECT | PA_STREAM_ADJUST_LATENCY,
         )
+
+    def stop_monitor_stream(self):
+        if self._stream is not None:
+            pa_stream_disconnect(self._stream)
+            self._stream = None
 
     def _on_stream_read(self, stream, length, _):
         data = c_void_p()

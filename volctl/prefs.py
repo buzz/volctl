@@ -42,6 +42,7 @@ class PreferencesDialog(Gtk.Dialog):
         self._row_osd_timeout = self._add_scale(
             "osd-timeout", self._scale_timeout_format
         )
+        self._add_switch("vu-enabled")
         self._add_entry("mixer-command", self._default_mixer_cmd)
 
         self._update_rows()
