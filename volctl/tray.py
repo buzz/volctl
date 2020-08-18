@@ -1,7 +1,7 @@
 """volctl tray icon"""
 
 from math import floor
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GLib
 
 from volctl.lib.pulseaudio import (
     PA_VOLUME_MUTED,
@@ -20,9 +20,7 @@ class TrayIcon(Gtk.StatusIcon):
         self._volctl = volctl
         self._volume = 0
         self._mute = False
-        self._menu = Gtk.Menu()
-        self._setup_statusicon()
-        self._setup_menu()
+        GLib.idle_add(self._setup_statusicon)
 
     def update_values(self, volume, mute):
         """Remember current volume and mute values."""
@@ -46,14 +44,19 @@ class TrayIcon(Gtk.StatusIcon):
     # gui setup
 
     def _setup_statusicon(self):
+        self._setup_menu()
+        self.set_visible(True)
+        self.set_name("volctl")
         self.set_title("Volume")
         self.set_has_tooltip(True)
         self.connect("popup-menu", self._cb_popup)
         self.connect("button-press-event", self._cb_button_press)
         self.connect("scroll-event", self._cb_scroll)
         self.connect("query-tooltip", self._cb_tooltip)
+        self.connect("notify::embedded", self._cb_notify_embedded)
 
     def _setup_menu(self):
+        self._menu = Gtk.Menu()
         mute_menu_item = Gtk.ImageMenuItem("Mute")
         img = Gtk.Image.new_from_icon_name(
             "audio-volume-muted", Gtk.IconSize.SMALL_TOOLBAR
@@ -90,6 +93,9 @@ class TrayIcon(Gtk.StatusIcon):
         self._menu.show_all()
 
     # gui callbacks
+
+    def _cb_notify_embedded(self, *_):
+        self._update_icon()
 
     def _cb_tooltip(self, item, xcoord, ycoord, keyboard_mode, tooltip):
         # pylint: disable=too-many-arguments
