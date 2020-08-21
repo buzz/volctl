@@ -16,7 +16,7 @@
     <div class="wrapper">
       <header>
         <h1>Volctl</h1>
-        <p>Volume control for GNU/Linux desktops featuring per-app sliders</p>
+        <p>Volume control for Linux desktops featuring per-app sliders and OSD</p>
 
         <p class="view">
           <a href="https://github.com/buzz/volctl"
@@ -53,7 +53,7 @@
 
         </p>
         <a href="https://www.freedesktop.org/wiki/Software/PulseAudio/">PulseAudio</a>-enabled
-        tray icon volume control for GNU/Linux desktops.
+        tray icon volume control and OSD for Linux desktops.
         </p>
 
         <p>
@@ -75,6 +75,14 @@
           >.
         </p>
 
+        <p style="text-align: center;">
+          <img
+            alt="Screenshot"
+            style="border: 1px solid #727272; padding: 1px"
+            src="./screenshot.png"
+          />
+        </p>
+
         <h2>
           <a id="features" class="anchor" href="#features" aria-hidden="true"
             ><span aria-hidden="true" class="octicon octicon-link"></span></a
@@ -83,39 +91,16 @@
 
         <ul>
           <li>
-            Runs on virtually every desktop environment under GNU/Linux. (Needs
-            to support the freedesktop system tray specs)
+            Runs on virtually every desktop environment (Needs to support the
+            freedesktop system tray specs)
           </li>
           <li>Control main volumes as well as individual applications</li>
           <li>Shows applications icons and names</li>
-          <li>
-            Internally uses the PulseAudio library directly which turned out to
-            work much better then DBUS
-          </li>
+          <li>Per-application VU meter</li>
           <li>Double-click opens <code>pavucontrol</code></li>
           <li>Mouse-wheel support</li>
           <li>On-screen volume display (OSD)</li>
         </ul>
-
-        <h2>Screenshots</h2>
-
-        <h3>Tray icon with per-application volume sliders</h3>
-
-        <p>
-          <img
-            src="https://buzz.github.io/volctl/screenshot.png"
-            alt="Screenshot"
-          />
-        </p>
-
-        <h3>On-screen volume display (OSD)</h3>
-
-        <p>
-          <img
-            src="https://buzz.github.io/volctl/screenshot-osd.png"
-            alt="Screenshot OSD"
-          />
-        </p>
 
         <h2>
           <a
