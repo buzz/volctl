@@ -17,9 +17,10 @@ application. If you're looking for that check out the excellent
 
 * Runs on virtually every desktop environment (Needs to support the freedesktop system tray specs)
 * Control main volumes as well as individual applications
-* Shows applications icons and names
+* Mute individual applications
+* Shows application icons and names
 * Per-application VU meter
-* Double-click opens *pavucontrol*
+* Double-click opens *pavucontrol* (or custom mixer application)
 * Mouse-wheel support
 * On-screen volume display (OSD)
 
