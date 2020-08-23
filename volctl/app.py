@@ -2,8 +2,7 @@
 
 from subprocess import Popen
 import sys
-from gi.repository import Gio
-from gi.repository import Gtk
+from gi.repository import Gdk, Gio, Gtk
 
 from volctl.meta import (
     PROGRAM_NAME,
@@ -23,11 +22,30 @@ from volctl.osd import VolumeOverlay
 
 DEFAULT_MIXER_CMD = "pavucontrol"
 
+TOGGLE_BUTTON_CSS = b"""
+button.toggle {
+    padding: 0;
+    margin-bottom: -5px;
+}
+button.toggle:hover {
+    background-color: transparent;
+    border-color: transparent;
+}
+button.toggle:checked {
+    background-color: transparent;
+    border-color: transparent;
+}
+button.toggle:checked image {
+    -gtk-icon-effect: dim;
+}
+"""
+
 
 class VolctlApp:
     """GUI application for volctl."""
 
     def __init__(self):
+        self._set_style()
         self.settings = Gio.Settings("apps.volctl", path="/apps/volctl/")
         self.settings.connect("changed", self._cb_settings_changed)
         self.mouse_wheel_step = self.settings.get_int("mouse-wheel-step")
@@ -64,6 +82,13 @@ class VolctlApp:
             Gtk.main_quit()
         else:
             sys.exit(1)
+
+    def _set_style(self):
+        provider = Gtk.CssProvider()
+        provider.load_from_data(TOGGLE_BUTTON_CSS)
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
 
     def _create_osd(self):
         self._osd = VolumeOverlay(self)

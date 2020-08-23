@@ -43,6 +43,7 @@ from volctl.lib.pulseaudio import (
     pa_context_set_sink_volume_by_index,
     pa_context_set_sink_mute_by_index,
     pa_context_set_sink_input_volume,
+    pa_context_set_sink_input_mute,
     # misc
     pa_operation_unref,
     pa_proplist_to_string,
@@ -149,6 +150,13 @@ class PulseAudio:
         """Set mute for a sink input by index."""
         operation = pa_context_set_sink_input_volume(
             self.context, index, cvolume, self.__null_cb, None
+        )
+        pa_operation_unref(operation)
+
+    def set_sink_input_mute(self, index, mute):
+        """Set mute for a sink input by index."""
+        operation = pa_context_set_sink_input_mute(
+            self.context, index, mute, self.__null_cb, None
         )
         pa_operation_unref(operation)
 
@@ -341,6 +349,10 @@ class PulseAudioManager:
     def set_sink_input_volume(self, index, cvolume):
         """Set sink input volume by index."""
         self._pulseaudio.set_sink_input_volume(index, cvolume)
+
+    def set_sink_input_mute(self, index, mute):
+        """Set sink input mute by index."""
+        self._pulseaudio.set_sink_input_mute(index, mute)
 
     # called by gui thread -> lock pa thread
 
@@ -543,6 +555,11 @@ class SinkInput(AbstractMonitorableSink):
         self.volume = volume
         cvolume = cvolume_from_volume(volume, self.channels)
         self.pa_mgr.set_sink_input_volume(self.idx, cvolume)
+
+    def set_mute(self, mute):
+        """Set mute for this sink input."""
+        self.mute = mute
+        self.pa_mgr.set_sink_input_mute(self.idx, mute and 1 or 0)
 
     @property
     def icon_name(self):

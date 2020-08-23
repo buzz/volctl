@@ -112,14 +112,14 @@ class VolumeSliders(Gtk.Window):
 
         # sinks
         for _, sink in self._volctl.pa_mgr.pa_sinks.items():
-            scale, icon = self._add_scale(sink)
-            self._sink_scales[sink.idx] = scale
+            scale, btn = self._add_scale(sink)
+            self._sink_scales[sink.idx] = (scale, btn)
             scale.connect("value-changed", self._cb_sink_scale_change)
-            self._update_scale_vol(scale, sink.volume, sink.mute)
+            self._update_scale_values((scale, btn), sink.volume, sink.mute)
             scale.set_margin_top(self.SPACING)
-            icon.set_margin_bottom(self.SPACING)
+            btn.set_margin_bottom(self.SPACING)
             self._grid.attach(scale, pos, 0, 1, 1)
-            self._grid.attach(icon, pos, 1, 1, 1)
+            self._grid.attach(btn, pos, 1, 1, 1)
             pos += 1
 
         # separator
@@ -132,14 +132,14 @@ class VolumeSliders(Gtk.Window):
 
         # sink inputs
         for _, sink_input in self._volctl.pa_mgr.pa_sink_inputs.items():
-            scale, icon = self._add_scale(sink_input)
-            self._sink_input_scales[sink_input.idx] = scale
+            scale, btn = self._add_scale(sink_input)
+            self._sink_input_scales[sink_input.idx] = (scale, btn)
             scale.connect("value-changed", self._cb_sink_input_scale_change)
-            self._update_scale_vol(scale, sink_input.volume, sink_input.mute)
+            self._update_scale_values((scale, btn), sink_input.volume, sink_input.mute)
             scale.set_margin_top(self.SPACING)
-            icon.set_margin_bottom(self.SPACING)
+            btn.set_margin_bottom(self.SPACING)
             self._grid.attach(scale, pos, 0, 1, 1)
-            self._grid.attach(icon, pos, 1, 1, 1)
+            self._grid.attach(btn, pos, 1, 1, 1)
             pos += 1
 
         pa_threaded_mainloop_unlock(self._volctl.pa_mgr.mainloop)
@@ -169,18 +169,24 @@ class VolumeSliders(Gtk.Window):
             scale.set_fill_level(0)
             scale.set_restrict_to_fill_level(False)
 
-        # icon
+        # mute button
         icon = Gtk.Image()
-        icon.set_tooltip_text(sink.name)
         icon.set_from_icon_name(sink.icon_name, Gtk.IconSize.SMALL_TOOLBAR)
+        btn = Gtk.ToggleButton()
+        btn.set_image(icon)
+        btn.set_relief(Gtk.ReliefStyle.NONE)
+        btn.set_tooltip_text(sink.name)
+        btn.connect("toggled", self._cb_mute_toggle, sink)
 
-        return scale, icon
+        return scale, btn
 
     @staticmethod
-    def _update_scale_vol(scale, volume, mute):
+    def _update_scale_values(scale_btn, volume, mute):
+        scale, btn = scale_btn
         scale.set_value(volume)
         if mute is not None:
             scale.set_sensitive(not mute)
+            btn.set_active(mute)
 
     @staticmethod
     def _update_scale_peak(scale, val):
@@ -207,23 +213,23 @@ class VolumeSliders(Gtk.Window):
     def update_sink_scale(self, idx, volume, mute):
         """Update sink scale by index."""
         try:
-            scale = self._sink_scales[idx]
+            scale_btn = self._sink_scales[idx]
         except KeyError:
             return
-        self._update_scale_vol(scale, volume, mute)
+        self._update_scale_values(scale_btn, volume, mute)
 
     def update_sink_input_scale(self, idx, volume, mute):
         """Update sink input scale by index."""
         try:
-            scale = self._sink_input_scales[idx]
+            scale_btn = self._sink_input_scales[idx]
         except KeyError:
             return
-        self._update_scale_vol(scale, volume, mute)
+        self._update_scale_values(scale_btn, volume, mute)
 
     def update_sink_scale_peak(self, idx, val):
         """Update sink scale peak value by index."""
         try:
-            scale = self._sink_scales[idx]
+            scale, _ = self._sink_scales[idx]
         except KeyError:
             return
         self._update_scale_peak(scale, val)
@@ -231,7 +237,7 @@ class VolumeSliders(Gtk.Window):
     def update_sink_input_scale_peak(self, idx, val):
         """Update sink input peak value by index."""
         try:
-            scale = self._sink_input_scales[idx]
+            scale, _ = self._sink_input_scales[idx]
         except KeyError:
             return
         self._update_scale_peak(scale, val)
@@ -282,6 +288,12 @@ class VolumeSliders(Gtk.Window):
         self._volctl.close_slider()
         return GLib.SOURCE_REMOVE
 
+    def _cb_mute_toggle(self, button, sink):
+        mute = button.get_property("active")
+        pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
+        sink.set_mute(mute)
+        pa_threaded_mainloop_unlock(self._volctl.pa_mgr.mainloop)
+
     # find sinks
 
     def _find_sink_idx_by_scale(self, scale):
@@ -293,6 +305,6 @@ class VolumeSliders(Gtk.Window):
     @staticmethod
     def _find_idx_by_scale(scale, scales):
         for idx, val in scales.items():
-            if scale == val:
+            if scale == val[0]:
                 return idx
         return -1
