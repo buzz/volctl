@@ -72,19 +72,19 @@ class VolumeSliders(Gtk.Window):
         # initial position (window anchor based on screen quadrant)
         win_x = tray_rect.x
         win_y = tray_rect.y
-        if tray_rect.x < self._monitor_rect.width / 2:
+        if tray_rect.x - self._monitor_rect.x < self._monitor_rect.width / 2:
             win_x += tray_rect.width
         else:
             if orient == Gtk.Orientation.VERTICAL:
                 win_x -= win_w
-        if tray_rect.y < self._monitor_rect.height / 2:
+        if tray_rect.y - self._monitor_rect.y < self._monitor_rect.height / 2:
             win_y += tray_rect.height
         else:
             win_y -= win_h
 
         # keep window inside screen
-        if win_x + win_w > self._monitor_rect.width:
-            win_x = self._monitor_rect.width - win_w
+        if win_x + win_w > self._monitor_rect.x + self._monitor_rect.width:
+            win_x = self._monitor_rect.x + self._monitor_rect.width - win_w
 
         self.set_screen(screen)
         self.move(win_x, win_y)
