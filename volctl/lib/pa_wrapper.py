@@ -199,6 +199,11 @@ class PulseAudio:
             pa_threaded_mainloop_signal(self.pa_mainloop, 0)
 
     def _request_update(self):
+        operation = pa_context_get_server_info(
+            self.context, self.__pa_server_info_cb, None
+        )
+        pa_operation_unref(operation)
+
         operation = pa_context_get_client_info_list(
             self.context, self.__pa_client_info_list_cb, None
         )
@@ -211,11 +216,6 @@ class PulseAudio:
 
         operation = pa_context_get_sink_input_info_list(
             self.context, self.__pa_sink_input_info_list_cb, True
-        )
-        pa_operation_unref(operation)
-
-        operation = pa_context_get_server_info(
-            self.context, self.__pa_server_info_cb, None
         )
         pa_operation_unref(operation)
 
@@ -361,6 +361,10 @@ class PulseAudioManager:
 
         return self._pa_sinks_by_name[self._default_sink]
 
+    def is_main_sink(self, sink_name):
+        """Checks, whether the sink with the passed name is the default (main) sink."""
+        return sink_name == self._default_sink
+
     def set_sink_volume(self, index, cvolume):
         """Set sink volume by index."""
         self._pulseaudio.set_sink_volume(index, cvolume)
@@ -407,16 +411,12 @@ class PulseAudioManager:
             GObject.idle_add(self.volctl.slider_count_changed)
         else:
             sink = self._pa_sinks[index]
-
             old_name = sink.sink_name
-            new_name = struct.name
-            if old_name != new_name:
-                # need to update the dict before calling update(), because that again relies
-                # on get_main_sink()
-                del self._pa_sinks_by_name[old_name]
-                self._pa_sinks_by_name[new_name] = sink
 
             sink.update(struct, props)
+
+            del self._pa_sinks_by_name[old_name]
+            self._pa_sinks_by_name[sink.sink_name] = sink
 
     def _on_remove_pa_sink(self, index):
         sink = self._pa_sinks.pop(index)
@@ -536,7 +536,7 @@ class Sink(AbstractMonitorableSink):
         self.mute = bool(struct.mute)
 
         # notify volctl about update (first sound card)
-        if self == self.pa_mgr.get_main_sink():
+        if self.pa_mgr.is_main_sink(self._sink_name):
             GObject.idle_add(self.pa_mgr.volctl.update_values, self.volume, self.mute)
         # scale update
         GObject.idle_add(
