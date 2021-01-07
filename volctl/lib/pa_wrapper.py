@@ -429,7 +429,7 @@ class PulseAudioManager:
             return
         # unknown if this is the right way to filter for applications
         # but seems to keep away things like loopback module etc.
-        if "protocol-native" not in struct.driver.decode("utf-8"):
+        if struct.driver.decode("utf-8") not in ("protocol-native.c", "PipeWire"):
             return
 
         if index not in self._pa_sink_inputs:
