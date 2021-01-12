@@ -42,6 +42,7 @@ class PreferencesDialog(Gtk.Dialog):
         self._row_osd_timeout = self._add_scale(
             "osd-timeout", self._scale_timeout_format
         )
+        self._row_osd_size = self._add_scale("osd-scale", self._scale_osd_size_format)
         self._add_switch("vu-enabled")
         self._add_entry("mixer-command", self._default_mixer_cmd)
 
@@ -87,7 +88,10 @@ class PreferencesDialog(Gtk.Dialog):
         scale.set_size_request(128, 24)
         scale.connect("format_value", format_func)
         self._settings.bind(
-            name, scale.get_adjustment(), "value", Gio.SettingsBindFlags.DEFAULT,
+            name,
+            scale.get_adjustment(),
+            "value",
+            Gio.SettingsBindFlags.DEFAULT,
         )
         hbox.pack_start(scale, False, True, 10)
         self.listbox.add(row)
@@ -117,6 +121,10 @@ class PreferencesDialog(Gtk.Dialog):
         return "%.1f sec" % (value / 1000.0)
 
     @staticmethod
+    def _scale_osd_size_format(_, value):
+        return "%d %%" % (value,)
+
+    @staticmethod
     def _scale_mouse_wheel_step_format(_, value):
         return "%.1f %%" % (100.0 / value)
 
@@ -127,8 +135,10 @@ class PreferencesDialog(Gtk.Dialog):
             self._row_timeout.hide()
         if self._settings.get_boolean("osd-enabled"):
             self._row_osd_timeout.show()
+            self._row_osd_size.show()
         else:
             self._row_osd_timeout.hide()
+            self._row_osd_size.hide()
 
     # gsettings callback
 

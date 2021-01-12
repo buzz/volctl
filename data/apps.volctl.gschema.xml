@@ -33,6 +33,12 @@
       <summary>Timeout</summary>
       <description>Time the OSD is being shown.</description>
     </key>
+    <key type="i" name="osd-scale">
+      <range min="50" max="200"/>
+      <default>100</default>
+      <summary>OSD size</summary>
+      <description>OSD scale in percent.</description>
+    </key>
     <key type="b" name="show-percentage">
       <default>false</default>
       <summary>Show percentage</summary>

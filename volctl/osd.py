@@ -17,10 +17,12 @@ import volctl.lib.xwrappers as X
 class VolumeOverlay(Gtk.Window):
     """Window that displays volume sliders."""
 
-    WIDTH = 200
-    HEIGHT = 200
+    BASE_WIDTH = 200
+    BASE_HEIGHT = 200
+    BASE_FONT_SIZE = 42
+    BASE_LINE_WIDTH = 5
     SCREEN_MARGIN = 64
-    PADDING = 24
+    BASE_PADDING = 24
     BG_OPACITY = 0.85
     BG_CORNER_RADIUS = 8
     MUTE_OPACITY = 0.2
@@ -31,7 +33,16 @@ class VolumeOverlay(Gtk.Window):
         super().__init__()
         self._volctl = volctl
         self.position = (-self.SCREEN_MARGIN, -self.SCREEN_MARGIN)
-        self.set_default_size(self.WIDTH, self.HEIGHT)
+
+        scale = self._volctl.settings.get_int("osd-scale") / 100
+        self._width = int(self.BASE_WIDTH * scale)
+        self._height = int(self.BASE_HEIGHT * scale)
+        self._font_size = int(self.BASE_FONT_SIZE * scale)
+        self._line_width = self.BASE_LINE_WIDTH * scale
+        self._padding = int(self.BASE_PADDING * scale)
+        self._corner_radius = int(self.BG_CORNER_RADIUS * scale)
+
+        self.set_default_size(self._width, self._height)
         self._volume = 0
         self._mute = False
         self._hide_timeout = None
@@ -86,36 +97,36 @@ class VolumeOverlay(Gtk.Window):
         """Draw on-screen volume display."""
         val = float(self._volume) / float(PA_VOLUME_NORM)
         mute_opacity = self.MUTE_OPACITY if self._mute else 1.0
-        xcenter = self.WIDTH / 2
+        xcenter = self._width / 2
 
         # background
         deg = math.pi / 180.0
         cairo_r.new_sub_path()
         cairo_r.arc(
-            self.WIDTH - self.BG_CORNER_RADIUS,
-            self.BG_CORNER_RADIUS,
-            self.BG_CORNER_RADIUS,
+            self._width - self._corner_radius,
+            self._corner_radius,
+            self._corner_radius,
             -90 * deg,
             0,
         )
         cairo_r.arc(
-            self.WIDTH - self.BG_CORNER_RADIUS,
-            self.HEIGHT - self.BG_CORNER_RADIUS,
-            self.BG_CORNER_RADIUS,
+            self._width - self._corner_radius,
+            self._height - self._corner_radius,
+            self._corner_radius,
             0,
             90 * deg,
         )
         cairo_r.arc(
-            self.BG_CORNER_RADIUS,
-            self.HEIGHT - self.BG_CORNER_RADIUS,
-            self.BG_CORNER_RADIUS,
+            self._corner_radius,
+            self._height - self._corner_radius,
+            self._corner_radius,
             90 * deg,
             180 * deg,
         )
         cairo_r.arc(
-            self.BG_CORNER_RADIUS,
-            self.BG_CORNER_RADIUS,
-            self.BG_CORNER_RADIUS,
+            self._corner_radius,
+            self._corner_radius,
+            self._corner_radius,
             180 * deg,
             270 * deg,
         )
@@ -134,21 +145,21 @@ class VolumeOverlay(Gtk.Window):
         # text
         text = "{:d} %".format(round(100 * val))
         cairo_r.select_font_face("sans-serif")
-        cairo_r.set_font_size(42)
+        cairo_r.set_font_size(self._font_size)
         _, _, text_width, text_height, _, _ = cairo_r.text_extents(text)
-        cairo_r.move_to(xcenter - text_width / 2, self.HEIGHT - self.PADDING)
+        cairo_r.move_to(xcenter - text_width / 2, self._height - self._padding)
         cairo_r.show_text(text)
 
         # volume indicator
-        ind_height = self.HEIGHT - 3 * self.PADDING - text_height
+        ind_height = self._height - 3 * self._padding - text_height
         outer_radius = ind_height / 2
         inner_radius = outer_radius / 1.618
         bars = min(round(self.NUM_BARS * val), self.NUM_BARS)
-        cairo_r.set_line_width(5)
+        cairo_r.set_line_width(self._line_width)
         cairo_r.set_line_cap(cairo.LINE_CAP_ROUND)
         for i in range(bars):
             cairo_r.identity_matrix()
-            cairo_r.translate(xcenter, self.PADDING + ind_height / 2)
+            cairo_r.translate(xcenter, self._padding + ind_height / 2)
             cairo_r.rotate(math.pi + 2 * math.pi / self.NUM_BARS * i)
             cairo_r.move_to(0.0, -inner_radius)
             cairo_r.line_to(0.0, -outer_radius)
