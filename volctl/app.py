@@ -2,7 +2,7 @@
 
 from subprocess import Popen
 import sys
-from gi.repository import Gdk, Gio, Gtk
+from gi.repository import Gdk, Gio, GLib, Gtk
 
 from volctl.meta import (
     PROGRAM_NAME,
@@ -12,12 +12,12 @@ from volctl.meta import (
     WEBSITE,
     VERSION,
 )
-from volctl.tray import TrayIcon
-from volctl.lib.pa_wrapper import PulseAudioManager
-from volctl.lib.pulseaudio import pa_threaded_mainloop_lock, pa_threaded_mainloop_unlock
-from volctl.prefs import PreferencesDialog
-from volctl.slider_win import VolumeSliders
+from volctl.status_icon import StatusIcon
+
 from volctl.osd import VolumeOverlay
+from volctl.prefs import PreferencesDialog
+from volctl.pulsemgr import PulseManager
+from volctl.slider_win import VolumeSliders
 
 
 DEFAULT_MIXER_CMD = "pavucontrol"
@@ -50,23 +50,25 @@ class VolctlApp:
         self.settings.connect("changed", self._cb_settings_changed)
         self.mouse_wheel_step = self.settings.get_int("mouse-wheel-step")
         self._first_volume_update = True
-        self._volume = 0
-        self._mute = False
+        self.pulsemgr = PulseManager(self)
 
-        self.pa_mgr = PulseAudioManager(self)
-
-        # GUI
-        self.tray_icon = TrayIcon(self)
+        self.status_icon = None
         self.sliders_win = None
         self._about_win = None
         self._preferences = None
         self._osd = None
         self._mixer_process = None
 
+        GLib.idle_add(self.create_status_icon)  # Defer so that PulseAudio thread is up
+
+    def create_status_icon(self):
+        """Create status icon."""
+        self.status_icon = StatusIcon(self)
+
     def quit(self):
         """Gracefully shut down application."""
         try:
-            self.pa_mgr.close()
+            self.pulsemgr.close()
         except AttributeError:
             pass
         if Gtk.main_level() > 0:
@@ -87,7 +89,9 @@ class VolctlApp:
         provider = Gtk.CssProvider()
         provider.load_from_data(TOGGLE_BUTTON_CSS)
         Gtk.StyleContext.add_provider_for_screen(
-            Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+            Gdk.Screen.get_default(),
+            provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )
 
     def _create_osd(self):
@@ -101,40 +105,30 @@ class VolctlApp:
         self._osd = None
 
     def start_vu(self):
-        if self.settings.get_boolean("vu-enabled"):
-            pa_threaded_mainloop_lock(self.pa_mgr.mainloop)
-            for _, sink in self.pa_mgr.pa_sinks.items():
-                sink.monitor_stream()
-            for _, sink_input in self.pa_mgr.pa_sink_inputs.items():
-                sink_input.monitor_stream()
-            pa_threaded_mainloop_unlock(self.pa_mgr.mainloop)
+        pass
+        # if self.settings.get_boolean("vu-enabled"):
+        #     pa_threaded_mainloop_lock(self.pa_mgr.mainloop)
+        #     for _, sink in self.pa_mgr.pa_sinks.items():
+        #         sink.monitor_stream()
+        #     for _, sink_input in self.pa_mgr.pa_sink_inputs.items():
+        #         sink_input.monitor_stream()
+        #     pa_threaded_mainloop_unlock(self.pa_mgr.mainloop)
 
     def stop_vu(self):
-        pa_threaded_mainloop_lock(self.pa_mgr.mainloop)
-        for _, sink in self.pa_mgr.pa_sinks.items():
-            sink.stop_monitor_stream()
-        for _, sink_input in self.pa_mgr.pa_sink_inputs.items():
-            sink_input.stop_monitor_stream()
-        pa_threaded_mainloop_unlock(self.pa_mgr.mainloop)
+        pass
+        # pa_threaded_mainloop_lock(self.pa_mgr.mainloop)
+        # for _, sink in self.pa_mgr.pa_sinks.items():
+        #     sink.stop_monitor_stream()
+        # for _, sink_input in self.pa_mgr.pa_sink_inputs.items():
+        #     sink_input.stop_monitor_stream()
+        # pa_threaded_mainloop_unlock(self.pa_mgr.mainloop)
 
-    # updates coming from pulseaudio
-
-    def update_values(self, volume, mute):
-        """Main sink update."""
-        # no need to update if values didn't change
-        if volume == self._volume and mute == self._mute:
-            return
-
-        self._volume = volume
-        self._mute = mute
-
-        # tray icon
-        self.tray_icon.update_values(volume, mute)
-
+    def update_main(self, volume, mute):
+        """Default sink update."""
+        self.status_icon.update(volume, mute)
         # OSD
         if self._first_volume_update:
-            # Avoid showing on program start
-            self._first_volume_update = False
+            self._first_volume_update = False  # Avoid showing on program start
             return
         if self.settings.get_boolean("osd-enabled"):
             if self._osd is None:
@@ -143,29 +137,33 @@ class VolctlApp:
         elif self._osd is not None:
             self._osd.destroy()
 
-    def update_sink_scale(self, idx, volume, mute):
-        """Notify sink scale when update is coming from pulseaudio."""
+    # Updates coming from pulseaudio
+
+    def sink_update(self, idx, volume, mute):
+        """A sink update is coming from PulseAudio."""
+        if idx == self.pulsemgr.default_sink_idx:
+            self.update_main(volume, mute)
         if self.sliders_win:
             self.sliders_win.update_sink_scale(idx, volume, mute)
 
-    def update_sink_input_scale(self, idx, volume, mute):
-        """Notify sink input scale when update is coming from pulseaudio."""
+    def sink_input_update(self, idx, volume, mute):
+        """A sink input update is coming from PulseAudio."""
         if self.sliders_win:
             self.sliders_win.update_sink_input_scale(idx, volume, mute)
 
-    def update_sink_peak(self, idx, val):
-        """Notify sink scale when update is coming from pulseaudio."""
-        if self.sliders_win:
-            self.sliders_win.update_sink_scale_peak(idx, val)
+    # def update_sink_peak(self, idx, val):
+    #     """Notify sink scale when update is coming from pulseaudio."""
+    #     if self.sliders_win:
+    #         self.sliders_win.update_sink_scale_peak(idx, val)
 
-    def update_sink_input_peak(self, idx, val):
-        """Notify sink input scale when update is coming from pulseaudio."""
-        if self.sliders_win:
-            self.sliders_win.update_sink_input_scale_peak(idx, val)
+    # def update_sink_input_peak(self, idx, val):
+    #     """Notify sink input scale when update is coming from pulseaudio."""
+    #     if self.sliders_win:
+    #         self.sliders_win.update_sink_input_scale_peak(idx, val)
 
     def slider_count_changed(self):
         """Amount of sliders changed."""
-        if self.tray_icon and self.tray_icon.initialized and self.sliders_win:
+        if self.status_icon and self.sliders_win:
             self.sliders_win.create_sliders()
             self.start_vu()
 

@@ -31,5 +31,5 @@ setup(
         ("share/applications", ["data/volctl.desktop"]),
         ("share/glib-2.0/schemas", ["data/apps.volctl.gschema.xml"]),
     ],
-    install_requires=["click", "pycairo", "PyGObject", "PyYAML"],
+    install_requires=["click", "pulsectl", "pycairo", "PyGObject", "PyYAML"],
 )

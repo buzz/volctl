@@ -1,19 +1,11 @@
 """
 VolumeSliders window
 
-
-Small window that appears next to tray icon when activated. It displays
-master and app volume sliders.
+Small window that appears next to tray icon when activated. It show sliders
+for main and application volume.
 """
 
 from gi.repository import Gtk, Gdk, GLib, GObject
-
-from volctl.lib.pulseaudio import (
-    PA_VOLUME_MUTED,
-    PA_VOLUME_NORM,
-    pa_threaded_mainloop_lock,
-    pa_threaded_mainloop_unlock,
-)
 
 
 class VolumeSliders(Gtk.Window):
@@ -28,7 +20,7 @@ class VolumeSliders(Gtk.Window):
         self._grid = None
         self._show_percentage = self._volctl.settings.get_boolean("show-percentage")
 
-        # gui objects by index
+        # GUI objects by index
         self._sink_scales = None
         self._sink_input_scales = None
 
@@ -40,7 +32,7 @@ class VolumeSliders(Gtk.Window):
         self.add(self._frame)
         self.create_sliders()
 
-        # timeout
+        # Timeout
         self._timeout = None
         self._enable_timeout()
 
@@ -58,31 +50,31 @@ class VolumeSliders(Gtk.Window):
 
     def _set_increments_on_scale(self, scale):
         scale.set_increments(
-            PA_VOLUME_NORM / self._volctl.mouse_wheel_step,
-            PA_VOLUME_NORM / self._volctl.mouse_wheel_step,
+            1.0 / self._volctl.mouse_wheel_step,
+            1.0 / self._volctl.mouse_wheel_step,
         )
 
     def _set_position(self):
-        status_icon = self._volctl.tray_icon
-        info_avail, screen, tray_rect, orient = status_icon.get_geometry()
+        status_icon = self._volctl.status_icon
+        info_avail, screen, status_rect, orient = status_icon.get_geometry()
         if not info_avail:
             raise ValueError("StatusIcon position information not available!")
         win_w, win_h = self.get_size()
 
-        # initial position (window anchor based on screen quadrant)
-        win_x = tray_rect.x
-        win_y = tray_rect.y
-        if tray_rect.x - self._monitor_rect.x < self._monitor_rect.width / 2:
-            win_x += tray_rect.width
+        # Initial position (window anchor based on screen quadrant)
+        win_x = status_rect.x
+        win_y = status_rect.y
+        if status_rect.x - self._monitor_rect.x < self._monitor_rect.width / 2:
+            win_x += status_rect.width
         else:
             if orient == Gtk.Orientation.VERTICAL:
                 win_x -= win_w
-        if tray_rect.y - self._monitor_rect.y < self._monitor_rect.height / 2:
-            win_y += tray_rect.height
+        if status_rect.y - self._monitor_rect.y < self._monitor_rect.height / 2:
+            win_y += status_rect.height
         else:
             win_y -= win_h
 
-        # keep window inside screen
+        # Keep window inside screen
         if win_x + win_w > self._monitor_rect.x + self._monitor_rect.width:
             win_x = self._monitor_rect.x + self._monitor_rect.width - win_w
 
@@ -91,6 +83,7 @@ class VolumeSliders(Gtk.Window):
 
     def create_sliders(self):
         """(Re-)create sliders from PulseAudio sinks."""
+        print("create_sliders")
         if self._grid is not None:
             self._grid.destroy()
         if self._sink_scales is not None:
@@ -106,55 +99,75 @@ class VolumeSliders(Gtk.Window):
         self._frame.add(self._grid)
 
         pos = 0
+        with self._volctl.pulsemgr.update_wakeup() as pulse:
+            sinks = pulse.sink_list()
+            sink_inputs = pulse.sink_input_list()
 
-        # touching pa objects here!
-        pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
-
-        # sinks
-        for _, sink in self._volctl.pa_mgr.pa_sinks.items():
-            scale, btn = self._add_scale(sink)
-            self._sink_scales[sink.idx] = (scale, btn)
-            scale.connect("value-changed", self._cb_sink_scale_change)
-            self._update_scale_values((scale, btn), sink.volume, sink.mute)
+        # Sinks
+        for sink in sinks:
+            scale, btn = self._add_scale(sink.proplist["alsa.card_name"], "audio-card")
+            self._sink_scales[sink.index] = scale, btn
+            self._update_scale_values((scale, btn), sink.volume.value_flat, sink.mute)
             scale.set_margin_top(self.SPACING)
             btn.set_margin_bottom(self.SPACING)
             self._grid.attach(scale, pos, 0, 1, 1)
             self._grid.attach(btn, pos, 1, 1, 1)
+            idx = sink.index
+            scale.connect("value-changed", self._cb_sink_scale_change, idx)
+            btn.connect("toggled", self._cb_sink_mute_toggle, idx)
             pos += 1
 
-        # separator
-        if self._volctl.pa_mgr.pa_sink_inputs:
+        # Sink inputs
+        if sink_inputs:
             separator = Gtk.Separator().new(Gtk.Orientation.VERTICAL)
             separator.set_margin_top(self.SPACING)
             separator.set_margin_bottom(self.SPACING)
             self._grid.attach(separator, pos, 0, 1, 2)
             pos += 1
 
-        # sink inputs
-        for _, sink_input in self._volctl.pa_mgr.pa_sink_inputs.items():
-            scale, btn = self._add_scale(sink_input)
-            self._sink_input_scales[sink_input.idx] = (scale, btn)
-            scale.connect("value-changed", self._cb_sink_input_scale_change)
-            self._update_scale_values((scale, btn), sink_input.volume, sink_input.mute)
-            scale.set_margin_top(self.SPACING)
-            btn.set_margin_bottom(self.SPACING)
-            self._grid.attach(scale, pos, 0, 1, 1)
-            self._grid.attach(btn, pos, 1, 1, 1)
-            pos += 1
-
-        pa_threaded_mainloop_unlock(self._volctl.pa_mgr.mainloop)
+            for sink_input in sink_inputs:
+                try:
+                    icon_name = sink_input.proplist["media.icon_name"]
+                except KeyError:
+                    try:
+                        icon_name = sink_input.proplist["application.icon_name"]
+                    except KeyError:
+                        icon_name = "multimedia-volume-control"
+                try:
+                    name = (
+                        f"{sink_input.proplist['application.name']}: "
+                        + sink_input.proplist["media.name"]
+                    )
+                except KeyError:
+                    try:
+                        name = sink_input.proplist["application.name"]
+                    except KeyError:
+                        name = sink_input.name
+                scale, btn = self._add_scale(name, icon_name)
+                self._sink_input_scales[sink_input.index] = scale, btn
+                self._update_scale_values(
+                    (scale, btn), sink_input.volume.value_flat, sink_input.mute
+                )
+                scale.set_margin_top(self.SPACING)
+                btn.set_margin_bottom(self.SPACING)
+                self._grid.attach(scale, pos, 0, 1, 1)
+                self._grid.attach(btn, pos, 1, 1, 1)
+                idx = sink_input.index
+                scale.connect("value-changed", self._cb_sink_input_scale_change, idx)
+                btn.connect("toggled", self._cb_sink_input_mute_toggle, idx)
+                pos += 1
 
         self.show_all()
-        self.resize(1, 1)  # smallest possible
+        self.resize(1, 1)  # Smallest possible
         GObject.idle_add(self._set_position)
 
-    def _add_scale(self, sink):
-        # scale
+    def _add_scale(self, name, icon_name):
+        # Scale
         scale = Gtk.Scale().new(Gtk.Orientation.VERTICAL)
-        scale.set_range(PA_VOLUME_MUTED, PA_VOLUME_NORM)
+        scale.set_range(0.0, 1.0)
         scale.set_inverted(True)
         scale.set_size_request(24, 128)
-        scale.set_tooltip_text(sink.name)
+        scale.set_tooltip_text(name)
         self._set_increments_on_scale(scale)
         if self._show_percentage:
             scale.set_draw_value(True)
@@ -169,14 +182,13 @@ class VolumeSliders(Gtk.Window):
             scale.set_fill_level(0)
             scale.set_restrict_to_fill_level(False)
 
-        # mute button
+        # Mute button
         icon = Gtk.Image()
-        icon.set_from_icon_name(sink.icon_name, Gtk.IconSize.SMALL_TOOLBAR)
+        icon.set_from_icon_name(icon_name, Gtk.IconSize.SMALL_TOOLBAR)
         btn = Gtk.ToggleButton()
         btn.set_image(icon)
         btn.set_relief(Gtk.ReliefStyle.NONE)
-        btn.set_tooltip_text(sink.name)
-        btn.connect("toggled", self._cb_mute_toggle, sink)
+        btn.set_tooltip_text(name)
 
         return scale, btn
 
@@ -192,7 +204,7 @@ class VolumeSliders(Gtk.Window):
     def _update_scale_peak(scale, val):
         if val > 0:
             scale.set_show_fill_level(True)
-            scale.set_fill_level(val * PA_VOLUME_NORM)
+            scale.set_fill_level(val)
         else:
             scale.set_show_fill_level(False)
             scale.set_fill_level(0)
@@ -208,7 +220,7 @@ class VolumeSliders(Gtk.Window):
             GLib.Source.remove(self._timeout)
             self._timeout = None
 
-    # called by pa thread
+    # Updates coming from outside
 
     def update_sink_scale(self, idx, volume, mute):
         """Update sink scale by index."""
@@ -247,27 +259,29 @@ class VolumeSliders(Gtk.Window):
     @staticmethod
     def _cb_format_value(scale, val):
         """Format scale label"""
-        return "{:d}%".format(round(100 * val / PA_VOLUME_NORM))
+        return "{:d}%".format(round(100 * val))
 
-    def _cb_sink_scale_change(self, scale):
-        value = int(scale.get_value())
-        idx = self._find_sink_idx_by_scale(scale)
+    def _cb_sink_scale_change(self, scale, idx):
+        value = scale.get_value()
+        with self._volctl.pulsemgr.update_wakeup() as pulse:
+            sink = next(s for s in pulse.sink_list() if s.index == idx)
+            if sink:
+                pulse.volume_set_all_chans(sink, value)
 
-        if idx >= 0:
-            pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
-            sink = self._volctl.pa_mgr.pa_sinks[idx]
-            sink.set_volume(value)
-            pa_threaded_mainloop_unlock(self._volctl.pa_mgr.mainloop)
+    def _cb_sink_input_scale_change(self, scale, idx):
+        value = scale.get_value()
+        with self._volctl.pulsemgr.update_wakeup() as pulse:
+            sink_input = next(s for s in pulse.sink_input_list() if s.index == idx)
+            if sink_input:
+                pulse.volume_set_all_chans(sink_input, value)
 
-    def _cb_sink_input_scale_change(self, scale):
-        value = int(scale.get_value())
-        idx = self._find_sink_input_idx_by_scale(scale)
+    def _cb_sink_mute_toggle(self, button, idx):
+        mute = button.get_property("active")
+        self._volctl.pulsemgr.sink_set_mute(idx, mute)
 
-        if idx >= 0:
-            pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
-            sink_input = self._volctl.pa_mgr.pa_sink_inputs[idx]
-            sink_input.set_volume(value)
-            pa_threaded_mainloop_unlock(self._volctl.pa_mgr.mainloop)
+    def _cb_sink_input_mute_toggle(self, button, idx):
+        mute = button.get_property("active")
+        self._volctl.pulsemgr.sink_input_set_mute(idx, mute)
 
     def _cb_enter_notify(self, win, event):
         if (
@@ -287,24 +301,3 @@ class VolumeSliders(Gtk.Window):
         self._timeout = None
         self._volctl.close_slider()
         return GLib.SOURCE_REMOVE
-
-    def _cb_mute_toggle(self, button, sink):
-        mute = button.get_property("active")
-        pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
-        sink.set_mute(mute)
-        pa_threaded_mainloop_unlock(self._volctl.pa_mgr.mainloop)
-
-    # find sinks
-
-    def _find_sink_idx_by_scale(self, scale):
-        return self._find_idx_by_scale(scale, self._sink_scales)
-
-    def _find_sink_input_idx_by_scale(self, scale):
-        return self._find_idx_by_scale(scale, self._sink_input_scales)
-
-    @staticmethod
-    def _find_idx_by_scale(scale, scales):
-        for idx, val in scales.items():
-            if scale == val[0]:
-                return idx
-        return -1

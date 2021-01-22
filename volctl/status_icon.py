@@ -1,44 +1,24 @@
-"""volctl tray icon"""
-
 from math import floor
 from gi.repository import Gtk, Gdk, GLib
 
-from volctl.lib.pulseaudio import (
-    PA_VOLUME_MUTED,
-    PA_VOLUME_NORM,
-    pa_threaded_mainloop_lock,
-    pa_threaded_mainloop_unlock,
-)
 
-
-class TrayIcon(Gtk.StatusIcon):
-    """Volume control tray icon."""
+class StatusIcon(Gtk.StatusIcon):
+    """Volume control status icon."""
 
     def __init__(self, volctl):
         super().__init__()
-        self.initialized = False
         self._volctl = volctl
-        self._volume = 0
-        self._mute = False
+        self._menu = None
         GLib.idle_add(self._setup_statusicon)
 
-    def update_values(self, volume, mute):
-        """Remember current volume and mute values."""
-        self._volume = volume
-        self._mute = mute
-        self._update_icon()
-        # Consider completely initialized when first volume update was processed
-        self.initialized = True
-
-    def _update_icon(self):
+    def update(self, volume, mute):
         """Update status icon according to volume state."""
-        value = float(self._volume) / float(PA_VOLUME_NORM)
-        if self._mute:
+        if mute:
             state = "muted"
         else:
-            idx = min(int(floor(value * 3)), 2)
+            idx = min(int(floor(volume * 3)), 2)
             state = ["low", "medium", "high"][idx]
-        icon_name = "audio-volume-%s" % state
+        icon_name = f"audio-volume-{state}"
         self.set_from_icon_name(icon_name)
 
     # gui setup
@@ -94,22 +74,21 @@ class TrayIcon(Gtk.StatusIcon):
 
     # gui callbacks
 
-    def _cb_notify_embedded(self, *_):
-        self._update_icon()
+    def _cb_notify_embedded(self, status_icon, embedded):
+        if embedded:
+            self.update(self._volctl.pulsemgr.volume, self._volctl.pulsemgr.mute)
 
     def _cb_tooltip(self, item, xcoord, ycoord, keyboard_mode, tooltip):
         # pylint: disable=too-many-arguments
-        perc = float(self._volume) / float(PA_VOLUME_NORM) * 100
-        text = "Volume: %.0f%%" % perc
-        if self._mute:
+        perc = self._volctl.pulsemgr.volume * 100
+        text = f"Volume: {perc:.0f}%"
+        if self._volctl.pulsemgr.mute:
             text += ' <span weight="bold">(muted)</span>'
         tooltip.set_markup(text)
         return True
 
     def _cb_menu_mute(self, widget):
-        pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
-        self._volctl.pa_mgr.toggle_main_mute()
-        pa_threaded_mainloop_unlock(self._volctl.pa_mgr.mainloop)
+        self._volctl.pulsemgr.toggle_main_mute()
 
     def _cb_menu_mixer(self, widget):
         self._volctl.launch_mixer()
@@ -124,8 +103,8 @@ class TrayIcon(Gtk.StatusIcon):
         self._volctl.quit()
 
     def _cb_scroll(self, widget, event):
-        old_vol = self._volume
-        amount = PA_VOLUME_NORM / self._volctl.mouse_wheel_step
+        old_vol = self._volctl.pulsemgr.volume
+        amount = 1.0 / self._volctl.mouse_wheel_step
         if event.direction == Gdk.ScrollDirection.DOWN:
             amount *= -1
         elif event.direction == Gdk.ScrollDirection.UP:
@@ -133,17 +112,14 @@ class TrayIcon(Gtk.StatusIcon):
         else:
             return
         new_value = old_vol + amount
-        new_value = min(PA_VOLUME_NORM, new_value)
-        new_value = max(PA_VOLUME_MUTED, new_value)
-        new_value = int(new_value)
+        new_value = min(1.0, new_value)
+        new_value = max(0.0, new_value)
 
         # user action prolongs auto-close timer
         if self._volctl.sliders_win is not None:
             self._volctl.sliders_win.reset_timeout()
 
-        pa_threaded_mainloop_lock(self._volctl.pa_mgr.mainloop)
-        self._volctl.pa_mgr.set_main_volume(new_value)
-        pa_threaded_mainloop_unlock(self._volctl.pa_mgr.mainloop)
+        self._volctl.pulsemgr.set_main_volume(new_value)
 
     def _cb_button_press(self, widget, event):
         if event.button == 1:

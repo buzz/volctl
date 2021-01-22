@@ -10,8 +10,7 @@ import math
 import cairo
 from gi.repository import Gdk, Gtk, GdkX11, GLib
 
-from volctl.lib.pulseaudio import PA_VOLUME_NORM
-import volctl.lib.xwrappers as X
+import volctl.xwrappers as X
 
 
 class VolumeOverlay(Gtk.Window):
@@ -95,7 +94,6 @@ class VolumeOverlay(Gtk.Window):
 
     def _draw_osd(self, _, cairo_r):
         """Draw on-screen volume display."""
-        val = float(self._volume) / float(PA_VOLUME_NORM)
         mute_opacity = self.MUTE_OPACITY if self._mute else 1.0
         xcenter = self._width / 2
 
@@ -143,7 +141,7 @@ class VolumeOverlay(Gtk.Window):
         )
 
         # text
-        text = "{:d} %".format(round(100 * val))
+        text = "{:d} %".format(round(100 * self._volume))
         cairo_r.select_font_face("sans-serif")
         cairo_r.set_font_size(self._font_size)
         _, _, text_width, text_height, _, _ = cairo_r.text_extents(text)
@@ -154,7 +152,7 @@ class VolumeOverlay(Gtk.Window):
         ind_height = self._height - 3 * self._padding - text_height
         outer_radius = ind_height / 2
         inner_radius = outer_radius / 1.618
-        bars = min(round(self.NUM_BARS * val), self.NUM_BARS)
+        bars = min(round(self.NUM_BARS * self._volume), self.NUM_BARS)
         cairo_r.set_line_width(self._line_width)
         cairo_r.set_line_cap(cairo.LINE_CAP_ROUND)
         for i in range(bars):
