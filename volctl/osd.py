@@ -97,7 +97,7 @@ class VolumeOverlay(Gtk.Window):
         mute_opacity = self.MUTE_OPACITY if self._mute else 1.0
         xcenter = self._width / 2
 
-        # background
+        # Background
         deg = math.pi / 180.0
         cairo_r.new_sub_path()
         cairo_r.arc(
@@ -135,12 +135,12 @@ class VolumeOverlay(Gtk.Window):
         cairo_r.fill()
         cairo_r.set_operator(cairo.OPERATOR_OVER)
 
-        # color
+        # Color
         cairo_r.set_source_rgba(
             1.0, 1.0, 1.0, self.TEXT_OPACITY * mute_opacity * self._opacity
         )
 
-        # text
+        # Text
         text = "{:d} %".format(round(100 * self._volume))
         cairo_r.select_font_face("sans-serif")
         cairo_r.set_font_size(self._font_size)
@@ -148,7 +148,7 @@ class VolumeOverlay(Gtk.Window):
         cairo_r.move_to(xcenter - text_width / 2, self._height - self._padding)
         cairo_r.show_text(text)
 
-        # volume indicator
+        # Volume indicator
         ind_height = self._height - 3 * self._padding - text_height
         outer_radius = ind_height / 2
         inner_radius = outer_radius / 1.618

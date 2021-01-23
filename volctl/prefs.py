@@ -140,7 +140,7 @@ class PreferencesDialog(Gtk.Dialog):
             self._row_osd_timeout.hide()
             self._row_osd_size.hide()
 
-    # gsettings callback
+    # GSettings callback
 
     def _cb_settings_changed(self, settings, key):
         self._update_rows()

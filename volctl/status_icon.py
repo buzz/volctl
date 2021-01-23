@@ -21,7 +21,7 @@ class StatusIcon(Gtk.StatusIcon):
         icon_name = f"audio-volume-{state}"
         self.set_from_icon_name(icon_name)
 
-    # gui setup
+    # GUI setup
 
     def _setup_statusicon(self):
         self._setup_menu()
@@ -72,7 +72,7 @@ class StatusIcon(Gtk.StatusIcon):
         self._menu.append(exit_menu_item)
         self._menu.show_all()
 
-    # gui callbacks
+    # GUI callbacks
 
     def _cb_notify_embedded(self, status_icon, embedded):
         if embedded:
@@ -115,7 +115,7 @@ class StatusIcon(Gtk.StatusIcon):
         new_value = min(1.0, new_value)
         new_value = max(0.0, new_value)
 
-        # user action prolongs auto-close timer
+        # User action prolongs auto-close timer
         if self._volctl.sliders_win is not None:
             self._volctl.sliders_win.reset_timeout()
 

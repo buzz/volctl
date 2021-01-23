@@ -175,7 +175,7 @@ class PulseManager:
                 try:
                     c.pa.stream_disconnect(stream)
                 except c.pa.CallError:
-                    pass  # stream was removed
+                    pass  # Stream was removed
                 finally:
                     GLib.idle_add(self._volctl.peak_update, idx, 0.0)
         self._monitor_streams = {}

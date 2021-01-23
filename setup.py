@@ -5,7 +5,7 @@ import re
 from setuptools import find_packages, setup
 
 
-# parse version (setup.py should not import module!)
+# Parse version (setup.py should not import module!)
 def get_version():
     """Get version using regex parsing."""
     versionfile = "volctl/meta.py"

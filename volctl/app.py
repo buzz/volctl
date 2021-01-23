@@ -142,7 +142,7 @@ class VolctlApp:
             self.sliders_win.recreate_sliders()
             self.pulsemgr.start_peak_monitor()
 
-    # gsettings callback
+    # Gsettings callback
 
     def _cb_settings_changed(self, settings, key):
         if key == "mouse-wheel-step":
