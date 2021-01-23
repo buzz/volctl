@@ -70,7 +70,7 @@ class VolumeOverlay(Gtk.Window):
         self.get_window().set_override_redirect(True)
         self._move_to_corner()
         Gtk.Window.show(self)
-        self._make_window_clicktrough()
+        self._make_window_clickthrough()
 
     def update_values(self, volume, mute):
         """Remember current volume and mute values."""
@@ -180,7 +180,7 @@ class VolumeOverlay(Gtk.Window):
 
         return xpos, ypos
 
-    def _make_window_clicktrough(self):
+    def _make_window_clickthrough(self):
         """Make events pass through window."""
         dpy = X.Display(hash(GdkX11.x11_get_default_xdisplay()))
         win = X.XID(self.get_window().get_xid())
