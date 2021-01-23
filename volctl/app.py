@@ -139,7 +139,7 @@ class VolctlApp:
     def slider_count_changed(self):
         """Amount of sliders changed."""
         if self.status_icon and self.sliders_win:
-            self.sliders_win.create_sliders()
+            self.sliders_win.recreate_sliders()
             self.pulsemgr.start_peak_monitor()
 
     # gsettings callback

@@ -24,8 +24,8 @@ class VolumeSliders(Gtk.Window):
         self._show_percentage = self._volctl.settings.get_boolean("show-percentage")
 
         # GUI objects by index
-        self._sink_scales = None
-        self._sink_input_scales = None
+        self._sink_scales = {}
+        self._sink_input_scales = {}
 
         self.connect("enter-notify-event", self._cb_enter_notify)
         self.connect("leave-notify-event", self._cb_leave_notify)
@@ -34,7 +34,7 @@ class VolumeSliders(Gtk.Window):
         self._frame = Gtk.Frame()
         self._frame.set_shadow_type(Gtk.ShadowType.OUT)
         self.add(self._frame)
-        self.create_sliders()
+        self.create_widgets()
 
         # Timeout
         self._timeout = None
@@ -88,36 +88,42 @@ class VolumeSliders(Gtk.Window):
         self.set_screen(screen)
         self.move(win_x, win_y)
 
-    def create_sliders(self):
-        """(Re-)create sliders from PulseAudio sinks."""
-        if self._grid is not None:
-            self._grid.destroy()
-        if self._sink_scales is not None:
-            del self._sink_scales
-        if self._sink_input_scales is not None:
-            del self._sink_input_scales
-        self._sink_scales = {}
-        self._sink_input_scales = {}
-
+    def create_widgets(self):
+        """Create base widgets."""
         self._grid = Gtk.Grid()
         self._grid.set_column_spacing(2)
         self._grid.set_row_spacing(self.SPACING)
         self._frame.add(self._grid)
+        self.recreate_sliders()
 
+    def clear_sliders(self):
+        """Remove all children from grid layout."""
+        self._sink_scales = {}
+        self._sink_input_scales = {}
+        while True:
+            if self._grid.get_child_at(0, 0) is None:
+                break
+            self._grid.remove_column(0)
+
+    def recreate_sliders(self):
+        """Recreate sliders from PulseAudio sinks."""
+        self.clear_sliders()
         pos = 0
+
         with self._volctl.pulsemgr.update_wakeup() as pulse:
             sinks = pulse.sink_list()
             sink_inputs = pulse.sink_input_list()
 
         # Sinks
         for sink in sinks:
-            scale, btn = self._add_scale(sink.proplist["alsa.card_name"], "audio-card")
+            props = (
+                sink.proplist["alsa.card_name"],
+                "audio-card",
+                sink.volume.value_flat,
+                sink.mute,
+            )
+            scale, btn = self._add_scale(pos, props)
             self._sink_scales[sink.index] = scale, btn
-            self._update_scale_values((scale, btn), sink.volume.value_flat, sink.mute)
-            scale.set_margin_top(self.SPACING)
-            btn.set_margin_bottom(self.SPACING)
-            self._grid.attach(scale, pos, 0, 1, 1)
-            self._grid.attach(btn, pos, 1, 1, 1)
             idx = sink.index
             scale.connect("value-changed", self._cb_sink_scale_change, idx)
             btn.connect("toggled", self._cb_sink_mute_toggle, idx)
@@ -132,32 +138,10 @@ class VolumeSliders(Gtk.Window):
             pos += 1
 
             for sink_input in sink_inputs:
-                try:
-                    icon_name = sink_input.proplist["media.icon_name"]
-                except KeyError:
-                    try:
-                        icon_name = sink_input.proplist["application.icon_name"]
-                    except KeyError:
-                        icon_name = "multimedia-volume-control"
-                try:
-                    name = (
-                        f"<b>{sink_input.proplist['application.name']}</b>: "
-                        + sink_input.proplist["media.name"]
-                    )
-                except KeyError:
-                    try:
-                        name = sink_input.proplist["application.name"]
-                    except KeyError:
-                        name = sink_input.name
-                scale, btn = self._add_scale(name, icon_name)
+                name, icon_name = self._name_icon_name_from_sink_input(sink_input)
+                props = name, icon_name, sink_input.volume.value_flat, sink_input.mute
+                scale, btn = self._add_scale(pos, props)
                 self._sink_input_scales[sink_input.index] = scale, btn
-                self._update_scale_values(
-                    (scale, btn), sink_input.volume.value_flat, sink_input.mute
-                )
-                scale.set_margin_top(self.SPACING)
-                btn.set_margin_bottom(self.SPACING)
-                self._grid.attach(scale, pos, 0, 1, 1)
-                self._grid.attach(btn, pos, 1, 1, 1)
                 idx = sink_input.index
                 scale.connect("value-changed", self._cb_sink_input_scale_change, idx)
                 btn.connect("toggled", self._cb_sink_input_mute_toggle, idx)
@@ -167,12 +151,14 @@ class VolumeSliders(Gtk.Window):
         self.resize(1, 1)  # Smallest possible
         GObject.idle_add(self._set_position)
 
-    def _add_scale(self, name, icon_name):
+    def _add_scale(self, pos, props):
+        name, icon_name, val, mute = props
         # Scale
         scale = Gtk.Scale().new(Gtk.Orientation.VERTICAL)
         scale.set_range(0.0, 1.0)
         scale.set_inverted(True)
         scale.set_size_request(24, 128)
+        scale.set_margin_top(self.SPACING)
         scale.set_tooltip_markup(name)
         self._set_increments_on_scale(scale)
         if self._show_percentage:
@@ -194,9 +180,32 @@ class VolumeSliders(Gtk.Window):
         btn = Gtk.ToggleButton()
         btn.set_image(icon)
         btn.set_relief(Gtk.ReliefStyle.NONE)
+        btn.set_margin_bottom(self.SPACING)
         btn.set_tooltip_markup(name)
 
+        self._update_scale_values((scale, btn), val, mute)
+        self._grid.attach(scale, pos, 0, 1, 1)
+        self._grid.attach(btn, pos, 1, 1, 1)
         return scale, btn
+
+    @staticmethod
+    def _name_icon_name_from_sink_input(sink_input):
+        proplist = sink_input.proplist
+        try:
+            name = f"<b>{proplist['application.name']}</b>: {proplist['media.name']}"
+        except KeyError:
+            try:
+                name = proplist["application.name"]
+            except KeyError:
+                name = sink_input.name
+        try:
+            icon_name = proplist["media.icon_name"]
+        except KeyError:
+            try:
+                icon_name = proplist["application.icon_name"]
+            except KeyError:
+                icon_name = "multimedia-volume-control"
+        return name, icon_name
 
     @staticmethod
     def _update_scale_values(scale_btn, volume, mute):
