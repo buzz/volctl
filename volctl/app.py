@@ -45,7 +45,7 @@ class VolctlApp:
     """GUI application for volctl."""
 
     def __init__(self):
-        self._set_style()
+        self._set_style(Gtk.CssProvider())
         self.settings = Gio.Settings("apps.volctl", path="/apps/volctl/")
         self.settings.connect("changed", self._cb_settings_changed)
         self.mouse_wheel_step = self.settings.get_int("mouse-wheel-step")
@@ -84,8 +84,8 @@ class VolctlApp:
         else:
             sys.exit(1)
 
-    def _set_style(self):
-        provider = Gtk.CssProvider()
+    @staticmethod
+    def _set_style(provider):
         provider.load_from_data(TOGGLE_BUTTON_CSS)
         Gtk.StyleContext.add_provider_for_screen(
             Gdk.Screen.get_default(),
