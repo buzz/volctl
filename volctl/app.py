@@ -72,7 +72,6 @@ class VolctlApp:
         except AttributeError:
             pass
         if Gtk.main_level() > 0:
-            self.stop_vu()
             if self.sliders_win:
                 self.sliders_win.destroy()
             if self._about_win:
@@ -104,25 +103,6 @@ class VolctlApp:
         del self._osd
         self._osd = None
 
-    def start_vu(self):
-        pass
-        # if self.settings.get_boolean("vu-enabled"):
-        #     pa_threaded_mainloop_lock(self.pa_mgr.mainloop)
-        #     for _, sink in self.pa_mgr.pa_sinks.items():
-        #         sink.monitor_stream()
-        #     for _, sink_input in self.pa_mgr.pa_sink_inputs.items():
-        #         sink_input.monitor_stream()
-        #     pa_threaded_mainloop_unlock(self.pa_mgr.mainloop)
-
-    def stop_vu(self):
-        pass
-        # pa_threaded_mainloop_lock(self.pa_mgr.mainloop)
-        # for _, sink in self.pa_mgr.pa_sinks.items():
-        #     sink.stop_monitor_stream()
-        # for _, sink_input in self.pa_mgr.pa_sink_inputs.items():
-        #     sink_input.stop_monitor_stream()
-        # pa_threaded_mainloop_unlock(self.pa_mgr.mainloop)
-
     def update_main(self, volume, mute):
         """Default sink update."""
         self.status_icon.update(volume, mute)
@@ -151,21 +131,16 @@ class VolctlApp:
         if self.sliders_win:
             self.sliders_win.update_sink_input_scale(idx, volume, mute)
 
-    # def update_sink_peak(self, idx, val):
-    #     """Notify sink scale when update is coming from pulseaudio."""
-    #     if self.sliders_win:
-    #         self.sliders_win.update_sink_scale_peak(idx, val)
-
-    # def update_sink_input_peak(self, idx, val):
-    #     """Notify sink input scale when update is coming from pulseaudio."""
-    #     if self.sliders_win:
-    #         self.sliders_win.update_sink_input_scale_peak(idx, val)
+    def peak_update(self, idx, val):
+        """Notify scale when update is coming from pulseaudio."""
+        if self.sliders_win:
+            self.sliders_win.update_scale_peak(idx, val)
 
     def slider_count_changed(self):
         """Amount of sliders changed."""
         if self.status_icon and self.sliders_win:
             self.sliders_win.create_sliders()
-            self.start_vu()
+            self.pulsemgr.start_peak_monitor()
 
     # gsettings callback
 
@@ -218,7 +193,7 @@ class VolctlApp:
     def show_slider(self, monitor_rect):
         """Show mini window with application volume sliders."""
         self.sliders_win = VolumeSliders(self, monitor_rect)
-        self.start_vu()
+        self.pulsemgr.start_peak_monitor()
 
     def close_slider(self):
         """Close mini window with application volume sliders."""
@@ -226,6 +201,6 @@ class VolctlApp:
             self.sliders_win.destroy()
             del self.sliders_win
             self.sliders_win = None
-            self.stop_vu()
+            self.pulsemgr.stop_peak_monitor()
             return True
         return False

@@ -3,6 +3,7 @@ import threading
 
 from gi.repository import GLib
 from pulsectl import Pulse, PulseDisconnected, PulseEventMaskEnum, PulseEventTypeEnum
+from pulsectl.pulsectl import c
 
 from volctl.meta import PROGRAM_NAME
 
@@ -67,8 +68,16 @@ class PulseManager:
         )
         self._poller_thread.start()
 
+        # Stream monitoring
+        self._monitor_streams = {}
+        self._read_cb_ctypes = c.PA_STREAM_REQUEST_CB_T(self._read_cb)
+        self._samplespec = c.PA_SAMPLE_SPEC(
+            format=c.PA_SAMPLE_FLOAT32BE, rate=25, channels=1
+        )
+
     def close(self):
         """Close the PulseAudio connection and event polling thread."""
+        self.stop_peak_monitor()
         if self._poller_thread and self._poller_thread.is_alive():
             self._poller_thread.quit = True
             self._poller_thread.join(timeout=1.0)
@@ -131,6 +140,73 @@ class PulseManager:
 
         else:
             print(f"Warning: Unhandled event type for {fac}: {event.t}")
+
+    def _read_cb(self, stream, nbytes, idx):
+        data = c.c_void_p()
+        nbytes = c.c_int(nbytes)
+        c.pa.stream_peek(stream, data, c.byref(nbytes))
+        try:
+            if not data or nbytes.value < 1:
+                return
+            samples = c.cast(data, c.POINTER(c.c_float))
+            val = max(samples[i] for i in range(nbytes.value))
+        finally:
+            # stream_drop() flushes buffered data (incl. buff=NULL "hole" data)
+            # stream.h: "should not be called if the buffer is empty"
+            if nbytes:
+                c.pa.stream_drop(stream)
+        GLib.idle_add(self._volctl.peak_update, idx, min(val, 1.0))
+
+    def start_peak_monitor(self):
+        """Start peak monitoring for all sinks and sink inputs."""
+        with self.update_wakeup() as pulse:
+            for sink in pulse.sink_list():
+                stream = self._create_peak_stream(sink.index)
+                self._monitor_streams[sink.index] = stream
+            for sink_input in pulse.sink_input_list():
+                sink_idx = self._pulse.sink_input_info(sink_input.index).sink
+                stream = self._create_peak_stream(sink_idx, sink_input.index)
+                self._monitor_streams[sink_input.index] = stream
+
+    def stop_peak_monitor(self):
+        """Stop peak monitoring for all sinks and sink inputs."""
+        with self.update_wakeup():
+            for idx, stream in self._monitor_streams.items():
+                try:
+                    c.pa.stream_disconnect(stream)
+                except c.pa.CallError:
+                    pass  # stream was removed
+                finally:
+                    GLib.idle_add(self._volctl.peak_update, idx, 0.0)
+        self._monitor_streams = {}
+
+    def _create_peak_stream(self, sink_idx, sink_input_idx=None):
+        # Cannot use `get_peak_sample` from python-pulse-control as it would block GUI.
+        proplist = c.pa.proplist_from_string(  # Hide this stream in mixer apps
+            "application.id=org.PulseAudio.pavucontrol"
+        )
+        pa_context = self._pulse._ctx  # pylint: disable=protected-access
+        idx = sink_idx if sink_input_idx is None else sink_input_idx
+        stream = c.pa.stream_new_with_proplist(
+            pa_context, f"peak {idx}", c.byref(self._samplespec), None, proplist
+        )
+        c.pa.proplist_free(proplist)
+        c.pa.stream_set_read_callback(stream, self._read_cb_ctypes, idx)
+        if sink_input_idx is not None:
+            # Monitor single sink input
+            c.pa.stream_set_monitor_stream(stream, sink_input_idx)
+        c.pa.stream_connect_record(
+            stream,
+            str(sink_idx).encode("utf-8"),
+            c.PA_BUFFER_ATTR(fragsize=4, maxlength=2 ** 32 - 1),
+            c.PA_STREAM_DONT_MOVE
+            | c.PA_STREAM_PEAK_DETECT
+            | c.PA_STREAM_ADJUST_LATENCY
+            | c.PA_STREAM_DONT_INHIBIT_AUTO_SUSPEND,
+        )
+        return stream
+
+    # Set/get PulseAudio entities
 
     def set_main_volume(self, val):
         """Set default sink volume."""

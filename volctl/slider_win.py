@@ -13,6 +13,9 @@ class VolumeSliders(Gtk.Window):
 
     SPACING = 6
 
+    # Time without receiving an update after which a peak value should be reset to 0
+    PEAK_TIMEOUT = 100  # ms
+
     def __init__(self, volctl, monitor_rect):
         super().__init__(type=Gtk.WindowType.POPUP)
         self._volctl = volctl
@@ -26,6 +29,7 @@ class VolumeSliders(Gtk.Window):
 
         self.connect("enter-notify-event", self._cb_enter_notify)
         self.connect("leave-notify-event", self._cb_leave_notify)
+        self.connect("destroy", self._cb_destroy)
 
         self._frame = Gtk.Frame()
         self._frame.set_shadow_type(Gtk.ShadowType.OUT)
@@ -35,6 +39,9 @@ class VolumeSliders(Gtk.Window):
         # Timeout
         self._timeout = None
         self._enable_timeout()
+
+        # Peak monitoring timeouts
+        self._peak_timeouts = {}
 
     def set_increments(self):
         """Set sliders increment step."""
@@ -83,7 +90,6 @@ class VolumeSliders(Gtk.Window):
 
     def create_sliders(self):
         """(Re-)create sliders from PulseAudio sinks."""
-        print("create_sliders")
         if self._grid is not None:
             self._grid.destroy()
         if self._sink_scales is not None:
@@ -135,7 +141,7 @@ class VolumeSliders(Gtk.Window):
                         icon_name = "multimedia-volume-control"
                 try:
                     name = (
-                        f"{sink_input.proplist['application.name']}: "
+                        f"<b>{sink_input.proplist['application.name']}</b>: "
                         + sink_input.proplist["media.name"]
                     )
                 except KeyError:
@@ -167,7 +173,7 @@ class VolumeSliders(Gtk.Window):
         scale.set_range(0.0, 1.0)
         scale.set_inverted(True)
         scale.set_size_request(24, 128)
-        scale.set_tooltip_text(name)
+        scale.set_tooltip_markup(name)
         self._set_increments_on_scale(scale)
         if self._show_percentage:
             scale.set_draw_value(True)
@@ -188,7 +194,7 @@ class VolumeSliders(Gtk.Window):
         btn = Gtk.ToggleButton()
         btn.set_image(icon)
         btn.set_relief(Gtk.ReliefStyle.NONE)
-        btn.set_tooltip_text(name)
+        btn.set_tooltip_markup(name)
 
         return scale, btn
 
@@ -238,23 +244,33 @@ class VolumeSliders(Gtk.Window):
             return
         self._update_scale_values(scale_btn, volume, mute)
 
-    def update_sink_scale_peak(self, idx, val):
-        """Update sink scale peak value by index."""
+    def update_scale_peak(self, idx, val):
+        """Update scale peak value by index on a sink or sink input scale."""
         try:
             scale, _ = self._sink_scales[idx]
+            val = val * scale.get_value()  # Need to scale into range for sinks
         except KeyError:
-            return
+            try:
+                scale, _ = self._sink_input_scales[idx]
+            except KeyError:
+                return
         self._update_scale_peak(scale, val)
 
-    def update_sink_input_scale_peak(self, idx, val):
-        """Update sink input peak value by index."""
+        # If a sound source is paused, peak updates stop coming in. To prevent
+        # to show a stale peak vale, we set peak=0 after a timeout.
         try:
-            scale, _ = self._sink_input_scales[idx]
+            GLib.Source.remove(self._peak_timeouts[idx])
         except KeyError:
-            return
-        self._update_scale_peak(scale, val)
+            pass
+        timeout = GLib.timeout_add(self.PEAK_TIMEOUT, self._cb_peak_reset, idx)
+        self._peak_timeouts[idx] = timeout
 
-    # gui callbacks
+    # GUI callbacks
+
+    def _cb_destroy(self, win):
+        self._remove_timeout()
+        for timeout in self._peak_timeouts.values():
+            GLib.Source.remove(timeout)
 
     @staticmethod
     def _cb_format_value(scale, val):
@@ -300,4 +316,18 @@ class VolumeSliders(Gtk.Window):
     def _cb_auto_close(self):
         self._timeout = None
         self._volctl.close_slider()
+        return GLib.SOURCE_REMOVE
+
+    def _cb_peak_reset(self, idx):
+        del self._peak_timeouts[idx]
+        scale = None
+        try:
+            scale, _ = self._sink_scales[idx]
+        except KeyError:
+            try:
+                scale, _ = self._sink_input_scales[idx]
+            except KeyError:
+                pass
+        if scale:
+            self._update_scale_peak(scale, 0.0)
         return GLib.SOURCE_REMOVE
