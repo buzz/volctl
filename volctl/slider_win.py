@@ -110,7 +110,7 @@ class VolumeSliders(Gtk.Window):
         self.clear_sliders()
         pos = 0
 
-        with self._volctl.pulsemgr.update_wakeup() as pulse:
+        with self._volctl.pulsemgr.pulse() as pulse:
             sinks = pulse.sink_list()
             sink_inputs = pulse.sink_input_list()
 
@@ -288,14 +288,14 @@ class VolumeSliders(Gtk.Window):
 
     def _cb_sink_scale_change(self, scale, idx):
         value = scale.get_value()
-        with self._volctl.pulsemgr.update_wakeup() as pulse:
+        with self._volctl.pulsemgr.pulse() as pulse:
             sink = next(s for s in pulse.sink_list() if s.index == idx)
             if sink:
                 pulse.volume_set_all_chans(sink, value)
 
     def _cb_sink_input_scale_change(self, scale, idx):
         value = scale.get_value()
-        with self._volctl.pulsemgr.update_wakeup() as pulse:
+        with self._volctl.pulsemgr.pulse() as pulse:
             sink_input = next(s for s in pulse.sink_input_list() if s.index == idx)
             if sink_input:
                 pulse.volume_set_all_chans(sink_input, value)

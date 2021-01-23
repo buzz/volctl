@@ -1,8 +1,15 @@
 from contextlib import contextmanager
+from collections import deque, OrderedDict
+import signal
 import threading
 
 from gi.repository import GLib
-from pulsectl import Pulse, PulseDisconnected, PulseEventMaskEnum, PulseEventTypeEnum
+from pulsectl import (
+    Pulse,
+    PulseDisconnected,
+    PulseEventMaskEnum,
+    PulseEventTypeEnum,
+)
 from pulsectl.pulsectl import c
 
 from volctl.meta import PROGRAM_NAME
@@ -14,7 +21,7 @@ def get_by_attr(list_, attr_name, val):
 
 
 class PulsePoller(threading.Thread):
-    """TODO"""
+    """PulseAudio event loop thread."""
 
     def __init__(self, pulse, pulse_lock, pulse_hold, handle_event):
         super().__init__(name="volctl-pulsepoller", daemon=True)
@@ -22,35 +29,35 @@ class PulsePoller(threading.Thread):
         self._pulse_lock, self._pulse_hold = pulse_lock, pulse_hold
         self._pulse = pulse
         self._handle_event = handle_event
+        self.events = deque()
+        self.event_timer_set = False
+        # Sinks/sink inputs available shorter than this will be ignored
+        self._transient_detection = 0.05  # sec
 
     def run(self):
         self._pulse.event_mask_set(
-            # Use generated-members once in pylint:
-            # https://github.com/graingert/pylint/commit/9bd38da10e2aca9a468d26774bb3283e2f2b30c6
-            # pylint: disable=no-member
-            PulseEventMaskEnum.sink,
-            PulseEventMaskEnum.sink_input,
+            PulseEventMaskEnum.sink, PulseEventMaskEnum.sink_input
         )
         self._pulse.event_callback_set(self._callback)
-        # delay_iter = cb_delay_iter(ev_cb, self.conf.force_refresh_interval)
         while True:
             with self._pulse_hold:
                 self._pulse_lock.acquire()
             try:
-                self._pulse.event_listen(0.2)
-                # self.pulse.event_listen(next(delay_iter))
+                self._pulse.event_listen(1.0)
                 if self.quit:
                     break
             except PulseDisconnected:
-                print("pulsectl disconnected")
-                # wakeup_handler(disconnected=True)
+                print("Error: pulsectl disconnected")
                 break
             finally:
                 self._pulse_lock.release()
 
     def _callback(self, event):
-        if self.is_alive():
-            GLib.idle_add(self._handle_event, event)
+        if event:
+            self.events.append(event)
+        if not self.event_timer_set:
+            signal.setitimer(signal.ITIMER_REAL, self._transient_detection)
+            self.event_timer_set = True
 
 
 class PulseManager:
@@ -59,13 +66,14 @@ class PulseManager:
     def __init__(self, volctl):
         self._volctl = volctl
         self._pulse = Pulse(PROGRAM_NAME)
-        self._event_listen_stopped = False
+        self._pulse_loop_paused = False
 
         # Start polling thread
         self._pulse_lock, self._pulse_hold = threading.Lock(), threading.Lock()
         self._poller_thread = PulsePoller(
             self._pulse, self._pulse_lock, self._pulse_hold, self._handle_event
         )
+        signal.signal(signal.SIGALRM, self._handle_pulse_events)
         self._poller_thread.start()
 
         # Stream monitoring
@@ -74,6 +82,24 @@ class PulseManager:
         self._samplespec = c.PA_SAMPLE_SPEC(
             format=c.PA_SAMPLE_FLOAT32BE, rate=25, channels=1
         )
+
+    def _handle_pulse_events(self, *_):
+        # Remove transient events and duplicates
+        events = OrderedDict()
+        while self._poller_thread.events:
+            event = self._poller_thread.events.popleft()
+
+            new_tuple = (PulseEventTypeEnum.new, event.facility, event.index)
+            if event.t == PulseEventTypeEnum.remove and events.pop(new_tuple, False):
+                change_tuple = (PulseEventTypeEnum.change, event.facility, event.index)
+                events.pop(change_tuple, None)
+            else:
+                events[event.t, event.facility, event.index] = event
+
+        for event in events.values():
+            GLib.idle_add(self._handle_event, event)
+
+        self._poller_thread.event_timer_set = False
 
     def close(self):
         """Close the PulseAudio connection and event polling thread."""
@@ -85,45 +111,38 @@ class PulseManager:
             self._pulse.close()
 
     @contextmanager
-    # def update_wakeup(self, trap_errors=True, loop_interval=0.03):
-    def update_wakeup(self, loop_interval=0.03):
-        "Anything pulse-related MUST be done in this context."
-        if self._event_listen_stopped:
+    def pulse(self):
+        """
+        Yield the pulse object, pausing the pulse event loop.
+        See https://github.com/mk-fg/python-pulse-control#event-handling-code-threads
+        """
+        if self._pulse_loop_paused:
             yield self._pulse
         else:
-            # Stop PA event listen loop, so we can call PA functions.
+            # Pause PulseAudio event loop
             with self._pulse_hold:
-                for _ in range(int(2.0 / loop_interval)):
-                    # wakeup only works when loop is actually started,
-                    #  which might not be the case regardless of any locks.
+                for _ in range(int(2.0 / 0.05)):
+                    # Event loop might not be started yet, so wait
                     self._pulse.event_listen_stop()
-                    if self._pulse_lock.acquire(timeout=loop_interval):
+                    if self._pulse_lock.acquire(timeout=0.05):
                         break
                 else:
-                    raise RuntimeError("poll_wakeup() hangs, likely locking issue")
+                    raise RuntimeError("Could not aquire _pulse_lock!")
+                self._pulse_loop_paused = True
                 try:
-                    self._event_listen_stopped = True
                     yield self._pulse
-                # except Exception as err:
-                #     if not trap_errors:
-                #         self._update_wakeup_break = True
-                #         raise
-                #     print(
-                #         "Pulse interaction failure, skipping: "
-                #         f"<{err.__class__.__name__}> {err}"
-                #     )
                 finally:
                     self._pulse_lock.release()
-                    self._event_listen_stopped = False
+                    self._pulse_loop_paused = False
 
     def _handle_event(self, event):
         """Handle PulseAudio event."""
         fac = "sink" if event.facility == "sink" else "sink_input"
 
-        if event.t == PulseEventTypeEnum.change:  # pylint: disable=no-member
+        if event.t == PulseEventTypeEnum.change:
             method, obj = None, None
 
-            with self.update_wakeup() as pulse:
+            with self.pulse() as pulse:
                 obj_list = getattr(pulse, f"{fac}_list")()
                 obj = get_by_attr(obj_list, "index", event.index)
 
@@ -131,11 +150,7 @@ class PulseManager:
                 method = getattr(self._volctl, f"{fac}_update")
                 method(event.index, obj.volume.value_flat, obj.mute == 1)
 
-        elif event.t in (
-            # pylint: disable=no-member
-            PulseEventTypeEnum.new,
-            PulseEventTypeEnum.remove,
-        ):
+        elif event.t in (PulseEventTypeEnum.new, PulseEventTypeEnum.remove):
             self._volctl.slider_count_changed()
 
         else:
@@ -159,7 +174,7 @@ class PulseManager:
 
     def start_peak_monitor(self):
         """Start peak monitoring for all sinks and sink inputs."""
-        with self.update_wakeup() as pulse:
+        with self.pulse() as pulse:
             for sink in pulse.sink_list():
                 stream = self._create_peak_stream(sink.index)
                 self._monitor_streams[sink.index] = stream
@@ -170,7 +185,7 @@ class PulseManager:
 
     def stop_peak_monitor(self):
         """Stop peak monitoring for all sinks and sink inputs."""
-        with self.update_wakeup():
+        with self.pulse():
             for idx, stream in self._monitor_streams.items():
                 try:
                     c.pa.stream_disconnect(stream)
@@ -210,22 +225,22 @@ class PulseManager:
 
     def set_main_volume(self, val):
         """Set default sink volume."""
-        with self.update_wakeup() as pulse:
+        with self.pulse() as pulse:
             pulse.volume_set_all_chans(self.default_sink, val)
 
     def toggle_main_mute(self):
         """Toggle default sink mute."""
-        with self.update_wakeup():
+        with self.pulse():
             self.sink_set_mute(self.default_sink_idx, not self.default_sink.mute)
 
     def sink_set_mute(self, idx, mute):
         """Set sink mute."""
-        with self.update_wakeup() as pulse:
+        with self.pulse() as pulse:
             pulse.sink_mute(idx, mute)
 
     def sink_input_set_mute(self, idx, mute):
         """Set sink input mute."""
-        with self.update_wakeup() as pulse:
+        with self.pulse() as pulse:
             pulse.sink_input_mute(idx, mute)
 
     @property
@@ -241,7 +256,7 @@ class PulseManager:
     @property
     def default_sink(self):
         """Default sink."""
-        with self.update_wakeup() as pulse:
+        with self.pulse() as pulse:
             sink_name = pulse.server_info().default_sink_name
             return get_by_attr(pulse.sink_list(), "name", sink_name)
 
