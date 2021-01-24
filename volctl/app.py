@@ -2,7 +2,7 @@
 
 from subprocess import Popen
 import sys
-from gi.repository import Gdk, Gio, GLib, Gtk
+from gi.repository import Gdk, Gio, Gtk
 
 from volctl.meta import (
     PROGRAM_NAME,
@@ -59,11 +59,10 @@ class VolctlApp:
         self._osd = None
         self._mixer_process = None
 
-        GLib.idle_add(self.create_status_icon)  # Defer so that PulseAudio thread is up
-
     def create_status_icon(self):
         """Create status icon."""
-        self.status_icon = StatusIcon(self)
+        if self.status_icon is None:
+            self.status_icon = StatusIcon(self)
 
     def quit(self):
         """Gracefully shut down application."""
@@ -141,6 +140,14 @@ class VolctlApp:
         if self.status_icon and self.sliders_win:
             self.sliders_win.recreate_sliders()
             self.pulsemgr.start_peak_monitor()
+
+    def on_connected(self):
+        """PulseAudio connection was established."""
+        self.create_status_icon()
+
+    def on_disconnected(self):
+        """PulseAudio connection was lost."""
+        self.close_slider()
 
     # Gsettings callback
 

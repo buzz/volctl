@@ -43,11 +43,12 @@ class PulsePoller(threading.Thread):
             with self._pulse_hold:
                 self._pulse_lock.acquire()
             try:
-                self._pulse.event_listen(1.0)
+                self._pulse.event_listen(0.5)
                 if self.quit:
                     break
             except PulseDisconnected:
-                print("Error: pulsectl disconnected")
+                self._set_timer()
+                print("pulseaudio disconnected")
                 break
             finally:
                 self._pulse_lock.release()
@@ -55,6 +56,9 @@ class PulsePoller(threading.Thread):
     def _callback(self, event):
         if event:
             self.events.append(event)
+        self._set_timer()
+
+    def _set_timer(self):
         if not self.event_timer_set:
             signal.setitimer(signal.ITIMER_REAL, self._transient_detection)
             self.event_timer_set = True
@@ -65,16 +69,12 @@ class PulseManager:
 
     def __init__(self, volctl):
         self._volctl = volctl
-        self._pulse = Pulse(PROGRAM_NAME)
         self._pulse_loop_paused = False
+        self._pulse = Pulse(client_name=PROGRAM_NAME, connect=False)
 
-        # Start polling thread
+        self._poller_thread = None
         self._pulse_lock, self._pulse_hold = threading.Lock(), threading.Lock()
-        self._poller_thread = PulsePoller(
-            self._pulse, self._pulse_lock, self._pulse_hold, self._handle_event
-        )
         signal.signal(signal.SIGALRM, self._handle_pulse_events)
-        self._poller_thread.start()
 
         # Stream monitoring
         self._monitor_streams = {}
@@ -83,30 +83,12 @@ class PulseManager:
             format=c.PA_SAMPLE_FLOAT32BE, rate=25, channels=1
         )
 
-    def _handle_pulse_events(self, *_):
-        # Remove transient events and duplicates
-        events = OrderedDict()
-        while self._poller_thread.events:
-            event = self._poller_thread.events.popleft()
-
-            new_tuple = (PulseEventTypeEnum.new, event.facility, event.index)
-            if event.t == PulseEventTypeEnum.remove and events.pop(new_tuple, False):
-                change_tuple = (PulseEventTypeEnum.change, event.facility, event.index)
-                events.pop(change_tuple, None)
-            else:
-                events[event.t, event.facility, event.index] = event
-
-        for event in events.values():
-            GLib.idle_add(self._handle_event, event)
-
-        self._poller_thread.event_timer_set = False
+        self._connect()
 
     def close(self):
         """Close the PulseAudio connection and event polling thread."""
         self.stop_peak_monitor()
-        if self._poller_thread and self._poller_thread.is_alive():
-            self._poller_thread.quit = True
-            self._poller_thread.join(timeout=1.0)
+        self._stop_polling()
         if self._pulse:
             self._pulse.close()
 
@@ -134,6 +116,54 @@ class PulseManager:
                 finally:
                     self._pulse_lock.release()
                     self._pulse_loop_paused = False
+
+    def _connect(self):
+        self._pulse.connect(wait=True)
+        print("PulseAudio connected")
+        self._start_polling()
+        GLib.idle_add(self._volctl.on_connected)
+
+    def _handle_pulse_events(self, *_):
+        if self._poller_thread and self._poller_thread.is_alive():
+            # Remove transient events and duplicates
+            events = OrderedDict()
+            while self._poller_thread.events:
+                event = self._poller_thread.events.popleft()
+
+                new_tuple = (PulseEventTypeEnum.new, event.facility, event.index)
+                if event.t == PulseEventTypeEnum.remove and events.pop(
+                    new_tuple, False
+                ):
+                    change_tuple = (
+                        PulseEventTypeEnum.change,
+                        event.facility,
+                        event.index,
+                    )
+                    events.pop(change_tuple, None)
+                else:
+                    events[event.t, event.facility, event.index] = event
+
+            for event in events.values():
+                GLib.idle_add(self._handle_event, event)
+            self._poller_thread.event_timer_set = False
+
+        # Reconnect on lost connection
+        if not self._pulse.connected:
+            GLib.idle_add(self._volctl.on_disconnected)
+            self._stop_polling()
+            self._connect()
+
+    def _start_polling(self):
+        self._poller_thread = PulsePoller(
+            self._pulse, self._pulse_lock, self._pulse_hold, self._handle_event
+        )
+        self._poller_thread.start()
+
+    def _stop_polling(self):
+        if self._poller_thread and self._poller_thread.is_alive():
+            self._poller_thread.quit = True
+            self._poller_thread.join(timeout=1.0)
+            self._poller_thread = None
 
     def _handle_event(self, event):
         """Handle PulseAudio event."""

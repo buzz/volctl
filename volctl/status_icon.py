@@ -76,7 +76,11 @@ class StatusIcon(Gtk.StatusIcon):
 
     def _cb_notify_embedded(self, status_icon, embedded):
         if embedded:
-            self.update(self._volctl.pulsemgr.volume, self._volctl.pulsemgr.mute)
+            try:
+                vol, mute = self._volctl.pulsemgr.volume, self._volctl.pulsemgr.mute
+            except AttributeError:
+                return
+            self.update(vol, mute)
 
     def _cb_tooltip(self, item, xcoord, ycoord, keyboard_mode, tooltip):
         # pylint: disable=too-many-arguments

@@ -6,6 +6,7 @@ for main and application volume.
 """
 
 from gi.repository import Gtk, Gdk, GLib, GObject
+from pulsectl.pulsectl import c
 
 
 class VolumeSliders(Gtk.Window):
@@ -111,8 +112,13 @@ class VolumeSliders(Gtk.Window):
         pos = 0
 
         with self._volctl.pulsemgr.pulse() as pulse:
-            sinks = pulse.sink_list()
-            sink_inputs = pulse.sink_input_list()
+            try:
+                sinks = pulse.sink_list()
+                sink_inputs = pulse.sink_input_list()
+            except c.pa.CallError:
+                print("Warning: Could not get sinks/sink inputs")
+                sinks = []
+                sink_inputs = []
 
         # Sinks
         for sink in sinks:
@@ -289,16 +295,22 @@ class VolumeSliders(Gtk.Window):
     def _cb_sink_scale_change(self, scale, idx):
         value = scale.get_value()
         with self._volctl.pulsemgr.pulse() as pulse:
-            sink = next(s for s in pulse.sink_list() if s.index == idx)
-            if sink:
-                pulse.volume_set_all_chans(sink, value)
+            try:
+                sink = next(s for s in pulse.sink_list() if s.index == idx)
+                if sink:
+                    pulse.volume_set_all_chans(sink, value)
+            except c.pa.CallError as err:
+                print(f"Warning: Could not set volume on sink {idx}: {err}")
 
     def _cb_sink_input_scale_change(self, scale, idx):
         value = scale.get_value()
         with self._volctl.pulsemgr.pulse() as pulse:
-            sink_input = next(s for s in pulse.sink_input_list() if s.index == idx)
-            if sink_input:
-                pulse.volume_set_all_chans(sink_input, value)
+            try:
+                sink_input = next(s for s in pulse.sink_input_list() if s.index == idx)
+                if sink_input:
+                    pulse.volume_set_all_chans(sink_input, value)
+            except c.pa.CallError as err:
+                print(f"Warning: Could not set volume on sink input {idx}: {err}")
 
     def _cb_sink_mute_toggle(self, button, idx):
         mute = button.get_property("active")
