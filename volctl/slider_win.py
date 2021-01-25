@@ -280,6 +280,17 @@ class VolumeSliders(Gtk.Window):
         timeout = GLib.timeout_add(self.PEAK_TIMEOUT, self._cb_peak_reset, idx)
         self._peak_timeouts[idx] = timeout
 
+    def _scale_change(self, scale, idx, sink_input=False):
+        value = scale.get_value()
+        with self._volctl.pulsemgr.pulse() as pulse:
+            list_method = pulse.sink_input_list if sink_input else pulse.sink_list
+            try:
+                sink = next(s for s in list_method() if s.index == idx)
+                if sink:
+                    pulse.volume_set_all_chans(sink, value)
+            except c.pa.CallError as err:
+                print(f"Warning: Could not set volume on {idx}: {err}")
+
     # GUI callbacks
 
     def _cb_destroy(self, win):
@@ -293,24 +304,10 @@ class VolumeSliders(Gtk.Window):
         return "{:d}%".format(round(100 * val))
 
     def _cb_sink_scale_change(self, scale, idx):
-        value = scale.get_value()
-        with self._volctl.pulsemgr.pulse() as pulse:
-            try:
-                sink = next(s for s in pulse.sink_list() if s.index == idx)
-                if sink:
-                    pulse.volume_set_all_chans(sink, value)
-            except c.pa.CallError as err:
-                print(f"Warning: Could not set volume on sink {idx}: {err}")
+        self._scale_change(scale, idx)
 
     def _cb_sink_input_scale_change(self, scale, idx):
-        value = scale.get_value()
-        with self._volctl.pulsemgr.pulse() as pulse:
-            try:
-                sink_input = next(s for s in pulse.sink_input_list() if s.index == idx)
-                if sink_input:
-                    pulse.volume_set_all_chans(sink_input, value)
-            except c.pa.CallError as err:
-                print(f"Warning: Could not set volume on sink input {idx}: {err}")
+        self._scale_change(scale, idx, sink_input=True)
 
     def _cb_sink_mute_toggle(self, button, idx):
         mute = button.get_property("active")
