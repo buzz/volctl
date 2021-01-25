@@ -59,6 +59,9 @@ class VolctlApp:
         self._osd = None
         self._mixer_process = None
 
+        # Remembered main volume, mute
+        self._volume, self._mute = 0.0, False
+
     def create_status_icon(self):
         """Create status icon."""
         if self.status_icon is None:
@@ -104,6 +107,13 @@ class VolctlApp:
 
     def update_main(self, volume, mute):
         """Default sink update."""
+
+        # Ignore events that don't change anything (prevents OSD from showing)
+        if volume == self._volume and mute == self._mute:
+            return
+        self._volume = volume
+        self._mute = mute
+
         self.status_icon.update(volume, mute)
         # OSD
         if self._first_volume_update:
