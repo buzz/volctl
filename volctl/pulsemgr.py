@@ -276,12 +276,18 @@ class PulseManager:
     @property
     def volume(self):
         """Volume of the default sink."""
-        return self.default_sink.volume.value_flat
+        try:
+            return self.default_sink.volume.value_flat
+        except AttributeError:
+            return 0.0
 
     @property
     def mute(self):
         """Mute state of the default sink."""
-        return self.default_sink.mute == 1
+        try:
+            return self.default_sink.mute == 1
+        except AttributeError:
+            return False
 
     @property
     def default_sink(self):
@@ -293,7 +299,7 @@ class PulseManager:
     @property
     def default_sink_idx(self):
         """Default sink index."""
-        sink = self.default_sink
-        if sink:
-            return sink.index
-        return None
+        try:
+            return self.default_sink.index
+        except AttributeError:
+            return None

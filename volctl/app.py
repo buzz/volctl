@@ -208,9 +208,9 @@ class VolctlApp:
             self._mixer_process = Popen(mixer_cmd)
         # TODO: bring mixer win to front otherwise
 
-    def show_slider(self, monitor_rect):
+    def show_slider(self, xpos, ypos):
         """Show mini window with application volume sliders."""
-        self.sliders_win = VolumeSliders(self, monitor_rect)
+        self.sliders_win = VolumeSliders(self, xpos, ypos)
         if self.settings.get_boolean("vu-enabled"):
             self.pulsemgr.start_peak_monitor()
 

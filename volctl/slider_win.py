@@ -5,7 +5,7 @@ Small window that appears next to tray icon when activated. It show sliders
 for main and application volume.
 """
 
-from gi.repository import Gtk, Gdk, GLib, GObject
+from gi.repository import Gtk, Gdk, GLib
 from pulsectl.pulsectl import c
 
 
@@ -17,10 +17,10 @@ class VolumeSliders(Gtk.Window):
     # Time without receiving an update after which a peak value should be reset to 0
     PEAK_TIMEOUT = 100  # ms
 
-    def __init__(self, volctl, monitor_rect):
+    def __init__(self, volctl, xpos, ypos):
         super().__init__(type=Gtk.WindowType.POPUP)
         self._volctl = volctl
-        self._monitor_rect = monitor_rect
+        self._xpos, self._ypos = xpos, ypos
         self._grid = None
         self._show_percentage = self._volctl.settings.get_boolean("show-percentage")
 
@@ -63,30 +63,47 @@ class VolumeSliders(Gtk.Window):
         )
 
     def _set_position(self):
+        if self._xpos == 0 and self._ypos == 0:
+            # Bogus event positions, happens on Gnome and maybe others,
+            # use current mouse pointer position instead.
+            _, self._xpos, self._ypos = (
+                Gdk.Display.get_default()
+                .get_default_seat()
+                .get_pointer()
+                .get_position()
+            )
+
+        monitor = Gdk.Display.get_default().get_monitor_at_point(self._xpos, self._ypos)
+        monitor_rect = monitor.get_workarea()
+
         status_icon = self._volctl.status_icon
         info_avail, screen, status_rect, orient = status_icon.get_geometry()
         if not info_avail:
-            raise ValueError("StatusIcon position information not available!")
+            # If status icon geometry is not available we need to assume values
+            status_rect = Gdk.Rectangle()
+            status_rect.x, status_rect.y = self._xpos, self._ypos
+            status_rect.width = status_rect.height = 1
         win_w, win_h = self.get_size()
 
         # Initial position (window anchor based on screen quadrant)
         win_x = status_rect.x
         win_y = status_rect.y
-        if status_rect.x - self._monitor_rect.x < self._monitor_rect.width / 2:
+        if status_rect.x - monitor_rect.x < monitor_rect.width / 2:
             win_x += status_rect.width
         else:
             if orient == Gtk.Orientation.VERTICAL:
                 win_x -= win_w
-        if status_rect.y - self._monitor_rect.y < self._monitor_rect.height / 2:
+        if status_rect.y - monitor_rect.y < monitor_rect.height / 2:
             win_y += status_rect.height
         else:
             win_y -= win_h
 
         # Keep window inside screen
-        if win_x + win_w > self._monitor_rect.x + self._monitor_rect.width:
-            win_x = self._monitor_rect.x + self._monitor_rect.width - win_w
+        if win_x + win_w > monitor_rect.x + monitor_rect.width:
+            win_x = monitor_rect.x + monitor_rect.width - win_w
 
-        self.set_screen(screen)
+        if screen:
+            self.set_screen(screen)
         self.move(win_x, win_y)
 
     def create_widgets(self):
@@ -155,7 +172,7 @@ class VolumeSliders(Gtk.Window):
 
         self.show_all()
         self.resize(1, 1)  # Smallest possible
-        GObject.idle_add(self._set_position)
+        GLib.idle_add(self._set_position)
 
     def _add_scale(self, pos, props):
         name, icon_name, val, mute = props
