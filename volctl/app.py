@@ -149,7 +149,8 @@ class VolctlApp:
         """Amount of sliders changed."""
         if self.status_icon and self.sliders_win:
             self.sliders_win.recreate_sliders()
-            self.pulsemgr.start_peak_monitor()
+            if self.settings.get_boolean("vu-enabled"):
+                self.pulsemgr.start_peak_monitor()
 
     def on_connected(self):
         """PulseAudio connection was established."""
@@ -210,7 +211,8 @@ class VolctlApp:
     def show_slider(self, monitor_rect):
         """Show mini window with application volume sliders."""
         self.sliders_win = VolumeSliders(self, monitor_rect)
-        self.pulsemgr.start_peak_monitor()
+        if self.settings.get_boolean("vu-enabled"):
+            self.pulsemgr.start_peak_monitor()
 
     def close_slider(self):
         """Close mini window with application volume sliders."""
