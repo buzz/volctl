@@ -183,7 +183,12 @@ class VolumeOverlay(Gtk.Window):
     def _make_window_clickthrough(self):
         """Make events pass through window."""
         dpy = X.Display(hash(GdkX11.x11_get_default_xdisplay()))
-        win = X.XID(self.get_window().get_xid())
+        try:
+            xid = self.get_window().get_xid()
+        except AttributeError:
+            # Probably on Wayland
+            return
+        win = X.XID(xid)
         reg = X.create_region(dpy, None, 0)
         X.set_window_shape_region(dpy, win, X.SHAPE_BOUNDING, 0, 0, 0)
         X.set_window_shape_region(dpy, win, X.SHAPE_INPUT, 0, 0, reg)
