@@ -5,7 +5,7 @@ from gi.repository import Gtk, Gdk, GLib
 try:
     gi.require_version("StatusNotifier", "1.0")
     from gi.repository import StatusNotifier
-except ImportError:
+except (ImportError, ValueError):
     StatusNotifier = None
 
 from volctl.meta import PROGRAM_NAME
