@@ -268,7 +268,10 @@ class StatusIcon:
         return True
 
     def _cb_gtksi_scroll(self, widget, event):
-        self._cb_scroll(1 if event.direction == Gdk.ScrollDirection.DOWN else -1)
+        if event.direction == Gdk.ScrollDirection.DOWN:
+            self._cb_scroll(-1)
+        elif event.direction == Gdk.ScrollDirection.UP:
+            self._cb_scroll(1)
 
     def _cb_gtksi_button_press(self, widget, event):
         if event.button == 1:
