@@ -44,6 +44,11 @@
       <summary>Show percentage</summary>
       <description>Shows percentage under volume sliders.</description>
     </key>
+    <key type="b" name="prefer-gtksi">
+      <default>false</default>
+      <summary>Prefer XEmbed</summary>
+      <description>Prefer XEmbed/Gtk.StatusIcon over SNI (Restart required!).</description>
+    </key>
     <key type="b" name="vu-enabled">
       <default>true</default>
       <summary>Show volume meters</summary>

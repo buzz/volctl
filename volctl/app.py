@@ -65,7 +65,8 @@ class VolctlApp:
     def create_status_icon(self):
         """Create status icon."""
         if self.status_icon is None:
-            self.status_icon = StatusIcon(self)
+            prefer_gtksi = self.settings.get_boolean("prefer-gtksi")
+            self.status_icon = StatusIcon(self, prefer_gtksi)
 
     def quit(self):
         """Gracefully shut down application."""

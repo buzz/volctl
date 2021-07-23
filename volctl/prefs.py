@@ -45,6 +45,7 @@ class PreferencesDialog(Gtk.Dialog):
         self._row_osd_size = self._add_scale("osd-scale", self._scale_osd_size_format)
         self._add_switch("vu-enabled")
         self._add_entry("mixer-command", self._default_mixer_cmd)
+        self._add_switch("prefer-gtksi")
 
         self._update_rows()
         self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)

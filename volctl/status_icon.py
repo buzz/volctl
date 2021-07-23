@@ -24,14 +24,23 @@ class StatusIcon:
 
     MAX_EMBED_ATTEMPTS = 5
 
-    def __init__(self, volctl):
+    def __init__(self, volctl, prefer_gtksi):
         super().__init__()
         self._volctl = volctl
         self._menu = None
 
         self._current_impl = None
+
         # Prefer statusnotifier as it works under Gnome/KDE and also Wayland
-        self._available_impl = ["gtksi", "sni"]
+        # unless overridden by user
+        self._available_impl = []
+        if StatusNotifier is not None:
+            self._available_impl.append("sni")
+        if prefer_gtksi:
+            self._available_impl.append("gtksi")
+        else:
+            self._available_impl.insert(0, "gtksi")
+
         self._check_embed_timeout = None
         self._embed_attempts = 0
         self._instance = None
