@@ -66,6 +66,14 @@ which can be changed under the Preferences ➝ Prefer XEmbed.
 can use the AUR package
 [statusnotifier-introspection-dbus-menu](https://aur.archlinux.org/packages/statusnotifier-introspection-dbus-menu/).
 
+## No Wayland support ([#39](https://github.com/buzz/volctl/issues/39))
+
+Through SNI volctl now supports tray icons under Wayland. Unfortunately it's not
+possible to display the volume slider window on Wayland at the mouse pointer
+position. The Wayland protocol does not allow this unless non-standard Wayland
+extensions are used. The only entity that is capable of doing so is the Wayland
+compositor (generally your Desktop Environment).
+
 ## Development
 
 ### Deploy dev version in Virtualenv
