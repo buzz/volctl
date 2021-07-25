@@ -85,35 +85,57 @@ class VolumeOverlay(Gtk.Window):
         )
 
     def _move_to_position(self, position):
-        if position == "center":
-            self._move_to_center()
-        elif position == "bottom-right":
-            self._move_to_bottom_right()
-        elif position == "top-right":
-            self._move_to_top_right()
-        else:
-            print("Not supported osd-position. Supported are: center, bottom-right, top-right; osd-position=" + position)
-            raise ValueError
-
-    def _move_to_bottom_right(self):
-        xpos, ypos = self._compute_position()
-        if xpos < 0:  # Negative X position is counted from right border
-            xpos = Gdk.Screen.width() - self.get_allocated_width() + xpos + 1
-        if ypos < 0:  # Negative Y position is counted from bottom border
-            ypos = Gdk.Screen.height() - self.get_allocated_height() + ypos + 1
-
-        self.move(xpos, ypos)
-
-    def _move_to_top_right(self):
-        xpos, ypos = self.position
+        # Adjusts position for currently active screen (display).
+        xpos, ypos = 0, 0
+        mx, my = self.position
         width, height = self._get_window_size()
-        xpos = Gdk.Screen.width() - width + xpos
+        swidth = Gdk.Screen.width()
+        sheight = Gdk.Screen.height()
+        geometry = self._get_active_screen_geometry()
+        if geometry:
+            xpos = geometry.x
+            ypos = geometry.y
+            swidth = geometry.width
+            sheight = geometry.height
+        # Caluclate x, y coords by required enum
+        if position == "center":
+            xpos = swidth / 2 - width / 2 + xpos
+            ypos = sheight / 2 - height / 2 + ypos
 
-        self.move(xpos, -ypos)
+        elif position == "bottom-right":
+            xpos = mx + xpos + swidth - width
+            ypos = my + ypos + sheight - height
 
-    def _move_to_center(self):
-        xpos = Gdk.Screen.width() / 2 - self.get_allocated_width() / 2
-        ypos = Gdk.Screen.height() / 2 - self.get_allocated_width() / 2
+        elif position == "top-right":
+            xpos = mx + xpos + swidth - width
+            ypos = -my + ypos
+
+        elif position == "top-left":
+            xpos = -mx + xpos
+            ypos = -my + ypos
+
+        elif position == "bottom-left":
+            xpos = -mx + xpos
+            ypos = my + ypos + sheight - height
+
+        elif position == "top-center":
+            xpos = swidth / 2 - width / 2 + xpos
+            ypos = -my + ypos
+
+        elif position == "bottom-center":
+            xpos = swidth / 2 - width / 2 + xpos
+            ypos = my + ypos + sheight - height
+
+        elif position == "middle-right":
+            xpos = mx + xpos + swidth - width
+            ypos = sheight / 2 - height / 2 + ypos
+
+        elif position == "middle-left":
+            xpos = -mx + xpos
+            ypos = sheight / 2 - height / 2 + ypos
+
+        else:
+            raise ValueError
 
         self.move(xpos, ypos)
 
@@ -187,23 +209,6 @@ class VolumeOverlay(Gtk.Window):
             cairo_r.move_to(0.0, -inner_radius)
             cairo_r.line_to(0.0, -outer_radius)
             cairo_r.stroke()
-
-    def _compute_position(self):
-        """Adjusts position for currently active screen (display)."""
-        xpos, ypos = self.position
-        width, height = self._get_window_size()
-        geometry = self._get_active_screen_geometry()
-        if geometry:
-            if xpos < 0:
-                xpos = xpos + geometry.x + geometry.width - width
-            else:
-                xpos = xpos + geometry.x
-            if ypos < 0:
-                ypos = ypos + geometry.y + geometry.height - height
-            else:
-                ypos = geometry.y + ypos
-
-        return xpos, ypos
 
     def _make_window_clickthrough(self):
         """Make events pass through window."""

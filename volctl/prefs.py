@@ -30,7 +30,7 @@ class PreferencesDialog(Gtk.Dialog):
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         row.add(hbox)
         label = Gtk.Label(xalign=0)
-        label.set_markup("<b>Volctl Settings</b>")
+        label.set_markup("<b>volctl settings</b>")
         hbox.pack_start(label, False, True, 10)
         self.listbox.add(row)
 
