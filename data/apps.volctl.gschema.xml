@@ -39,6 +39,11 @@
       <summary>OSD size</summary>
       <description>OSD scale in percent.</description>
     </key>
+    <key type="s" name="osd-position">
+      <default>"bottom-right"</default>
+      <summary>OSD position</summary>
+      <description>Select position for OSD volume; supported: center, top-right, bottom-right</description>
+    </key>
     <key type="b" name="show-percentage">
       <default>false</default>
       <summary>Show percentage</summary>

@@ -1,7 +1,7 @@
 """
 OSD volume overlay
 
-A transparent OSD volume indicator for the bottom-right corner.
+A transparent OSD volume indicator for placed to: bottom-right, top-right or center position.
 
 Various code snippets taken from https://github.com/kozec/sc-controller
 """
@@ -32,6 +32,7 @@ class VolumeOverlay(Gtk.Window):
         super().__init__()
         self._volctl = volctl
         self.position = (-self.SCREEN_MARGIN, -self.SCREEN_MARGIN)
+        self.osd_position = self._volctl.settings.get_string("osd-position")
 
         scale = self._volctl.settings.get_int("osd-scale") / 100
         self._width = int(self.BASE_WIDTH * scale)
@@ -68,7 +69,7 @@ class VolumeOverlay(Gtk.Window):
 
         self.realize()
         self.get_window().set_override_redirect(True)
-        self._move_to_corner()
+        self._move_to_position(self.osd_position)
         Gtk.Window.show(self)
         self._make_window_clickthrough()
 
@@ -83,12 +84,36 @@ class VolumeOverlay(Gtk.Window):
             self._volctl.settings.get_int("osd-timeout"), self._cb_hide_timeout
         )
 
-    def _move_to_corner(self):
+    def _move_to_position(self, position):
+        if position == "center":
+            self._move_to_center()
+        elif position == "bottom-right":
+            self._move_to_bottom_right()
+        elif position == "top-right":
+            self._move_to_top_right()
+        else:
+            print("Not supported osd-position. Supported are: center, bottom-right, top-right; osd-position=" + position)
+            raise ValueError
+
+    def _move_to_bottom_right(self):
         xpos, ypos = self._compute_position()
         if xpos < 0:  # Negative X position is counted from right border
             xpos = Gdk.Screen.width() - self.get_allocated_width() + xpos + 1
         if ypos < 0:  # Negative Y position is counted from bottom border
             ypos = Gdk.Screen.height() - self.get_allocated_height() + ypos + 1
+
+        self.move(xpos, ypos)
+
+    def _move_to_top_right(self):
+        xpos, ypos = self.position
+        width, height = self._get_window_size()
+        xpos = Gdk.Screen.width() - width + xpos
+
+        self.move(xpos, -ypos)
+
+    def _move_to_center(self):
+        xpos = Gdk.Screen.width() / 2 - self.get_allocated_width() / 2
+        ypos = Gdk.Screen.height() / 2 - self.get_allocated_width() / 2
 
         self.move(xpos, ypos)
 
@@ -220,7 +245,7 @@ class VolumeOverlay(Gtk.Window):
         if self._fadeout_timeout is not None:
             GLib.Source.remove(self._fadeout_timeout)
             self._fadeout_timeout = None
-        self._move_to_corner()
+        self._move_to_position(self.osd_position)
         self._opacity = 1.0
         self.queue_draw()
 

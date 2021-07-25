@@ -30,7 +30,7 @@ class PreferencesDialog(Gtk.Dialog):
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         row.add(hbox)
         label = Gtk.Label(xalign=0)
-        label.set_markup("<b>volctl settings</b>")
+        label.set_markup("<b>Volctl Settings</b>")
         hbox.pack_start(label, False, True, 10)
         self.listbox.add(row)
 
@@ -43,8 +43,10 @@ class PreferencesDialog(Gtk.Dialog):
             "osd-timeout", self._scale_timeout_format
         )
         self._row_osd_size = self._add_scale("osd-scale", self._scale_osd_size_format)
+        self._row_osd_position = self._add_entry("osd-position", "", True)
+
         self._add_switch("vu-enabled")
-        self._add_entry("mixer-command", self._default_mixer_cmd)
+        self._add_entry("mixer-command", self._default_mixer_cmd, False)
         self._add_switch("prefer-gtksi")
 
         self._update_rows()
@@ -98,7 +100,7 @@ class PreferencesDialog(Gtk.Dialog):
         self.listbox.add(row)
         return row
 
-    def _add_entry(self, name, placeholder):
+    def _add_entry(self, name, placeholder, submenu):
         key = self._schema.get_key(name)
         row = Gtk.ListBoxRow()
         row.set_tooltip_text(key.get_description())
@@ -108,7 +110,10 @@ class PreferencesDialog(Gtk.Dialog):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         hbox.pack_start(vbox, True, True, 10)
 
-        label = Gtk.Label(key.get_summary(), xalign=0)
+        if submenu:
+            label = Gtk.Label("  " + key.get_summary(), xalign=0)
+        else:
+            label = Gtk.Label(key.get_summary(), xalign=0)
         vbox.pack_start(label, True, True, 0)
         entry = Gtk.Entry().new()
         entry.set_placeholder_text(placeholder)
@@ -116,6 +121,7 @@ class PreferencesDialog(Gtk.Dialog):
         hbox.pack_start(entry, False, True, 10)
 
         self.listbox.add(row)
+        return row
 
     @staticmethod
     def _scale_timeout_format(_, value):
@@ -137,9 +143,11 @@ class PreferencesDialog(Gtk.Dialog):
         if self._settings.get_boolean("osd-enabled"):
             self._row_osd_timeout.show()
             self._row_osd_size.show()
+            self._row_osd_position.show()
         else:
             self._row_osd_timeout.hide()
             self._row_osd_size.hide()
+            self._row_osd_position.hide()
 
     # GSettings callback
 
