@@ -1,7 +1,7 @@
 """
 OSD volume overlay
 
-A transparent OSD volume indicator for the bottom-right corner.
+A transparent OSD volume indicator for placed to: bottom-right, top-right or center position.
 
 Various code snippets taken from https://github.com/kozec/sc-controller
 """
@@ -32,6 +32,7 @@ class VolumeOverlay(Gtk.Window):
         super().__init__()
         self._volctl = volctl
         self.position = (-self.SCREEN_MARGIN, -self.SCREEN_MARGIN)
+        self.osd_position = self._volctl.settings.get_string("osd-position")
 
         scale = self._volctl.settings.get_int("osd-scale") / 100
         self._width = int(self.BASE_WIDTH * scale)
@@ -68,7 +69,7 @@ class VolumeOverlay(Gtk.Window):
 
         self.realize()
         self.get_window().set_override_redirect(True)
-        self._move_to_corner()
+        self._move_to_position(self.osd_position)
         Gtk.Window.show(self)
         self._make_window_clickthrough()
 
@@ -83,12 +84,58 @@ class VolumeOverlay(Gtk.Window):
             self._volctl.settings.get_int("osd-timeout"), self._cb_hide_timeout
         )
 
-    def _move_to_corner(self):
-        xpos, ypos = self._compute_position()
-        if xpos < 0:  # Negative X position is counted from right border
-            xpos = Gdk.Screen.width() - self.get_allocated_width() + xpos + 1
-        if ypos < 0:  # Negative Y position is counted from bottom border
-            ypos = Gdk.Screen.height() - self.get_allocated_height() + ypos + 1
+    def _move_to_position(self, position):
+        # Adjusts position for currently active screen (display).
+        xpos, ypos = 0, 0
+        mx, my = self.position
+        width, height = self._get_window_size()
+        swidth = Gdk.Screen.width()
+        sheight = Gdk.Screen.height()
+        geometry = self._get_active_screen_geometry()
+        if geometry:
+            xpos = geometry.x
+            ypos = geometry.y
+            swidth = geometry.width
+            sheight = geometry.height
+        # Caluclate x, y coords by required enum
+        if position == "center":
+            xpos = swidth / 2 - width / 2 + xpos
+            ypos = sheight / 2 - height / 2 + ypos
+
+        elif position == "bottom-right":
+            xpos = mx + xpos + swidth - width
+            ypos = my + ypos + sheight - height
+
+        elif position == "top-right":
+            xpos = mx + xpos + swidth - width
+            ypos = -my + ypos
+
+        elif position == "top-left":
+            xpos = -mx + xpos
+            ypos = -my + ypos
+
+        elif position == "bottom-left":
+            xpos = -mx + xpos
+            ypos = my + ypos + sheight - height
+
+        elif position == "top-center":
+            xpos = swidth / 2 - width / 2 + xpos
+            ypos = -my + ypos
+
+        elif position == "bottom-center":
+            xpos = swidth / 2 - width / 2 + xpos
+            ypos = my + ypos + sheight - height
+
+        elif position == "middle-right":
+            xpos = mx + xpos + swidth - width
+            ypos = sheight / 2 - height / 2 + ypos
+
+        elif position == "middle-left":
+            xpos = -mx + xpos
+            ypos = sheight / 2 - height / 2 + ypos
+
+        else:
+            raise ValueError
 
         self.move(xpos, ypos)
 
@@ -163,23 +210,6 @@ class VolumeOverlay(Gtk.Window):
             cairo_r.line_to(0.0, -outer_radius)
             cairo_r.stroke()
 
-    def _compute_position(self):
-        """Adjusts position for currently active screen (display)."""
-        xpos, ypos = self.position
-        width, height = self._get_window_size()
-        geometry = self._get_active_screen_geometry()
-        if geometry:
-            if xpos < 0:
-                xpos = xpos + geometry.x + geometry.width - width
-            else:
-                xpos = xpos + geometry.x
-            if ypos < 0:
-                ypos = ypos + geometry.y + geometry.height - height
-            else:
-                ypos = geometry.y + ypos
-
-        return xpos, ypos
-
     def _make_window_clickthrough(self):
         """Make events pass through window."""
         dpy = X.Display(hash(GdkX11.x11_get_default_xdisplay()))
@@ -220,7 +250,7 @@ class VolumeOverlay(Gtk.Window):
         if self._fadeout_timeout is not None:
             GLib.Source.remove(self._fadeout_timeout)
             self._fadeout_timeout = None
-        self._move_to_corner()
+        self._move_to_position(self.osd_position)
         self._opacity = 1.0
         self.queue_draw()
 

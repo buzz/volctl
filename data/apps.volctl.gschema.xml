@@ -1,4 +1,15 @@
 <schemalist>
+  <enum id="apps.volctl.osd_position">
+    <value nick="bottom-right" value="1"/>
+    <value nick="top-right" value="2"/>
+    <value nick="center" value="3"/>
+    <value nick="top-left" value="4"/>
+    <value nick="bottom-left" value="5"/>
+    <value nick="bottom-center" value="6"/>
+    <value nick="top-center" value="7"/>
+    <value nick="middle-right" value="8"/>
+    <value nick="middle-left" value="9"/>
+  </enum>
   <schema id="apps.volctl" gettext-domain="volctl">
     <key type="b" name="auto-close">
       <default>true</default>
@@ -38,6 +49,11 @@
       <default>100</default>
       <summary>OSD size</summary>
       <description>OSD scale in percent.</description>
+    </key>
+    <key enum="apps.volctl.osd_position" name="osd-position">
+      <default>"bottom-right"</default>
+      <summary>OSD position</summary>
+      <description>OSD position: center, bottom-right, middle-right, top-right, top-center, top-left, middle-left, bottom-left, bottom-center</description>
     </key>
     <key type="b" name="show-percentage">
       <default>false</default>
