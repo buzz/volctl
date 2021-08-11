@@ -32,6 +32,21 @@ class VolumeSliders(Gtk.Window):
         self.connect("leave-notify-event", self._cb_leave_notify)
         self.connect("destroy", self._cb_destroy)
 
+        screen = Gdk.Screen.get_default()
+        css_provider = Gtk.CssProvider()
+        style_ctx = Gtk.StyleContext()
+        style_ctx.add_provider_for_screen(screen, css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+        css = b"""
+            button.mute_btn { background-color: #800; }
+            button.mute_btn { border-color: #800; }
+            button.mute_btn:hover { color: #f00; }
+            button.mute_btn:hover { border-color: #0f0; }
+            button.mute_btn:hover { background-color: #00f; }
+        """
+        css_provider.load_from_data(css)
+        print(css_provider.list_properties())
+
         self._frame = Gtk.Frame()
         self._frame.set_shadow_type(Gtk.ShadowType.OUT)
         self.add(self._frame)
@@ -211,6 +226,26 @@ class VolumeSliders(Gtk.Window):
         btn = Gtk.ToggleButton()
         btn.set_image(icon)
         btn.set_relief(Gtk.ReliefStyle.NONE)
+
+        btn_ctx = btn.get_style_context()
+        btn_ctx.add_class('mute_btn')
+        
+        prop_names = sorted([ p.name for p in btn.list_properties() ])
+        print(prop_names)
+        
+        prop_names = sorted([ p.name for p in btn.list_style_properties() ])
+        print(prop_names)
+        
+        prop = btn.get_property('style')
+        print(prop)
+        
+#        btn.modify_bg(Gtk.StateType.CHECKED, Gdk.Color(65535, 0, 0))
+#        btn.modify_fg(Gtk.StateType.ACTIVE, Gdk.Color(0, 65535, 0))
+
+#        btn.override_background_color(Gtk.StateFlags.ACTIVE, Gdk.RGBA(1.0, 0, 0, 1.0))
+#        btn.override_background_color(Gtk.StateFlags.CHECKED, Gdk.RGBA(1.0, 0.0, 0, 1.0))
+#        btn.override_color(Gtk.StateFlags.CHECKED, Gdk.RGBA(1.0, 0.0, 0, 1.0))
+        
         btn.set_margin_bottom(self.SPACING)
         btn.set_tooltip_markup(name)
 
