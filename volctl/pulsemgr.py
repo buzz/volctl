@@ -43,7 +43,7 @@ class PulsePoller(threading.Thread):
             with self._pulse_hold:
                 self._pulse_lock.acquire()
             try:
-                self._pulse.event_listen(0.5)
+                self._pulse.event_listen(0)
                 if self.quit:
                     break
             except PulseDisconnected:
