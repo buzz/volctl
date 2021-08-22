@@ -189,6 +189,7 @@ class PulseManager:
     def _read_cb(self, stream, nbytes, idx):
         data = c.c_void_p()
         nbytes = c.c_int(nbytes)
+        idx -= 1
         c.pa.stream_peek(stream, data, c.byref(nbytes))
         try:
             if not data or nbytes.value < 1:
@@ -236,7 +237,7 @@ class PulseManager:
             pa_context, f"peak {idx}", c.byref(self._samplespec), None, proplist
         )
         c.pa.proplist_free(proplist)
-        c.pa.stream_set_read_callback(stream, self._read_cb_ctypes, idx)
+        c.pa.stream_set_read_callback(stream, self._read_cb_ctypes, idx + 1)
         if sink_input_idx is not None:
             # Monitor single sink input
             c.pa.stream_set_monitor_stream(stream, sink_input_idx)
