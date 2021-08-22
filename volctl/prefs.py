@@ -50,7 +50,7 @@ class PreferencesDialog(Gtk.Dialog):
         self._add_switch("prefer-gtksi")
 
         self._update_rows()
-        self.set_position(Gtk.WindowPosition.CENTER_ALWAYS)
+        self.set_position(Gtk.WindowPosition.CENTER)
         self.show_all()
 
     def _add_switch(self, name):
