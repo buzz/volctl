@@ -35,17 +35,19 @@ class PreferencesDialog(Gtk.Dialog):
         self.listbox.add(row)
 
         self._add_switch("show-percentage")
+        self._add_switch("vu-enabled")
+        self._add_scale("mouse-wheel-step", self._scale_mouse_wheel_step_format, False)
         self._add_switch("auto-close")
-        self._row_timeout = self._add_scale("timeout", self._scale_timeout_format)
-        self._add_scale("mouse-wheel-step", self._scale_mouse_wheel_step_format)
+        self._row_timeout = self._add_scale("timeout", self._scale_timeout_format, True)
         self._add_switch("osd-enabled")
         self._row_osd_timeout = self._add_scale(
-            "osd-timeout", self._scale_timeout_format
+            "osd-timeout", self._scale_timeout_format, True
         )
-        self._row_osd_size = self._add_scale("osd-scale", self._scale_osd_size_format)
+        self._row_osd_size = self._add_scale(
+            "osd-scale", self._scale_osd_size_format, True
+        )
         self._row_osd_position = self._add_entry("osd-position", "", True)
 
-        self._add_switch("vu-enabled")
         self._add_entry("mixer-command", self._default_mixer_cmd, False)
         self._add_switch("prefer-gtksi")
 
@@ -72,7 +74,7 @@ class PreferencesDialog(Gtk.Dialog):
 
         self.listbox.add(row)
 
-    def _add_scale(self, name, format_func):
+    def _add_scale(self, name, format_func, indent):
         key = self._schema.get_key(name)
         row = Gtk.ListBoxRow()
         row.set_tooltip_text(key.get_description())
@@ -80,10 +82,13 @@ class PreferencesDialog(Gtk.Dialog):
         hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         row.add(hbox)
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        hbox.pack_start(vbox, True, True, 10)
+        if indent:
+            hbox.pack_start(vbox, True, True, 30)
+        else:
+            hbox.pack_start(vbox, True, True, 10)
 
-        label = Gtk.Label("  " + key.get_summary(), xalign=0)
-        vbox.pack_start(label, True, True, 0)
+        label = Gtk.Label(key.get_summary(), xalign=0)
+        vbox.pack_start(label, True, True, 10)
         scale = Gtk.Scale().new(Gtk.Orientation.HORIZONTAL)
         key_range = key.get_range()
         scale.set_range(key_range[1][0], key_range[1][1])
@@ -137,17 +142,17 @@ class PreferencesDialog(Gtk.Dialog):
 
     def _update_rows(self):
         if self._settings.get_boolean("auto-close"):
-            self._row_timeout.show()
+            self._row_timeout.set_sensitive(True)
         else:
-            self._row_timeout.hide()
+            self._row_timeout.set_sensitive(False)
         if self._settings.get_boolean("osd-enabled"):
-            self._row_osd_timeout.show()
-            self._row_osd_size.show()
-            self._row_osd_position.show()
+            self._row_osd_timeout.set_sensitive(True)
+            self._row_osd_size.set_sensitive(True)
+            self._row_osd_position.set_sensitive(True)
         else:
-            self._row_osd_timeout.hide()
-            self._row_osd_size.hide()
-            self._row_osd_position.hide()
+            self._row_osd_timeout.set_sensitive(False)
+            self._row_osd_size.set_sensitive(False)
+            self._row_osd_position.set_sensitive(False)
 
     # GSettings callback
 
