@@ -139,8 +139,16 @@ class VolumeSliders(Gtk.Window):
 
         # Sinks
         for sink in sinks:
+            for prop_name in [ "alsa.card_name", "device.description"]:
+                try:
+                    card_name = sink.proplist[prop_name]
+                    break
+                except KeyError:
+                    continue
+                card_name = sink.name
+
             props = (
-                sink.proplist["alsa.card_name"],
+                card_name,
                 "audio-card",
                 sink.volume.value_flat,
                 sink.mute,
