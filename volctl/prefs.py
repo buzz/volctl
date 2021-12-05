@@ -145,7 +145,7 @@ class PreferencesDialog(Gtk.Dialog):
 
     @staticmethod
     def _scale_mouse_wheel_step_format(_, value):
-        return f"{value/100:.1f} %"
+        return f"{value:.1f} %"
 
     def _update_rows(self):
         if self._settings.get_boolean("auto-close"):

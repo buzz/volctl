@@ -185,7 +185,7 @@ class StatusIcon:
             self._volctl.show_slider(xpos, ypos)
 
     def _cb_scroll(self, direction):
-        amount = direction * 1.0 / self._volctl.mouse_wheel_step
+        amount = direction * self._volctl.mouse_wheel_step / 100.0
         new_value = self._volctl.pulsemgr.volume + amount
         new_value = min(1.0, new_value)
         new_value = max(0.0, new_value)
