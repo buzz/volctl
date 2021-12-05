@@ -119,15 +119,15 @@ class PreferencesDialog(Gtk.Dialog):
 
     @staticmethod
     def _scale_timeout_format(_, value):
-        return "%.1f sec" % (value / 1000.0)
+        return f"{value:.1f} sec"
 
     @staticmethod
     def _scale_osd_size_format(_, value):
-        return "%d %%" % (value,)
+        return f"{value} %"
 
     @staticmethod
     def _scale_mouse_wheel_step_format(_, value):
-        return "%.1f %%" % (100.0 / value)
+        return f"{value/100:.1f} %"
 
     def _update_rows(self):
         if self._settings.get_boolean("auto-close"):

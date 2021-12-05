@@ -19,7 +19,7 @@ def _load_lib(*names):
             return CDLL(name)
         except OSError:
             pass
-    raise OSError("Failed to load %s, library not found" % (names[0],))
+    raise OSError(f"Failed to load {names[0]}, library not found")
 
 
 libXFixes = _load_lib("libXfixes.so", "libXfixes.so.3")

@@ -139,7 +139,7 @@ class VolumeSliders(Gtk.Window):
 
         # Sinks
         for sink in sinks:
-            for prop_name in [ "alsa.card_name", "device.description"]:
+            for prop_name in ["alsa.card_name", "device.description"]:
                 try:
                     card_name = sink.proplist[prop_name]
                     break
@@ -326,7 +326,7 @@ class VolumeSliders(Gtk.Window):
     @staticmethod
     def _cb_format_value(scale, val):
         """Format scale label"""
-        return "{:d}%".format(round(100 * val))
+        return str(round(100 * val))
 
     def _cb_sink_scale_change(self, scale, idx):
         self._scale_change(scale, idx)
@@ -343,17 +343,11 @@ class VolumeSliders(Gtk.Window):
         self._volctl.pulsemgr.sink_input_set_mute(idx, mute)
 
     def _cb_enter_notify(self, win, event):
-        if (
-            event.detail == Gdk.NotifyType.NONLINEAR
-            or event.detail == Gdk.NotifyType.NONLINEAR_VIRTUAL
-        ):
+        if event.detail in (Gdk.NotifyType.NONLINEAR, Gdk.NotifyType.NONLINEAR_VIRTUAL):
             self._remove_timeout()
 
     def _cb_leave_notify(self, win, event):
-        if (
-            event.detail == Gdk.NotifyType.NONLINEAR
-            or event.detail == Gdk.NotifyType.NONLINEAR_VIRTUAL
-        ):
+        if event.detail in (Gdk.NotifyType.NONLINEAR, Gdk.NotifyType.NONLINEAR_VIRTUAL):
             self._enable_timeout()
 
     def _cb_auto_close(self):

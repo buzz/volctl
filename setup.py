@@ -9,12 +9,12 @@ from setuptools import find_packages, setup
 def get_version():
     """Get version using regex parsing."""
     versionfile = "volctl/meta.py"
-    with open(versionfile, "rt") as file:
+    with open(versionfile, "rt", encoding="utf-8") as file:
         version_file_content = file.read()
     match = re.search(r"^VERSION = ['\"]([^'\"]*)['\"]", version_file_content, re.M)
     if match:
         return match.group(1)
-    raise RuntimeError("Unable to find version string in {}.".format(versionfile))
+    raise RuntimeError(f"Unable to find version string in {versionfile}.")
 
 
 setup(
