@@ -57,10 +57,14 @@ class VolumeSliders(Gtk.Window):
         self._enable_timeout()
 
     def _set_increments_on_scale(self, scale):
-        scale.set_increments(
-            1.0 / self._volctl.mouse_wheel_step,
-            1.0 / self._volctl.mouse_wheel_step,
-        )
+        try:
+            scale.set_increments(
+                1.0 / self._volctl.mouse_wheel_step,
+                1.0 / self._volctl.mouse_wheel_step,
+            )
+        except AttributeError:
+            # Pop-up might have closed already.
+            pass
 
     def _set_position(self):
         if self._xpos == 0 and self._ypos == 0:
