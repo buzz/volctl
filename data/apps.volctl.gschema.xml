@@ -11,17 +11,7 @@
     <value nick="middle-left" value="9"/>
   </enum>
   <schema id="apps.volctl" gettext-domain="volctl">
-    <key type="b" name="auto-close">
-      <default>true</default>
-      <summary>Enable sliders auto-close</summary>
-      <description>Auto-closes volume control pop-up after timeout.</description>
-    </key>
-    <key type="i" name="timeout">
-      <range min="500" max="15000"/>
-      <default>3000</default>
-      <summary>Timeout</summary>
-      <description>Time after the pop-up automatically closes.</description>
-    </key>
+    <!-- Tray icon -->
     <key type="i" name="mouse-wheel-step">
       <range min="3" max="50"/>
       <default>15</default>
@@ -31,17 +21,45 @@
     <key type="s" name="mixer-command">
       <default>""</default>
       <summary>Custom mixer command</summary>
-      <description>Default: pavucontrol</description>
+      <description>Command that is executed to launch the system audio mixer application. (Default: pavucontrol)</description>
     </key>
+    <key type="b" name="prefer-gtksi">
+      <default>false</default>
+      <summary>Prefer XEmbed</summary>
+      <description>Prefer XEmbed/Gtk.StatusIcon over SNI. Each one supports different functionality. Choose based on your preference and Desktop Environment support. (Restart required!)</description>
+    </key>
+    <!-- Volume sliders -->
+    <key type="b" name="show-percentage">
+      <default>false</default>
+      <summary>Show percentage</summary>
+      <description>Display percentage under volume sliders.</description>
+    </key>
+    <key type="b" name="vu-enabled">
+      <default>true</default>
+      <summary>Show volume meters</summary>
+      <description>Display real time volume meters in sliders.</description>
+    </key>
+    <key type="b" name="auto-close">
+      <default>true</default>
+      <summary>Enable auto-close</summary>
+      <description>Auto-close volume sliders pop-up after timeout.</description>
+    </key>
+    <key type="i" name="timeout">
+      <range min="500" max="15000"/>
+      <default>3000</default>
+      <summary>Auto-close timeout</summary>
+      <description>Time after the pop-up closes automatically.</description>
+    </key>
+    <!-- OSD -->
     <key type="b" name="osd-enabled">
       <default>true</default>
       <summary>Enable OSD</summary>
-      <description>Shows an on-screen display on volume change.</description>
+      <description>Display on-screen display on volume change.</description>
     </key>
     <key type="i" name="osd-timeout">
       <range min="0" max="10000"/>
       <default>1000</default>
-      <summary>Timeout</summary>
+      <summary>OSD timeout</summary>
       <description>Time the OSD is being shown.</description>
     </key>
     <key type="i" name="osd-scale">
@@ -54,21 +72,6 @@
       <default>"bottom-right"</default>
       <summary>OSD position</summary>
       <description>OSD position: center, bottom-right, middle-right, top-right, top-center, top-left, middle-left, bottom-left, bottom-center</description>
-    </key>
-    <key type="b" name="show-percentage">
-      <default>false</default>
-      <summary>Show percentage</summary>
-      <description>Shows percentage under volume sliders.</description>
-    </key>
-    <key type="b" name="prefer-gtksi">
-      <default>false</default>
-      <summary>Prefer XEmbed</summary>
-      <description>Prefer XEmbed/Gtk.StatusIcon over SNI (Restart required!).</description>
-    </key>
-    <key type="b" name="vu-enabled">
-      <default>true</default>
-      <summary>Show volume meters</summary>
-      <description>Shows volume meters in sliders.</description>
     </key>
   </schema>
 </schemalist>
