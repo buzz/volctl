@@ -1,7 +1,7 @@
 """
 OSD volume overlay
 
-A transparent OSD volume indicator for placed to: bottom-right, top-right or center position.
+A transparent OSD volume indicator.
 
 Various code snippets taken from https://github.com/kozec/sc-controller
 """
@@ -31,7 +31,7 @@ class VolumeOverlay(Gtk.Window):
     def __init__(self, volctl):
         super().__init__()
         self._volctl = volctl
-        self.position = (-self.SCREEN_MARGIN, -self.SCREEN_MARGIN)
+        self.position = -self.SCREEN_MARGIN, -self.SCREEN_MARGIN
         self.osd_position = self._volctl.settings.get_string("osd-position")
 
         scale = self._volctl.settings.get_int("osd-scale") / 100
@@ -87,7 +87,7 @@ class VolumeOverlay(Gtk.Window):
     def _move_to_position(self, position):
         # Adjusts position for currently active screen (display).
         xpos, ypos = 0, 0
-        mx, my = self.position
+        marginx, marginy = self.position
         width, height = self._get_window_size()
         swidth = Gdk.Screen.width()
         sheight = Gdk.Screen.height()
@@ -97,45 +97,28 @@ class VolumeOverlay(Gtk.Window):
             ypos = geometry.y
             swidth = geometry.width
             sheight = geometry.height
-        # Caluclate x, y coords by required enum
-        if position == "center":
-            xpos = swidth / 2 - width / 2 + xpos
-            ypos = sheight / 2 - height / 2 + ypos
 
-        elif position == "bottom-right":
-            xpos = mx + xpos + swidth - width
-            ypos = my + ypos + sheight - height
+        yname, xname = position.split("-")
 
-        elif position == "top-right":
-            xpos = mx + xpos + swidth - width
-            ypos = -my + ypos
+        # Caluclate x, y coords
 
-        elif position == "top-left":
-            xpos = -mx + xpos
-            ypos = -my + ypos
-
-        elif position == "bottom-left":
-            xpos = -mx + xpos
-            ypos = my + ypos + sheight - height
-
-        elif position == "top-center":
-            xpos = swidth / 2 - width / 2 + xpos
-            ypos = -my + ypos
-
-        elif position == "bottom-center":
-            xpos = swidth / 2 - width / 2 + xpos
-            ypos = my + ypos + sheight - height
-
-        elif position == "middle-right":
-            xpos = mx + xpos + swidth - width
-            ypos = sheight / 2 - height / 2 + ypos
-
-        elif position == "middle-left":
-            xpos = -mx + xpos
-            ypos = sheight / 2 - height / 2 + ypos
-
+        if xname == "left":
+            xpos = -marginx + xpos
+        elif xname == "center":
+            xpos = (swidth - width) / 2 + xpos
+        elif xname == "right":
+            xpos = marginx + xpos + swidth - width
         else:
-            raise ValueError
+            raise ValueError("Got unknown x position for OSD.")
+
+        if yname == "top":
+            ypos = -marginy + ypos
+        elif yname == "center":
+            ypos = (sheight - height) / 2 + ypos
+        elif yname == "bottom":
+            ypos = marginy + ypos + sheight - height
+        else:
+            raise ValueError("Got unknown y position for OSD.")
 
         self.move(xpos, ypos)
 
@@ -188,7 +171,7 @@ class VolumeOverlay(Gtk.Window):
         )
 
         # Text
-        text = "{:d} %".format(round(100 * self._volume))
+        text = f"{round(100 * self._volume)} %"
         cairo_r.select_font_face("sans-serif")
         cairo_r.set_font_size(self._font_size)
         _, _, text_width, text_height, _, _ = cairo_r.text_extents(text)

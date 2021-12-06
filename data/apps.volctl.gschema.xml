@@ -1,14 +1,14 @@
 <schemalist>
   <enum id="apps.volctl.osd_position">
-    <value nick="bottom-right" value="1"/>
+    <value nick="top-left" value="0"/>
+    <value nick="top-center" value="1"/>
     <value nick="top-right" value="2"/>
-    <value nick="center" value="3"/>
-    <value nick="top-left" value="4"/>
-    <value nick="bottom-left" value="5"/>
-    <value nick="bottom-center" value="6"/>
-    <value nick="top-center" value="7"/>
-    <value nick="middle-right" value="8"/>
-    <value nick="middle-left" value="9"/>
+    <value nick="center-left" value="3"/>
+    <value nick="center-center" value="4"/>
+    <value nick="center-right" value="5"/>
+    <value nick="bottom-left" value="6"/>
+    <value nick="bottom-center" value="7"/>
+    <value nick="bottom-right" value="8"/>
   </enum>
   <schema id="apps.volctl" gettext-domain="volctl">
     <!-- Tray icon -->

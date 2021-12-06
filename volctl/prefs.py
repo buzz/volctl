@@ -1,4 +1,5 @@
 """volctl preference dialog"""
+from math import floor
 from gi.repository import Gtk, Gdk, Gio
 
 
@@ -8,6 +9,9 @@ class PreferencesDialog(Gtk.Dialog):
     MARGIN = 8
     COL_SPACING = 24
     ROW_SPACING = 12
+
+    OSD_POSITION_NAMES_X = "left", "center", "right"
+    OSD_POSITION_NAMES_Y = "top", "center", "bottom"
 
     def __init__(self, settings, default_mixer_cmd):
         super().__init__("Preferences")
@@ -62,7 +66,7 @@ class PreferencesDialog(Gtk.Dialog):
             "osd-timeout", self._scale_timeout_format
         )
         self._row_osd_size = self._add_scale("osd-scale", self._scale_osd_size_format)
-        self._row_osd_position = self._add_entry("osd-position", "")
+        self._row_osd_position_group = self._add_osd_position()
 
         self._update_rows()
         box.pack_start(self.grid, False, True, 0)
@@ -121,11 +125,40 @@ class PreferencesDialog(Gtk.Dialog):
         self._attach(entry, left=1)
         return entry
 
+    def _add_osd_position(self):
+        val = self._settings.get_string("osd-position")
+        key = self._schema.get_key("osd-position")
+        tooltip_text = key.get_description()
+        self._add_label(key.get_summary(), tooltip_text)
+
+        grid = Gtk.Grid()
+        grid.set_column_spacing(8)
+        grid.set_row_spacing(8)
+        first_radio_btn = None
+        for top, yname in enumerate(self.OSD_POSITION_NAMES_Y):
+            for left, xname in enumerate(self.OSD_POSITION_NAMES_X):
+                name = f"{yname}-{xname}"
+                radio_btn = Gtk.RadioButton.new_from_widget(first_radio_btn)
+                if top == 0 and left == 0:
+                    first_radio_btn = radio_btn
+                if name == val:
+                    radio_btn.set_active(True)
+                radio_btn.set_tooltip_text(name)
+                grid.attach(radio_btn, left, top, 1, 1)
+
+        # Connect after because it would fire on creation
+        radio_btn_group = first_radio_btn.get_group()
+        for radio_btn in radio_btn_group:
+            radio_btn.connect("toggled", self._cb_osd_pos_toggled)
+
+        self._attach(grid, left=1)
+        return radio_btn_group
+
     def _attach(self, widget, left=0, width=1, next_row=True):
         halign = Gtk.Align.FILL
         if left == 0:
             halign = Gtk.Align.START
-        if isinstance(widget, Gtk.Switch):
+        if isinstance(widget, Gtk.Switch) or isinstance(widget, Gtk.Grid):
             halign = Gtk.Align.END
         widget.set_halign(halign)
         widget.set_valign(Gtk.Align.FILL)
@@ -148,19 +181,20 @@ class PreferencesDialog(Gtk.Dialog):
         return f"{value:.1f} %"
 
     def _update_rows(self):
-        if self._settings.get_boolean("auto-close"):
-            self._row_timeout.set_sensitive(True)
-        else:
-            self._row_timeout.set_sensitive(False)
+        self._row_timeout.set_sensitive(self._settings.get_boolean("auto-close"))
 
-        if self._settings.get_boolean("osd-enabled"):
-            self._row_osd_timeout.set_sensitive(True)
-            self._row_osd_size.set_sensitive(True)
-            self._row_osd_position.set_sensitive(True)
-        else:
-            self._row_osd_timeout.set_sensitive(False)
-            self._row_osd_size.set_sensitive(False)
-            self._row_osd_position.set_sensitive(False)
+        osd_enabled = self._settings.get_boolean("osd-enabled")
+        self._row_osd_timeout.set_sensitive(osd_enabled)
+        self._row_osd_size.set_sensitive(osd_enabled)
+        for radio_button in self._row_osd_position_group:
+            radio_button.set_sensitive(osd_enabled)
+
+    def _cb_osd_pos_toggled(self, radio_btn):
+        if radio_btn.get_active():
+            idx = -self._row_osd_position_group.index(radio_btn) + 8
+            xname = self.OSD_POSITION_NAMES_X[idx % 3]
+            yname = self.OSD_POSITION_NAMES_Y[floor(idx / 3)]
+            self._settings.set_string("osd-position", f"{yname}-{xname}")
 
     # GSettings callback
 
