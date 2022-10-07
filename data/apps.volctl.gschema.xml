@@ -50,6 +50,11 @@
       <summary>Auto-close timeout</summary>
       <description>Time after the pop-up closes automatically.</description>
     </key>
+    <key type="b" name="allow-extra-volume">
+      <default>false</default>
+      <summary>Allow extra volume</summary>
+      <description>Enable increasing volume beyond 100%.</description>
+    </key>
     <!-- OSD -->
     <key type="b" name="osd-enabled">
       <default>true</default>

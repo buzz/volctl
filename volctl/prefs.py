@@ -54,6 +54,7 @@ class PreferencesDialog(Gtk.Dialog):
 
         # Volume slider window options
         self._create_section_label("Volume sliders")
+        self._add_switch("allow-extra-volume")
         self._add_switch("show-percentage")
         self._add_switch("vu-enabled")
         self._add_switch("auto-close")

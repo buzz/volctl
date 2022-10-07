@@ -188,9 +188,20 @@ class VolumeSliders(Gtk.Window):
         name, icon_name, val, mute = props
         # Scale
         scale = Gtk.Scale().new(Gtk.Orientation.VERTICAL)
-        scale.set_range(0.0, 1.0)
+
+        scale_size = 128
+        volume_lim = 1.0
+        # TODO: this should come from _volctl and should be
+        # configurable.
+        extra_volume_factor = 1.5
+        if self._volctl.settings.get_boolean("allow-extra-volume"):
+            scale_size = int(scale_size * extra_volume_factor)
+            volume_lim = extra_volume_factor
+            scale.add_mark(1.0, Gtk.PositionType.LEFT, None)
+
+        scale.set_range(0.0, volume_lim)
         scale.set_inverted(True)
-        scale.set_size_request(24, 128)
+        scale.set_size_request(24, scale_size)
         scale.set_margin_top(self.SPACING)
         scale.set_tooltip_markup(name)
         self._set_increments_on_scale(scale)
