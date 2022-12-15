@@ -191,9 +191,7 @@ class VolumeSliders(Gtk.Window):
 
         scale_size = 128
         volume_lim = 1.0
-        # TODO: this should come from _volctl and should be
-        # configurable.
-        extra_volume_factor = 1.5
+        extra_volume_factor = 1.5  # hard-coded for now
         if self._volctl.settings.get_boolean("allow-extra-volume"):
             scale_size = int(scale_size * extra_volume_factor)
             volume_lim = extra_volume_factor
