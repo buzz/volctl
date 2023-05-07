@@ -80,7 +80,7 @@ class PulseManager:
         self._monitor_streams = {}
         self._read_cb_ctypes = c.PA_STREAM_REQUEST_CB_T(self._read_cb)
         self._samplespec = c.PA_SAMPLE_SPEC(
-            format=c.PA_SAMPLE_FLOAT32BE, rate=25, channels=1
+            format=c.PA_SAMPLE_FLOAT32NE, rate=25, channels=1
         )
 
         self._connect()
