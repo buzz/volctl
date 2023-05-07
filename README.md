@@ -83,7 +83,7 @@ You can start volctl from the source tree.
 ```sh
 $ python -m venv --system-site-packages venv
 $ source venv/bin/activate
-$ ./setup.py develop
+$ pip install --editable .
 $ venv/bin/volctl
 ```
 
