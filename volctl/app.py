@@ -202,9 +202,11 @@ class VolctlApp:
 
     def launch_mixer(self):
         """Launch external mixer."""
-        mixer_cmd = self.settings.get_string("mixer-command")
-        if mixer_cmd == "":
+        mixer_cmd_str = self.settings.get_string("mixer-command")
+        if mixer_cmd_str == "":
             mixer_cmd = DEFAULT_MIXER_CMD
+        else:
+            mixer_cmd = mixer_cmd_str.rsplit(" ")
         if self._mixer_process is None or not self._mixer_process.poll() is None:
             self._mixer_process = Popen(mixer_cmd)
         # TODO: bring mixer win to front otherwise
