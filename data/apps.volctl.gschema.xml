@@ -13,7 +13,7 @@
   <schema id="apps.volctl" gettext-domain="volctl">
     <!-- Tray icon -->
     <key type="i" name="mouse-wheel-step">
-      <range min="3" max="50"/>
+      <range min="1" max="50"/>
       <default>15</default>
       <summary>Mouse wheel step</summary>
       <description>The sensitivity of mouse wheel volume changes.</description>
