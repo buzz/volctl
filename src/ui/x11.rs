@@ -1,12 +1,9 @@
 use gdk::glib::{idle_add, ControlFlow};
-use gtk::{
-    prelude::{Cast, NativeExt, WidgetExt},
-    Window,
-};
-use x11rb::{
-    protocol::xproto::{ConfigureWindowAux, ConnectionExt},
-    wrapper::ConnectionExt as WrapperConnectionExt,
-};
+use gtk::prelude::{Cast, NativeExt, WidgetExt};
+use gtk::Window;
+
+use x11rb::protocol::xproto::{ConfigureWindowAux, ConnectionExt};
+use x11rb::wrapper::ConnectionExt as WrapperConnectionExt;
 
 pub fn x11_move_window(xid: u32, x: i32, y: i32) {
     let (conn, _) = x11rb::connect(None).unwrap();

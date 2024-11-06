@@ -1,25 +1,17 @@
 use std::cell::{OnceCell, RefCell};
 
-use gdk::{
-    prelude::ApplicationExtManual,
-    subclass::prelude::{ApplicationImpl, ApplicationImplExt},
-};
-use glib::{
-    clone,
-    subclass::{
-        object::{ObjectImpl, ObjectImplExt},
-        types::{ObjectSubclass, ObjectSubclassExt, ObjectSubclassIsExt},
-    },
-};
-use gtk::{
-    gio,
-    prelude::{GtkWindowExt, SettingsExt, WidgetExt},
-    subclass::prelude::GtkApplicationImpl,
-};
+use gdk::prelude::ApplicationExtManual;
+use gdk::subclass::prelude::{ApplicationImpl, ApplicationImplExt};
+use glib::clone;
+use glib::subclass::object::{ObjectImpl, ObjectImplExt};
+use glib::subclass::types::{ObjectSubclass, ObjectSubclassExt, ObjectSubclassIsExt};
+use gtk::gio;
+use gtk::prelude::{GtkWindowExt, SettingsExt, WidgetExt};
+use gtk::subclass::prelude::GtkApplicationImpl;
 use ksni::TrayService;
 
-use crate::pulse::PulseManager;
-use crate::ui::{
+use super::pulse::Pulse;
+use super::ui::{
     mixer_window::MixerWindow,
     tray::{TrayMessage, VolctlTray},
 };
@@ -27,14 +19,16 @@ use crate::ui::{
 const APP_ID: &str = "org.volctl";
 
 mod imp {
+    use std::time::Duration;
+
     use super::*;
 
     pub struct Application {
         pub(super) hold_guard: RefCell<Option<gio::ApplicationHoldGuard>>,
         pub(super) settings: OnceCell<gio::Settings>,
         pub(super) mixer_window: OnceCell<MixerWindow>,
-        first_volume_update: RefCell<bool>,
-        pulse_manager: OnceCell<PulseManager>,
+        pub(super) first_volume_update: RefCell<bool>,
+        pub(super) pulse: RefCell<Pulse>,
     }
 
     #[glib::object_subclass]
@@ -63,6 +57,23 @@ mod imp {
                 |_, _| {
                     println!("Settings changed");
                 },
+            );
+
+            // Connect to PulseAudio
+            let mut pulse = self.pulse.borrow_mut();
+            pulse.connect();
+
+            // Periodically update widgets from PulseAudio
+            glib::timeout_add_local(
+                Duration::from_millis(1000 / 30),
+                clone!(
+                    #[strong]
+                    app,
+                    move || {
+                        app.update();
+                        glib::ControlFlow::Continue
+                    }
+                ),
             );
 
             // https://gtk-rs.org/gtk4-rs/stable/latest/book/main_event_loop.html#channels
@@ -100,7 +111,7 @@ mod imp {
                 settings: OnceCell::from(gio::Settings::with_path("apps.volctl", "/apps/volctl/")),
                 mixer_window: OnceCell::from(MixerWindow::new()),
                 first_volume_update: RefCell::from(false),
-                pulse_manager: OnceCell::from(PulseManager::new()),
+                pulse: RefCell::from(Pulse::new()),
             }
         }
     }
@@ -134,13 +145,21 @@ impl Application {
     fn request_quit(&self) {
         let imp = self.imp();
 
-        // TODO: graceful shutdown
-        // - pulsemgr
+        // Close pulse.
+        imp.pulse.borrow_mut().cleanup();
+
+        // Close mixer window.
         if let Some(win) = imp.mixer_window.get() {
             win.destroy();
         }
 
         // Discard application hold guard.
         *imp.hold_guard.borrow_mut() = None;
+    }
+
+    fn update(&self) {
+        let mut pulse = self.imp().pulse.borrow_mut();
+
+        if pulse.update() {}
     }
 }

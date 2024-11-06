@@ -1,15 +1,10 @@
-use glib::{
-    object::Cast,
-    subclass::{
-        object::ObjectImpl, object::ObjectImplExt, types::ObjectSubclass, types::ObjectSubclassExt,
-    },
+use glib::object::Cast;
+use glib::subclass::{
+    object::ObjectImpl, object::ObjectImplExt, types::ObjectSubclass, types::ObjectSubclassExt,
 };
-
-use gtk::{
-    prelude::{ButtonExt, GtkWindowExt, WidgetExt},
-    subclass::{widget::WidgetImpl, window::WindowImpl},
-    Button,
-};
+use gtk::prelude::{ButtonExt, GtkWindowExt, WidgetExt};
+use gtk::subclass::{widget::WidgetImpl, window::WindowImpl};
+use gtk::Button;
 use gtk_layer_shell::{Edge, Layer, LayerShell};
 
 use super::{
