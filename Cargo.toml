@@ -7,6 +7,7 @@ edition = "2021"
 async-channel = "2.3.1"
 gdk = { version = "0.9.3", package = "gdk4", features = ["v4_16"] }
 gdk-x11 = { version = "0.9.3", package = "gdk4-x11", features = ["v4_16"] }
+glib = "0.20.5"
 gtk = { version = "0.9.3", package = "gtk4", features = ["v4_16"] }
 gtk-layer-shell = { version = "0.4.0", package = "gtk4-layer-shell" }
 ksni = "0.2.2"
