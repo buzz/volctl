@@ -1,6 +1,11 @@
+use glib::{
+    object::Cast,
+    subclass::{object::ObjectImpl, types::ObjectSubclass},
+};
 use gtk::{
     prelude::{ButtonExt, GtkWindowExt, WidgetExt},
-    Button, Window,
+    subclass::{widget::WidgetImpl, window::WindowImpl},
+    Button,
 };
 use gtk_layer_shell::{Edge, Layer, LayerShell};
 
@@ -9,70 +14,78 @@ use super::{
     x11::{x11_get_xid, x11_move_window},
 };
 
-pub fn show_mixer(x: i32, y: i32) {
-    if is_wayland_display() {
-        println!("On wayland");
-        show_mixer_wayland();
-    } else {
-        println!("On X11");
-        show_mixer_x11(x, y);
+mod imp {
+    use super::*;
+
+    #[derive(Debug, Default)]
+    pub struct MixerWindow {
+        // pub(super) settings: OnceCell<Settings>,
     }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for MixerWindow {
+        const NAME: &'static str = "VolctlMixerWindow";
+        type Type = super::MixerWindow;
+        type ParentType = gtk::Window;
+    }
+
+    impl ObjectImpl for MixerWindow {}
+    impl WindowImpl for MixerWindow {}
+    impl WidgetImpl for MixerWindow {}
 }
 
-fn show_mixer_wayland() {
-    let window = Window::new();
-    window.set_decorated(false);
-
-    window.init_layer_shell();
-    window.set_layer(Layer::Overlay);
-    window.auto_exclusive_zone_enable();
-
-    window.set_margin(Edge::Right, 32);
-    window.set_margin(Edge::Top, 32);
-
-    window.set_anchor(Edge::Left, false);
-    window.set_anchor(Edge::Right, true);
-    window.set_anchor(Edge::Top, true);
-    window.set_anchor(Edge::Bottom, false);
-
-    let button = Button::builder()
-        .label("Close")
-        .margin_top(12)
-        .margin_bottom(12)
-        .margin_start(12)
-        .margin_end(12)
-        .build();
-
-    let window_clone = window.clone();
-    button.connect_clicked(move |_| {
-        println!("Close button clicked");
-        window_clone.close();
-    });
-
-    window.set_child(Some(&button));
-    window.present();
+glib::wrapper! {
+  pub struct MixerWindow(ObjectSubclass<imp::MixerWindow>)
+      @extends gtk::Window, gtk::Widget,
+      @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget, gtk::Native, gtk::Root, gtk::ShortcutManager;
 }
 
-fn show_mixer_x11(x: i32, y: i32) {
-    let window = Window::new();
+impl MixerWindow {
+    pub fn new() -> Self {
+        glib::Object::builder().property("decorated", false).build()
+    }
 
-    window.set_decorated(false);
+    pub fn build_ui(&self, x: i32, y: i32) {
+        let button = Button::builder()
+            .label("Close")
+            .margin_top(12)
+            .margin_bottom(12)
+            .margin_start(12)
+            .margin_end(12)
+            .build();
 
-    let button = Button::builder()
-        .label("Close")
-        .margin_top(12)
-        .margin_bottom(12)
-        .margin_start(12)
-        .margin_end(12)
-        .build();
+        let window_clone = self.clone();
+        button.connect_clicked(move |_| {
+            println!("Close button clicked");
+            window_clone.close();
+        });
 
-    let window_clone = window.clone();
-    button.connect_clicked(move |_| {
-        println!("Close button clicked");
-        window_clone.close();
-    });
+        self.set_child(Some(&button));
 
-    window.set_child(Some(&button));
-    window.connect_realize(move |window| x11_move_window(x11_get_xid(window), x, y));
-    window.present();
+        if is_wayland_display() {
+            self.wayland_layer_shell(x, y);
+        } else {
+            self.connect_realize(move |mixer_window| {
+                let window = mixer_window.upcast_ref::<gtk::Window>();
+                let xid = x11_get_xid(window);
+                x11_move_window(xid, x, y);
+            });
+        }
+
+        self.present();
+    }
+
+    fn wayland_layer_shell(&self, x: i32, y: i32) {
+        self.init_layer_shell();
+        self.set_layer(Layer::Overlay);
+        self.auto_exclusive_zone_enable();
+
+        self.set_margin(Edge::Right, 32);
+        self.set_margin(Edge::Top, 32);
+
+        self.set_anchor(Edge::Left, false);
+        self.set_anchor(Edge::Right, true);
+        self.set_anchor(Edge::Top, true);
+        self.set_anchor(Edge::Bottom, false);
+    }
 }

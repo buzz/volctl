@@ -1,17 +1,20 @@
-use gtk::gio;
+use gdk::subclass::prelude::{ApplicationImpl, ApplicationImplExt};
+use glib::subclass::{
+    object::ObjectImpl,
+    types::{ObjectSubclass, ObjectSubclassExt},
+};
+use gtk::{gio, prelude::GtkWindowExt, subclass::prelude::GtkApplicationImpl};
+
+use crate::ui::{mixer_window::MixerWindow, tray_service};
 
 const APP_ID: &str = "org.volctl";
 
 mod imp {
-    use gdk::subclass::prelude::ApplicationImpl;
-    use glib::subclass::{object::ObjectImpl, types::ObjectSubclass};
-    use gtk::subclass::prelude::GtkApplicationImpl;
-
-    use crate::ui::tray_service;
+    use super::*;
 
     #[derive(Debug, Default)]
     pub struct Application {
-        // pub(super) settings: OnceCell<Settings>,
+        // pub(super) mixer_window: Rc<MixerWindow>,
     }
 
     #[glib::object_subclass]
@@ -25,7 +28,9 @@ mod imp {
 
     impl ApplicationImpl for Application {
         fn activate(&self) {
-            tray_service::create();
+            self.parent_activate();
+            let app = self.obj();
+            tray_service::create(&app);
         }
     }
 
@@ -43,5 +48,16 @@ impl Application {
         glib::Object::builder()
             .property("application-id", APP_ID)
             .build()
+    }
+
+    pub fn show_mixer(&self, x: i32, y: i32) {
+        let mixer_window = MixerWindow::new();
+        mixer_window.build_ui(x, y);
+        mixer_window.present();
+    }
+
+    pub fn quit(&self) {
+        // TODO: graceful shutdown
+        std::process::exit(0);
     }
 }
