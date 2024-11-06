@@ -1,11 +1,12 @@
+mod app;
 mod ui;
 
-use gtk::{glib, prelude::*, Application};
+use gdk::prelude::ApplicationExtManual;
 
-fn main() -> glib::ExitCode {
-    let app = Application::builder().application_id("com.volctl").build();
+use app::Application;
 
-    app.connect_activate(|_| ui::build_ui());
+fn main() -> gtk::glib::ExitCode {
+    let app = Application::new();
 
     // Prevent GTK main loop from exiting without window.
     let _guard = app.hold();
