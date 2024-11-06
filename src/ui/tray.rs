@@ -1,11 +1,14 @@
 use async_channel::Sender;
 use ksni::{menu::StandardItem, MenuItem, Tray};
 
-use super::tray_service::Message;
+pub enum TrayMessage {
+    Activate(i32, i32),
+    Quit,
+}
 
 #[derive(Debug)]
 pub struct VolctlTray {
-    pub sender: Sender<Message>,
+    pub sender: Sender<TrayMessage>,
 }
 
 impl Tray for VolctlTray {
@@ -30,7 +33,7 @@ impl Tray for VolctlTray {
             icon_name: "application-exit".into(),
             activate: Box::new(move |_| {
                 sender
-                    .send_blocking(Message::Quit)
+                    .send_blocking(TrayMessage::Quit)
                     .expect("The channel needs to be open.")
             }),
             ..Default::default()
@@ -40,7 +43,7 @@ impl Tray for VolctlTray {
 
     fn activate(&mut self, x: i32, y: i32) {
         self.sender
-            .send_blocking(Message::Activate(x, y))
+            .send_blocking(TrayMessage::Activate(x, y))
             .expect("The channel needs to be open.");
     }
 
