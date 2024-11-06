@@ -1,6 +1,5 @@
 mod app;
 mod pulse;
-mod shared;
 mod ui;
 
 use gdk::prelude::ApplicationExtManual;
