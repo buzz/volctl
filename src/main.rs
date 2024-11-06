@@ -1,5 +1,8 @@
 mod app;
+mod card;
+mod meter;
 mod pulse;
+mod shared;
 mod ui;
 
 use gdk::prelude::ApplicationExtManual;
@@ -12,9 +15,5 @@ fn main() -> gtk::glib::ExitCode {
     }
 
     let app = Application::new();
-
-    // Prevent GTK main loop from exiting without window.
-    // let _guard = app.hold();
-
     app.run()
 }
