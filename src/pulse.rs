@@ -1,7 +1,10 @@
 /// The main data-store / binding module that interacts with the pulse audio server.
 /// Monitors the pulse server for updates, and also exposes methods to request changes.
 /// Adpated from https://github.com/Aurailus/Myxer
-use slice_as_array::{slice_as_array, slice_as_array_transmute};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::Rc;
+use std::sync::mpsc::{channel, Receiver, Sender};
 
 use libpulse::callbacks::ListResult;
 use libpulse::context::introspect::{ServerInfo, SinkInfo, SinkInputInfo};
@@ -13,11 +16,7 @@ use libpulse::proplist::{properties, Proplist};
 use libpulse::sample::{Format, Spec};
 use libpulse::stream::{FlagSet as StreamFlagSet, PeekResult, Stream};
 use libpulse::volume::{ChannelVolumes, Volume};
-
-use std::collections::HashMap;
-use std::sync::mpsc::{channel, Receiver, Sender};
-
-use crate::shared::Shared;
+use slice_as_array::{slice_as_array, slice_as_array_transmute};
 
 /// The maximum natural volume, i.e. 100%
 pub const MAX_NATURAL_VOL: u32 = 65536;
@@ -73,7 +72,7 @@ pub struct StreamData {
     pub peak: u32,
     pub repetitions: u32,
     pub monitor_index: u32,
-    pub monitor: Shared<Stream>,
+    pub monitor: Rc<RefCell<Stream>>,
 }
 
 /// Container for mspc channel sender & receiver.
@@ -86,8 +85,8 @@ struct Channel<T> {
 /// Handles peak monitoring, stream discovery, and meter information.
 /// Stores data for all known streams, allowing public access.
 pub struct Pulse {
-    mainloop: Shared<Mainloop>,
-    context: Shared<Context>,
+    mainloop: Rc<RefCell<Mainloop>>,
+    context: Rc<RefCell<Context>>,
     channel: Channel<TxMessage>,
 
     pub default_sink: u32,
@@ -105,12 +104,14 @@ impl Pulse {
             .set_str(properties::APPLICATION_NAME, "Myxer")
             .unwrap();
 
-        let mainloop = Shared::new(Mainloop::new().expect("Failed to initialize pulse mainloop."));
+        let mainloop = Rc::new(RefCell::new(
+            Mainloop::new().expect("Failed to initialize pulse mainloop."),
+        ));
 
-        let context = Shared::new(
+        let context = Rc::new(RefCell::new(
             Context::new_with_proplist(&*mainloop.borrow(), "Myxer Context", &proplist)
                 .expect("Failed to initialize pulse context."),
-        );
+        ));
 
         let (tx, rx) = channel::<TxMessage>();
 
@@ -494,7 +495,7 @@ impl Pulse {
         t: StreamType,
         source: Option<&str>,
         stream_index: u32,
-    ) -> Shared<Stream> {
+    ) -> Rc<RefCell<Stream>> {
         fn read_callback(stream: &mut Stream, t: StreamType, index: u32, tx: &Sender<TxMessage>) {
             let mut raw_peak = 0.0;
             while stream.readable_size().is_some() {
@@ -526,9 +527,9 @@ impl Pulse {
         };
         assert!(spec.is_valid());
 
-        let stream = Shared::new(
+        let stream = Rc::new(RefCell::new(
             Stream::new(&mut self.context.borrow_mut(), "Peak Detect", &spec, None).unwrap(),
-        );
+        ));
         {
             let mut stream_mut = stream.borrow_mut();
             if t == StreamType::SinkInput {
