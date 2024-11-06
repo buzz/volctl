@@ -18,8 +18,7 @@ use libpulse::stream::{FlagSet as StreamFlagSet, PeekResult, Stream};
 use libpulse::volume::{ChannelVolumes, Volume};
 use slice_as_array::{slice_as_array, slice_as_array_transmute};
 
-/// The maximum natural volume, i.e. 100%
-pub const MAX_NATURAL_VOL: u32 = 65536;
+use crate::constants::MAX_NATURAL_VOL;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum StreamType {

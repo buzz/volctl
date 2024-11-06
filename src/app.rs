@@ -1,4 +1,5 @@
-use std::cell::{OnceCell, RefCell};
+use std::cell::{Cell, OnceCell, RefCell};
+use std::time::Duration;
 
 use gdk::prelude::ApplicationExtManual;
 use gdk::subclass::prelude::{ApplicationImpl, ApplicationImplExt};
@@ -8,7 +9,9 @@ use glib::subclass::types::{ObjectSubclass, ObjectSubclassExt, ObjectSubclassIsE
 use gtk::gio;
 use gtk::prelude::{GtkWindowExt, SettingsExt, WidgetExt};
 use gtk::subclass::prelude::GtkApplicationImpl;
-use ksni::TrayService;
+use ksni::{Handle, TrayService};
+
+use crate::constants::APP_ID;
 
 use super::pulse::Pulse;
 use super::ui::{
@@ -16,19 +19,20 @@ use super::ui::{
     tray::{TrayMessage, VolctlTray},
 };
 
-const APP_ID: &str = "org.volctl";
-
 mod imp {
-    use std::time::Duration;
-
     use super::*;
 
     pub struct Application {
-        pub(super) hold_guard: RefCell<Option<gio::ApplicationHoldGuard>>,
-        pub(super) settings: OnceCell<gio::Settings>,
-        pub(super) mixer_window: OnceCell<MixerWindow>,
         pub(super) first_volume_update: RefCell<bool>,
+        pub(super) hold_guard: RefCell<Option<gio::ApplicationHoldGuard>>,
+        pub(super) mixer_window: OnceCell<MixerWindow>,
         pub(super) pulse: RefCell<Pulse>,
+        pub(super) settings: OnceCell<gio::Settings>,
+        pub(super) tray_handle: RefCell<Option<Handle<VolctlTray>>>,
+
+        // Previous values
+        pub(super) volume: Cell<u32>,
+        pub(super) muted: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -77,10 +81,15 @@ mod imp {
             );
 
             // https://gtk-rs.org/gtk4-rs/stable/latest/book/main_event_loop.html#channels
-            let (sender, receiver) = async_channel::bounded(1);
+            let (tx, rx) = async_channel::bounded(1);
 
             // Start tray service
-            let tray_service = TrayService::new(VolctlTray { sender });
+            let tray_service = TrayService::new(VolctlTray {
+                tx,
+                volume: 0,
+                muted: false,
+            });
+            *self.tray_handle.borrow_mut() = Some(tray_service.handle());
             tray_service.spawn();
 
             // Listen for messages from the tray thread
@@ -88,7 +97,7 @@ mod imp {
                 #[weak]
                 app,
                 async move {
-                    while let Ok(msg) = receiver.recv().await {
+                    while let Ok(msg) = rx.recv().await {
                         match msg {
                             TrayMessage::Activate(x, y) => app.toggle_mixer(x, y),
                             TrayMessage::Quit => app.request_quit(),
@@ -107,11 +116,14 @@ mod imp {
     impl Default for Application {
         fn default() -> Self {
             Self {
-                hold_guard: RefCell::from(None),
-                settings: OnceCell::from(gio::Settings::with_path("apps.volctl", "/apps/volctl/")),
-                mixer_window: OnceCell::from(MixerWindow::new()),
                 first_volume_update: RefCell::from(false),
+                hold_guard: RefCell::from(None),
+                mixer_window: OnceCell::from(MixerWindow::new()),
                 pulse: RefCell::from(Pulse::new()),
+                settings: OnceCell::from(gio::Settings::with_path("apps.volctl", "/apps/volctl/")),
+                tray_handle: RefCell::from(None),
+                volume: Cell::new(0),
+                muted: Cell::new(false),
             }
         }
     }
@@ -158,8 +170,29 @@ impl Application {
     }
 
     fn update(&self) {
-        let mut pulse = self.imp().pulse.borrow_mut();
+        let imp = self.imp();
+        let mut pulse = imp.pulse.borrow_mut();
 
-        if pulse.update() {}
+        if pulse.update() {
+            // Active sink
+            if let Some(active_sink) = pulse.sinks.get(&pulse.active_sink) {
+                let new_volume = active_sink.data.volume.avg().0;
+                let new_muted = active_sink.data.muted;
+
+                // Update tray icon?
+                if new_volume != imp.volume.get() || new_muted != imp.muted.get() {
+                    if let Some(tray_handle) = imp.tray_handle.borrow().as_ref() {
+                        tray_handle.update(|tray| {
+                            tray.volume = new_volume;
+                            tray.muted = new_muted;
+                        });
+                    }
+                }
+
+                // Remember new values.
+                imp.volume.set(new_volume);
+                imp.muted.set(new_muted);
+            };
+        }
     }
 }
