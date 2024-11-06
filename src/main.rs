@@ -1,6 +1,4 @@
 mod app;
-mod card;
-mod meter;
 mod pulse;
 mod shared;
 mod ui;
