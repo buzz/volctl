@@ -1,10 +1,11 @@
 use async_channel::Sender;
-use ksni::{menu::StandardItem, MenuItem, Tray};
+use ksni::{menu::StandardItem, Category, MenuItem, ToolTip, Tray};
 
 use crate::constants::MAX_NATURAL_VOL;
 
 pub enum TrayMessage {
     Activate(i32, i32),
+    Scroll(i32),
     Quit,
 }
 
@@ -35,19 +36,27 @@ impl Tray for VolctlTray {
         "volctl".into()
     }
 
-    fn category(&self) -> ksni::Category {
-        ksni::Category::Hardware
+    fn tool_tip(&self) -> ToolTip {
+        ToolTip {
+            icon_name: "".into(),
+            icon_pixmap: [].to_vec(),
+            title: "Volume".into(),
+            description: self.get_tooltip_markup(),
+        }
+    }
+
+    fn category(&self) -> Category {
+        Category::Hardware
     }
 
     fn menu(&self) -> Vec<MenuItem<Self>> {
-        let sender = self.tx.clone();
+        let tx = self.tx.clone();
 
         vec![StandardItem {
             label: "Quit".into(),
             icon_name: "application-exit".into(),
             activate: Box::new(move |_| {
-                sender
-                    .send_blocking(TrayMessage::Quit)
+                tx.send_blocking(TrayMessage::Quit)
                     .expect("The channel needs to be open.")
             }),
             ..Default::default()
@@ -66,6 +75,25 @@ impl Tray for VolctlTray {
     }
 
     fn scroll(&mut self, delta: i32, dir: &str) {
-        println!("ksni: Scroll {} {}", delta, dir);
+        if dir == "vertical" {
+            self.tx
+                .send_blocking(TrayMessage::Scroll(delta))
+                .expect("The channel needs to be open.")
+        }
+    }
+}
+
+impl VolctlTray {
+    fn get_tooltip_markup(&self) -> String {
+        let text = format!("{:.0}%", self.volume_fraction() * 100.0);
+        if self.muted {
+            format!("{} <span weight=\"bold\">(muted)</span>", text)
+        } else {
+            text
+        }
+    }
+
+    fn volume_fraction(&self) -> f32 {
+        self.volume as f32 / MAX_NATURAL_VOL as f32
     }
 }
