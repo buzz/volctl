@@ -4,8 +4,8 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::sync::mpsc::{channel, Receiver, Sender};
 
+use async_channel::{Receiver, Sender};
 use libpulse::callbacks::ListResult;
 use libpulse::context::introspect::{ServerInfo, SinkInfo, SinkInputInfo};
 use libpulse::context::subscribe::{Facility, InterestMaskSet, Operation};
@@ -112,7 +112,7 @@ impl Pulse {
                 .expect("Failed to initialize pulse context."),
         ));
 
-        let (tx, rx) = channel::<TxMessage>();
+        let (tx, rx) = async_channel::unbounded::<TxMessage>();
 
         Pulse {
             mainloop,
@@ -241,16 +241,16 @@ impl Pulse {
     fn subscribe(&mut self) {
         /// Updates the client when the server information changes.
         fn tx_server(tx: &Sender<TxMessage>, item: &ServerInfo<'_>) {
-            tx.send(TxMessage::Default(
+            tx.send_blocking(TxMessage::Default(
                 item.default_sink_name.clone().unwrap().into_owned(),
             ))
-            .unwrap();
+            .expect("The channel needs to be open.");
         }
 
         /// Updates the client when a sink changes.
         fn tx_sink(tx: &Sender<TxMessage>, result: ListResult<&SinkInfo<'_>>) {
             if let ListResult::Item(item) = result {
-                tx.send(TxMessage::StreamUpdate(
+                tx.send_blocking(TxMessage::StreamUpdate(
                     StreamType::Sink,
                     TxStreamData {
                         data: MeterData {
@@ -265,14 +265,14 @@ impl Pulse {
                         monitor_index: item.monitor_source,
                     },
                 ))
-                .unwrap();
+                .expect("The channel needs to be open.")
             }
         }
 
         /// Updates the client when a sink input changes.
         fn tx_sink_input(tx: &Sender<TxMessage>, result: ListResult<&SinkInputInfo<'_>>) {
             if let ListResult::Item(item) = result {
-                tx.send(TxMessage::StreamUpdate(
+                tx.send_blocking(TxMessage::StreamUpdate(
                     StreamType::SinkInput,
                     TxStreamData {
                         data: MeterData {
@@ -293,7 +293,7 @@ impl Pulse {
                         monitor_index: item.sink,
                     },
                 ))
-                .unwrap();
+                .expect("The channel needs to be open.")
             };
         }
 
@@ -325,16 +325,16 @@ impl Pulse {
                 }
                 Facility::Sink => match operation {
                     Operation::Removed => tx
-                        .send(TxMessage::StreamRemove(StreamType::Sink, index))
-                        .unwrap(),
+                        .send_blocking(TxMessage::StreamRemove(StreamType::Sink, index))
+                        .expect("The channel needs to be open."),
                     _ => {
                         introspect.get_sink_info_by_index(index, move |res| tx_sink(&tx, res));
                     }
                 },
                 Facility::SinkInput => match operation {
                     Operation::Removed => tx
-                        .send(TxMessage::StreamRemove(StreamType::SinkInput, index))
-                        .unwrap(),
+                        .send_blocking(TxMessage::StreamRemove(StreamType::SinkInput, index))
+                        .expect("The channel needs to be open."),
                     _ => {
                         introspect.get_sink_input_info(index, move |res| tx_sink_input(&tx, res));
                     }
@@ -510,7 +510,8 @@ impl Pulse {
                 }
             }
             let peak = (raw_peak.sqrt() * 65535.0 * 1.5).round() as u32;
-            tx.send(TxMessage::Peak(t, index, peak)).unwrap();
+            tx.send_blocking(TxMessage::Peak(t, index, peak))
+                .expect("The channel needs to be open.");
         }
 
         let attr = BufferAttr {
