@@ -104,8 +104,11 @@ mod imp {
                 async move {
                     while let Ok(msg) = rx.recv().await {
                         match msg {
+                            TrayMessage::About => app.show_about(),
                             TrayMessage::Activate(x, y) => app.toggle_mixer(x, y),
-                            TrayMessage::Quit => app.request_quit(),
+                            TrayMessage::ExternalMixer => app.external_mixer(),
+                            TrayMessage::Mute => app.toggle_muted_active_sink_volume(),
+                            TrayMessage::Preferences => app.show_prefs(),
                             TrayMessage::Scroll(delta) => {
                                 let step = settings_clone.int(SETTINGS_MOUSE_WHEEL_STEP);
                                 app.change_active_sink_volume(
@@ -113,6 +116,7 @@ mod imp {
                                         .round() as i32,
                                 );
                             }
+                            TrayMessage::Quit => app.request_quit(),
                         }
                     }
                 }
@@ -192,6 +196,24 @@ impl Application {
             pulse.set_volume(StreamType::Sink, pulse.active_sink, volumes);
         }
     }
+
+    /// Toggle muted on active sink volume.
+    fn toggle_muted_active_sink_volume(&self) {
+        let pulse = self.imp().pulse.borrow();
+
+        if let Some(active_sink) = pulse.sinks.get(&pulse.active_sink) {
+            pulse.set_muted(StreamType::Sink, pulse.active_sink, !active_sink.data.muted);
+        }
+    }
+
+    /// Show about dialog.
+    fn show_about(&self) {}
+
+    /// Show preferences dialog.
+    fn show_prefs(&self) {}
+
+    /// Open external mixer program.
+    fn external_mixer(&self) {}
 
     /// Request volctl to quit.
     fn request_quit(&self) {

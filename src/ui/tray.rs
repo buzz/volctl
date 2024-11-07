@@ -4,9 +4,13 @@ use ksni::{menu::StandardItem, Category, MenuItem, ToolTip, Tray};
 use crate::constants::MAX_NATURAL_VOL;
 
 pub enum TrayMessage {
+    About,
     Activate(i32, i32),
-    Scroll(i32),
+    ExternalMixer,
+    Mute,
+    Preferences,
     Quit,
+    Scroll(i32),
 }
 
 #[derive(Debug)]
@@ -50,18 +54,70 @@ impl Tray for VolctlTray {
     }
 
     fn menu(&self) -> Vec<MenuItem<Self>> {
-        let tx = self.tx.clone();
+        let tx_mute = self.tx.clone();
+        let tx_mixer = self.tx.clone();
+        let tx_prefs = self.tx.clone();
+        let tx_about = self.tx.clone();
+        let tx_quit = self.tx.clone();
 
-        vec![StandardItem {
-            label: "Quit".into(),
-            icon_name: "application-exit".into(),
-            activate: Box::new(move |_| {
-                tx.send_blocking(TrayMessage::Quit)
-                    .expect("The channel needs to be open.")
-            }),
-            ..Default::default()
-        }
-        .into()]
+        vec![
+            StandardItem {
+                label: "Mute".into(),
+                icon_name: "audio-volume-muted".into(),
+                activate: Box::new(move |_| {
+                    tx_mute
+                        .send_blocking(TrayMessage::Mute)
+                        .expect("The channel needs to be open.")
+                }),
+                ..Default::default()
+            }
+            .into(),
+            StandardItem {
+                label: "Mixer".into(),
+                icon_name: "multimedia-volume-control".into(),
+                activate: Box::new(move |_| {
+                    tx_mixer
+                        .send_blocking(TrayMessage::ExternalMixer)
+                        .expect("The channel needs to be open.")
+                }),
+                ..Default::default()
+            }
+            .into(),
+            StandardItem {
+                label: "Preferences".into(),
+                icon_name: "preferences-desktop".into(),
+                activate: Box::new(move |_| {
+                    tx_prefs
+                        .send_blocking(TrayMessage::Preferences)
+                        .expect("The channel needs to be open.")
+                }),
+                ..Default::default()
+            }
+            .into(),
+            MenuItem::Separator,
+            StandardItem {
+                label: "About".into(),
+                icon_name: "dialog-information".into(),
+                activate: Box::new(move |_| {
+                    tx_about
+                        .send_blocking(TrayMessage::About)
+                        .expect("The channel needs to be open.")
+                }),
+                ..Default::default()
+            }
+            .into(),
+            StandardItem {
+                label: "Quit".into(),
+                icon_name: "application-exit".into(),
+                activate: Box::new(move |_| {
+                    tx_quit
+                        .send_blocking(TrayMessage::Quit)
+                        .expect("The channel needs to be open.")
+                }),
+                ..Default::default()
+            }
+            .into(),
+        ]
     }
 
     fn activate(&mut self, x: i32, y: i32) {
