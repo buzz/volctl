@@ -10,8 +10,12 @@ use gtk::gio;
 use gtk::prelude::{GtkWindowExt, SettingsExt, WidgetExt};
 use gtk::subclass::prelude::GtkApplicationImpl;
 use ksni::{Handle, TrayService};
+use libpulse::volume::Volume;
 
-use crate::constants::APP_ID;
+use crate::constants::{
+    APP_ID, MAX_NATURAL_VOL, MAX_SCALE_VOL, SETTINGS_ALLOW_EXTRA_VOLUME, SETTINGS_MOUSE_WHEEL_STEP,
+};
+use crate::pulse::StreamType;
 
 use super::pulse::Pulse;
 use super::ui::{
@@ -93,6 +97,7 @@ mod imp {
             tray_service.spawn();
 
             // Listen for messages from the tray thread
+            let settings_clone = self.settings.get().unwrap().clone();
             glib::spawn_future_local(clone!(
                 #[weak]
                 app,
@@ -101,6 +106,13 @@ mod imp {
                         match msg {
                             TrayMessage::Activate(x, y) => app.toggle_mixer(x, y),
                             TrayMessage::Quit => app.request_quit(),
+                            TrayMessage::Scroll(delta) => {
+                                let step = settings_clone.int(SETTINGS_MOUSE_WHEEL_STEP);
+                                app.change_active_sink_volume(
+                                    (-delta as f32 * (step as f32 / 100.0) * MAX_NATURAL_VOL as f32)
+                                        .round() as i32,
+                                );
+                            }
                         }
                     }
                 }
@@ -142,18 +154,46 @@ impl Application {
             .build()
     }
 
+    /// Show/hide mixer window.
     pub fn toggle_mixer(&self, x: i32, y: i32) {
         let window = self.imp().mixer_window.get().unwrap();
         if window.get_visible() {
-            println!("Hide");
             window.set_visible(false);
         } else {
-            println!("Show {} {}", x, y);
             window.move_(x, y);
             window.present();
         }
     }
 
+    /// Change active sink volume.
+    fn change_active_sink_volume(&self, amount: i32) {
+        let imp = self.imp();
+        let pulse = imp.pulse.borrow();
+
+        if let Some(active_sink) = pulse.sinks.get(&pulse.active_sink) {
+            let mut volumes = active_sink.data.volume.clone();
+
+            if amount > 0 {
+                let extra_volume = imp
+                    .settings
+                    .get()
+                    .unwrap()
+                    .boolean(SETTINGS_ALLOW_EXTRA_VOLUME);
+                let limit = if extra_volume {
+                    MAX_SCALE_VOL
+                } else {
+                    MAX_NATURAL_VOL
+                };
+                volumes.inc_clamp(Volume(amount as u32), Volume(limit));
+            } else if amount < 0 {
+                volumes.decrease(Volume(amount.abs() as u32));
+            }
+
+            pulse.set_volume(StreamType::Sink, pulse.active_sink, volumes);
+        }
+    }
+
+    /// Request volctl to quit.
     fn request_quit(&self) {
         let imp = self.imp();
 
@@ -169,6 +209,7 @@ impl Application {
         *imp.hold_guard.borrow_mut() = None;
     }
 
+    /// Process updates from PulseAudio.
     fn update(&self) {
         let imp = self.imp();
         let mut pulse = imp.pulse.borrow_mut();
