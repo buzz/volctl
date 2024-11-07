@@ -85,7 +85,7 @@ mod imp {
             );
 
             // https://gtk-rs.org/gtk4-rs/stable/latest/book/main_event_loop.html#channels
-            let (tx, rx) = async_channel::bounded(1);
+            let (tx, rx) = async_channel::bounded::<TrayMessage>(1);
 
             // Start tray service
             let tray_service = TrayService::new(VolctlTray {
