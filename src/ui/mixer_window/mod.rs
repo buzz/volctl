@@ -1,11 +1,15 @@
-use gtk::prelude::{ButtonExt, GtkWindowExt, WidgetExt};
-use gtk::Button;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::ui::utils::get_display_type;
+use glib::subclass::types::ObjectSubclassIsExt;
+use gtk::prelude::{BoxExt, WidgetExt};
 
-use super::utils::DisplayType;
+use super::utils::{get_display_type, DisplayType};
+use crate::pulse::StreamData;
+use scale::VolumeScale;
 
+mod constants;
 mod imp;
+mod scale;
 mod wayland;
 mod x11;
 
@@ -17,29 +21,54 @@ glib::wrapper! {
 
 impl MixerWindow {
     pub fn new() -> Self {
-        glib::Object::builder()
+        let window: MixerWindow = glib::Object::builder()
             .property("decorated", false)
             .property("resizable", false)
             .property("deletable", false)
-            .build()
-    }
-
-    pub fn build_ui(&self) {
-        let button = Button::builder()
-            .label("Close")
-            .margin_top(12)
-            .margin_bottom(12)
-            .margin_start(12)
-            .margin_end(12)
             .build();
 
-        let window_clone = self.clone();
-        button.connect_clicked(move |_| {
-            println!("Close button clicked");
-            window_clone.close();
+        window
+    }
+
+    pub fn update_sinks(&self, sink_streams: &HashMap<u32, StreamData>) {
+        self.update_volume_scales(sink_streams, self.imp().sinks.clone());
+    }
+
+    pub fn update_sink_inputs(&self, sink_input_streams: &HashMap<u32, StreamData>) {
+        self.update_volume_scales(sink_input_streams, self.imp().sink_inputs.clone());
+    }
+
+    fn update_volume_scales(
+        &self,
+        streams: &HashMap<u32, StreamData>,
+        scales: Rc<RefCell<HashMap<u32, VolumeScale>>>,
+    ) {
+        let imp = self.imp();
+        let box_ = imp.box_.borrow();
+        let mut scales = scales.borrow_mut();
+
+        // Remove scales?
+        scales.retain(|stream_idx, scale| {
+            let keep = streams.contains_key(stream_idx);
+            if !keep {
+                box_.remove(scale);
+            }
+            keep
         });
 
-        self.set_child(Some(&button));
+        for (stream_idx, stream) in streams {
+            // Add or get sink from hashmap
+            let scale = scales
+                .entry(*stream_idx)
+                .or_insert_with(|| VolumeScale::new());
+
+            // Append sink widget
+            if scale.parent().is_none() {
+                box_.append(scale);
+            }
+
+            scale.update(&stream.data);
+        }
     }
 
     pub fn move_(&self, x: i32, y: i32) {
