@@ -11,12 +11,13 @@ use super::Application;
 impl Application {
     /// Show/hide mixer popup.
     pub fn toggle_mixer_popup(&self, x: i32, y: i32) {
-        let window = self.imp().mixer_window.get().unwrap();
-        if window.get_visible() {
-            window.set_visible(false);
-        } else {
-            window.move_(x, y);
-            window.present();
+        if let Some(window) = self.imp().mixer_window.get() {
+            if window.get_visible() {
+                window.set_visible(false);
+            } else {
+                window.move_(x, y);
+                window.present();
+            }
         }
     }
 
@@ -78,7 +79,7 @@ impl Application {
             win.destroy();
         }
 
-        // Discard application hold guard.
+        // Discard application hold guard which will make the GTK main loop terminate.
         *imp.hold_guard.borrow_mut() = None;
     }
 }

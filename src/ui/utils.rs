@@ -1,5 +1,6 @@
 use gdk::prelude::DisplayExtManual;
 
+#[derive(Debug, PartialEq)]
 pub enum DisplayType {
     Wayland,
     X11,
