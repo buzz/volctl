@@ -31,7 +31,7 @@ impl ApplicationImpl for Application {
 impl Application {
     fn create_mixer_window(&self) {
         self.mixer_window
-            .set(MixerWindow::new())
+            .set(MixerWindow::default())
             .expect("Failed to set mixer window.");
     }
 

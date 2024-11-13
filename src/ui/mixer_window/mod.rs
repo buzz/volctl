@@ -58,9 +58,7 @@ impl MixerWindow {
 
         for (stream_idx, stream) in streams {
             // Add or get sink from hashmap
-            let scale = scales
-                .entry(*stream_idx)
-                .or_insert_with(|| VolumeScale::new());
+            let scale = scales.entry(*stream_idx).or_default();
 
             // Append sink widget
             if scale.parent().is_none() {
@@ -84,5 +82,11 @@ impl MixerWindow {
                 }
             }
         }
+    }
+}
+
+impl Default for MixerWindow {
+    fn default() -> Self {
+        Self::new()
     }
 }

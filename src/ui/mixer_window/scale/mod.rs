@@ -28,17 +28,17 @@ impl VolumeScale {
         let mute_btn = &imp.mute_btn;
 
         if data.icon != scale_data.icon {
-            scale_data.icon = data.icon.to_owned();
+            scale_data.icon.clone_from(&data.icon);
             let icon = Image::from_icon_name(&scale_data.icon);
             mute_btn.set_child(Some(&icon));
         }
 
         if data.name != scale_data.name {
-            scale_data.name = data.name.clone();
+            scale_data.name.clone_from(&data.name);
         }
 
         if data.description != scale_data.description {
-            scale_data.description = data.description.clone();
+            scale_data.description.clone_from(&data.description);
             scale.set_tooltip_text(Some(&scale_data.description));
             mute_btn.set_tooltip_text(Some(&scale_data.description));
         }
@@ -57,5 +57,11 @@ impl VolumeScale {
 
     fn format_scale_value(value: f64) -> String {
         format!("{:.0}", (value / MAX_NATURAL_VOL as f64) * 100.0)
+    }
+}
+
+impl Default for VolumeScale {
+    fn default() -> Self {
+        Self::new()
     }
 }
