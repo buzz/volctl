@@ -1,6 +1,8 @@
 mod app;
 mod constants;
+mod errors;
 mod pulse;
+mod settings;
 mod ui;
 
 use gdk::prelude::ApplicationExtManual;

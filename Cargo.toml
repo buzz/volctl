@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1.0"
 async-channel = "2.3"
 gdk = { version = "0.9", package = "gdk4", features = ["v4_16"] }
 gdk-x11 = { version = "0.9", package = "gdk4-x11", features = ["v4_16"] }
@@ -13,4 +14,5 @@ gtk-layer-shell = { version = "0.4.0", package = "gtk4-layer-shell" }
 ksni = "0.2"
 libpulse = { version = "2.28", package = "libpulse-binding", features = ["pa_v8"] }
 slice_as_array = "1.1"
+thiserror = "2.0"
 x11rb = "0.13"
