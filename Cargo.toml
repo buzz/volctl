@@ -11,6 +11,6 @@ glib = "0.20"
 gtk = { version = "0.9", package = "gtk4", features = ["v4_16"] }
 gtk-layer-shell = { version = "0.4.0", package = "gtk4-layer-shell" }
 ksni = "0.2"
-libpulse = { version = "2.28", package = "libpulse-binding" }
+libpulse = { version = "2.28", package = "libpulse-binding", features = ["pa_v8"] }
 slice_as_array = "1.1"
 x11rb = "0.13"
