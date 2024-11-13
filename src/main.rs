@@ -1,5 +1,6 @@
 mod app;
 mod constants;
+mod errors;
 mod pulse;
 mod ui;
 
