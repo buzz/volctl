@@ -94,7 +94,10 @@ impl Application {
                                     .round() as i32,
                             );
                         }
-                        TrayMessage::Quit => app.request_quit(),
+                        TrayMessage::Quit => {
+                            app.request_quit();
+                            break;
+                        }
                     }
                 }
             }
