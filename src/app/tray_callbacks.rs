@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use gdk::prelude::SettingsExt;
 use glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::{GtkWindowExt, WidgetExt};
@@ -27,23 +29,27 @@ impl Application {
         let pulse = imp.pulse.borrow();
 
         if let Some(active_sink) = pulse.sinks.get(&pulse.active_sink) {
-            let mut volumes = active_sink.data.volume.clone();
+            let mut volumes = active_sink.data.volume;
 
-            if amount > 0 {
-                let extra_volume = imp
-                    .settings
-                    .get()
-                    .unwrap()
-                    .boolean(SETTINGS_ALLOW_EXTRA_VOLUME);
-                let limit = if extra_volume {
-                    MAX_SCALE_VOL
-                } else {
-                    MAX_NATURAL_VOL
-                };
-                volumes.inc_clamp(Volume(amount as u32), Volume(limit));
-            } else if amount < 0 {
-                volumes.decrease(Volume(amount.abs() as u32));
-            }
+            match amount.cmp(&0) {
+                Ordering::Greater => {
+                    let extra_volume = imp
+                        .settings
+                        .get()
+                        .unwrap()
+                        .boolean(SETTINGS_ALLOW_EXTRA_VOLUME);
+                    let limit = if extra_volume {
+                        MAX_SCALE_VOL
+                    } else {
+                        MAX_NATURAL_VOL
+                    };
+                    volumes.inc_clamp(Volume(amount as u32), Volume(limit));
+                }
+                Ordering::Less => {
+                    volumes.decrease(Volume(amount.unsigned_abs()));
+                }
+                Ordering::Equal => {}
+            };
 
             pulse.set_volume(StreamType::Sink, pulse.active_sink, volumes);
         }

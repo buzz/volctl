@@ -20,16 +20,11 @@ use slice_as_array::{slice_as_array, slice_as_array_transmute};
 
 use crate::constants::MAX_NATURAL_VOL;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub enum StreamType {
+    #[default]
     Sink,
     SinkInput,
-}
-
-impl Default for StreamType {
-    fn default() -> Self {
-        StreamType::Sink
-    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -50,7 +45,7 @@ pub struct MeterData {
 /// current state of the pulse server.
 enum TxMessage {
     Default(String),
-    StreamUpdate(StreamType, TxStreamData),
+    StreamUpdate(StreamType, Box<TxStreamData>),
     StreamRemove(StreamType, u32),
     Peak(StreamType, u32, u32),
 }
@@ -252,7 +247,7 @@ impl Pulse {
             if let ListResult::Item(item) = result {
                 tx.send_blocking(TxMessage::StreamUpdate(
                     StreamType::Sink,
-                    TxStreamData {
+                    Box::new(TxStreamData {
                         data: MeterData {
                             t: StreamType::Sink,
                             index: item.index,
@@ -263,7 +258,7 @@ impl Pulse {
                             muted: item.mute,
                         },
                         monitor_index: item.monitor_source,
-                    },
+                    }),
                 ))
                 .expect("The channel needs to be open.")
             }
@@ -274,7 +269,7 @@ impl Pulse {
             if let ListResult::Item(item) = result {
                 tx.send_blocking(TxMessage::StreamUpdate(
                     StreamType::SinkInput,
-                    TxStreamData {
+                    Box::new(TxStreamData {
                         data: MeterData {
                             t: StreamType::SinkInput,
                             index: item.index,
@@ -291,7 +286,7 @@ impl Pulse {
                             muted: item.mute,
                         },
                         monitor_index: item.sink,
-                    },
+                    }),
                 ))
                 .expect("The channel needs to be open.")
             };
