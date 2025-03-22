@@ -171,7 +171,8 @@ class VolumeSliders(Gtk.Window):
             pos += 1
 
             for sink_input in sink_inputs:
-                name, icon_name = self._name_icon_name_from_sink_input(sink_input)
+                name = self._name_from_sink_input(sink_input)
+                icon_name = self._icon_name_from_sink_input(sink_input)
                 props = name, icon_name, sink_input.volume.value_flat, sink_input.mute
                 scale, btn = self._add_scale(pos, props)
                 self._sink_input_scales[sink_input.index] = scale, btn
@@ -231,7 +232,7 @@ class VolumeSliders(Gtk.Window):
         return scale, btn
 
     @staticmethod
-    def _name_icon_name_from_sink_input(sink_input):
+    def _name_from_sink_input(sink_input):
         proplist = sink_input.proplist
         try:
             name = f"<b>{proplist['application.name']}</b>: {proplist['media.name']}"
@@ -240,14 +241,23 @@ class VolumeSliders(Gtk.Window):
                 name = proplist["application.name"]
             except KeyError:
                 name = sink_input.name
-        try:
-            icon_name = proplist["media.icon_name"]
-        except KeyError:
-            try:
-                icon_name = proplist["application.icon_name"]
-            except KeyError:
-                icon_name = "multimedia-volume-control"
-        return name, icon_name
+
+        return name
+
+    @staticmethod
+    def _icon_name_from_sink_input(sink_input):
+        proplist = sink_input.proplist
+        icon_name = proplist.get("application.icon_name") or proplist.get(
+            "media.icon_name"
+        )
+
+        if not icon_name:
+            binary = proplist.get("application.process.binary", "")
+            app_name = proplist.get("application.name", "").lower().replace(" ", "-")
+            icon_name = binary or app_name
+
+        theme = Gtk.IconTheme.get_default()
+        return icon_name if theme.has_icon(icon_name) else "multimedia-volume-control"
 
     @staticmethod
     def _update_scale_values(scale_btn, volume, mute):
