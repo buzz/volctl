@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "volctl"
+description = "Per-application volume control for GNU/Linux desktops"
+authors = [
+    {name = "buzz", email = "buzz@users.noreply.github.com"}
+]
+readme = "README.md"
+license = "GPL-3.0-or-later"
+dynamic = ["version"]
+dependencies = [
+    "pulsectl",
+    "pycairo",
+    "PyGObject",
+]
+urls = { Homepage = "https://buzz.github.io/volctl/" }
+
+[project.gui-scripts]
+volctl = "volctl.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["volctl*"]
+
+[tool.setuptools.data-files]
+"share/applications" = ["data/volctl.desktop"]
+"share/glib-2.0/schemas" = ["data/apps.volctl.gschema.xml"]
+
+[tool.setuptools.dynamic]
+version = { attr = "volctl.meta.VERSION" }
