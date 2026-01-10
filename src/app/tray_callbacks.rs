@@ -7,11 +7,12 @@ use libpulse::volume::Volume;
 
 use crate::constants::{MAX_NATURAL_VOL, MAX_SCALE_VOL, SETTINGS_ALLOW_EXTRA_VOLUME};
 use crate::pulse::StreamType;
+use crate::ui::prefs_window::PreferencesWindow;
 
 use super::Application;
 
 impl Application {
-    /// Show/hide mixer popup.
+    /// Show/hide mixer popup
     pub fn toggle_mixer_popup(&self, x: i32, y: i32) {
         if let Some(window) = self.imp().mixer_window.get() {
             if window.get_visible() {
@@ -23,7 +24,7 @@ impl Application {
         }
     }
 
-    /// Change active sink volume.
+    /// Change active sink volume
     pub fn change_active_sink_volume(&self, amount: i32) {
         let imp = self.imp();
         let pulse = imp.pulse.borrow();
@@ -54,7 +55,7 @@ impl Application {
         }
     }
 
-    /// Toggle muted on active sink volume.
+    /// Toggle muted on active sink volume
     pub fn toggle_muted_active_sink_volume(&self) {
         let pulse = self.imp().pulse.borrow();
 
@@ -63,28 +64,31 @@ impl Application {
         }
     }
 
-    /// Show about dialog.
+    /// Show about dialog
     pub fn show_about(&self) {}
 
-    /// Show preferences dialog.
-    pub fn show_prefs(&self) {}
+    /// Show preferences dialog
+    pub fn show_prefs(&self) {
+        let prefs_window = PreferencesWindow::default();
+        prefs_window.present();
+    }
 
-    /// Open external mixer program.
+    /// Open external mixer program
     pub fn external_mixer(&self) {}
 
-    /// Request volctl to quit.
+    /// Request volctl to quit
     pub fn request_quit(&self) {
         let imp = self.imp();
 
-        // Close pulse.
+        // Close pulse
         imp.pulse.borrow_mut().cleanup();
 
-        // Close mixer window.
+        // Close mixer window
         if let Some(win) = imp.mixer_window.get() {
             win.destroy();
         }
 
-        // Discard application hold guard which will make the GTK main loop terminate.
+        // Discard application hold guard which will make the GTK main loop terminate
         *imp.hold_guard.borrow_mut() = None;
     }
 }

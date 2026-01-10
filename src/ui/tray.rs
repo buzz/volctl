@@ -65,9 +65,9 @@ impl Tray for VolctlTray {
                 label: "Mute".into(),
                 icon_name: "audio-volume-muted".into(),
                 activate: Box::new(move |_| {
-                    tx_mute
-                        .send_blocking(TrayMessage::Mute)
-                        .expect("The channel needs to be open.")
+                    if tx_mute.send_blocking(TrayMessage::Mute).is_err() {
+                        eprintln!("Failed to send Mute message, channel closed");
+                    }
                 }),
                 ..Default::default()
             }
@@ -76,9 +76,9 @@ impl Tray for VolctlTray {
                 label: "Mixer".into(),
                 icon_name: "multimedia-volume-control".into(),
                 activate: Box::new(move |_| {
-                    tx_mixer
-                        .send_blocking(TrayMessage::ExternalMixer)
-                        .expect("The channel needs to be open.")
+                    if tx_mixer.send_blocking(TrayMessage::ExternalMixer).is_err() {
+                        eprintln!("Failed to send Mixer message, channel closed");
+                    }
                 }),
                 ..Default::default()
             }
@@ -87,9 +87,9 @@ impl Tray for VolctlTray {
                 label: "Preferences".into(),
                 icon_name: "preferences-desktop".into(),
                 activate: Box::new(move |_| {
-                    tx_prefs
-                        .send_blocking(TrayMessage::Preferences)
-                        .expect("The channel needs to be open.")
+                    if tx_prefs.send_blocking(TrayMessage::Preferences).is_err() {
+                        eprintln!("Failed to send Preferences message, channel closed");
+                    }
                 }),
                 ..Default::default()
             }
@@ -99,9 +99,9 @@ impl Tray for VolctlTray {
                 label: "About".into(),
                 icon_name: "dialog-information".into(),
                 activate: Box::new(move |_| {
-                    tx_about
-                        .send_blocking(TrayMessage::About)
-                        .expect("The channel needs to be open.")
+                    if tx_about.send_blocking(TrayMessage::About).is_err() {
+                        eprintln!("Failed to send About message, channel closed");
+                    }
                 }),
                 ..Default::default()
             }
@@ -110,9 +110,9 @@ impl Tray for VolctlTray {
                 label: "Quit".into(),
                 icon_name: "application-exit".into(),
                 activate: Box::new(move |_| {
-                    tx_quit
-                        .send_blocking(TrayMessage::Quit)
-                        .expect("The channel needs to be open.")
+                    if tx_quit.send_blocking(TrayMessage::Quit).is_err() {
+                        eprintln!("Failed to send Quit message, channel closed");
+                    }
                 }),
                 ..Default::default()
             }
@@ -121,9 +121,9 @@ impl Tray for VolctlTray {
     }
 
     fn activate(&mut self, x: i32, y: i32) {
-        self.tx
-            .send_blocking(TrayMessage::Activate(x, y))
-            .expect("The channel needs to be open.");
+        if self.tx.send_blocking(TrayMessage::Activate(x, y)).is_err() {
+            eprintln!("Failed to send Activate message, channel closed");
+        }
     }
 
     fn secondary_activate(&mut self, x: i32, y: i32) {
@@ -131,10 +131,8 @@ impl Tray for VolctlTray {
     }
 
     fn scroll(&mut self, delta: i32, dir: &str) {
-        if dir == "vertical" {
-            self.tx
-                .send_blocking(TrayMessage::Scroll(delta))
-                .expect("The channel needs to be open.")
+        if dir == "vertical" && self.tx.send_blocking(TrayMessage::Scroll(delta)).is_err() {
+            eprintln!("Failed to send Scroll message, channel closed");
         }
     }
 }
