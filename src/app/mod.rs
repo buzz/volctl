@@ -25,18 +25,23 @@ impl Application {
         let mut pulse = imp.pulse.borrow_mut();
 
         if pulse.update() {
-            // Update tray icon
             if let Some(active_sink) = pulse.get_sinks().get(&pulse.active_sink) {
                 let new_volume = active_sink.data.volume.avg().0;
                 let new_muted = active_sink.data.muted;
 
                 // Only send update if values changed
                 if new_volume != imp.volume.get() || new_muted != imp.muted.get() {
+                    // Update tray icon
                     if let Some(tray_handle) = imp.tray_handle.borrow().as_ref() {
                         tray_handle.update(|tray| {
                             tray.volume = new_volume;
                             tray.muted = new_muted;
                         });
+                    }
+
+                    // Update OSD
+                    if let Some(osd_controller) = imp.osd_controller.get() {
+                        osd_controller.update(new_volume, new_muted);
                     }
 
                     // Remember new values

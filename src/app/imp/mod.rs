@@ -8,6 +8,7 @@ use gtk::subclass::prelude::GtkApplicationImpl;
 use ksni::Handle;
 
 use crate::pulse::Pulse;
+use crate::ui::osd::OsdController;
 use crate::ui::{mixer_window::MixerWindow, tray::VolctlTray};
 
 mod activate;
@@ -15,6 +16,7 @@ mod activate;
 pub struct Application {
     pub(super) hold_guard: RefCell<Option<gio::ApplicationHoldGuard>>,
     pub(super) mixer_window: RefCell<Option<MixerWindow>>,
+    pub(super) osd_controller: OnceCell<OsdController>,
     pub(super) pulse: Rc<RefCell<Pulse>>,
     pub(super) settings: OnceCell<gio::Settings>,
     pub(super) tray_handle: RefCell<Option<Handle<VolctlTray>>>,
@@ -39,11 +41,15 @@ impl Default for Application {
     fn default() -> Self {
         let pulse_instance = Pulse::new().expect("Failed to create PulseAudio controller");
 
+        let settings = gio::Settings::with_path("apps.volctl", "/apps/volctl/");
+        let osd_controller = OsdController::new(&settings);
+
         Self {
             hold_guard: RefCell::from(None),
             mixer_window: RefCell::from(None),
+            osd_controller: OnceCell::from(osd_controller),
             pulse: Rc::from(RefCell::from(pulse_instance)),
-            settings: OnceCell::from(gio::Settings::with_path("apps.volctl", "/apps/volctl/")),
+            settings: OnceCell::from(settings),
             tray_handle: RefCell::from(None),
             volume: Cell::new(0),
             muted: Cell::new(false),
