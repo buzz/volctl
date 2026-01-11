@@ -26,7 +26,7 @@ impl Application {
 
         if pulse.update() {
             // Update tray icon
-            if let Some(active_sink) = pulse.sinks.get(&pulse.active_sink) {
+            if let Some(active_sink) = pulse.get_sinks().get(&pulse.active_sink) {
                 let new_volume = active_sink.data.volume.avg().0;
                 let new_muted = active_sink.data.muted;
 
@@ -48,8 +48,8 @@ impl Application {
             // Update mixer window if it's visible
             if let Some(mixer_window) = imp.mixer_window.get() {
                 if mixer_window.get_visible() {
-                    mixer_window.update_sinks(&pulse.sinks);
-                    mixer_window.update_sink_inputs(&pulse.sink_inputs);
+                    mixer_window.update_sinks(pulse.get_sinks());
+                    mixer_window.update_sink_inputs(pulse.get_sink_inputs());
                     // TODO: peaks
                 }
             }

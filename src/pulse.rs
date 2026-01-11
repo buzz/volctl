@@ -1,11 +1,9 @@
-/// The main data-store / binding module that interacts with the pulse audio server.
-/// Monitors the pulse server for updates, and also exposes methods to request changes.
-/// Adpated from https://github.com/Aurailus/Myxer
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::time::Duration;
 
-use async_channel::{Receiver, Sender};
 use libpulse::callbacks::ListResult;
 use libpulse::context::introspect::{ServerInfo, SinkInfo, SinkInputInfo};
 use libpulse::context::subscribe::{Facility, InterestMaskSet, Operation};
@@ -16,11 +14,11 @@ use libpulse::proplist::{properties, Proplist};
 use libpulse::sample::{Format, Spec};
 use libpulse::stream::{FlagSet as StreamFlagSet, PeekResult, Stream};
 use libpulse::volume::{ChannelVolumes, Volume};
-use slice_as_array::{slice_as_array, slice_as_array_transmute};
 
-use crate::constants::MAX_NATURAL_VOL;
+use crate::constants::{MAX_NATURAL_VOL, MAX_VOL_SCALE};
+use crate::errors::PulseError;
 
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub enum StreamType {
     #[default]
     Sink,
@@ -40,11 +38,9 @@ pub struct MeterData {
     pub muted: bool,
 }
 
-/// The different message types that can be passed from the pulse
-/// thread to the data store. They contain data related to the
-/// current state of the pulse server.
+/// The different message types that can be passed from the pulse thread to the data store.
 enum TxMessage {
-    Default(String),
+    DefaultSinkName(String),
     StreamUpdate(StreamType, Box<TxStreamData>),
     StreamRemove(StreamType, u32),
     Peak(StreamType, u32, u32),
@@ -58,125 +54,132 @@ pub struct TxStreamData {
 }
 
 /// Stored representation of a pulse stream.
-/// The stream index is not in this struct, but
-/// it is the index it is keyed under in its hashmap.
 pub struct StreamData {
     pub data: MeterData,
-
     pub peak: u32,
-    pub repetitions: u32,
     pub monitor_index: u32,
-    pub monitor: Rc<RefCell<Stream>>,
-}
-
-/// Container for mspc channel sender & receiver.
-struct Channel<T> {
-    tx: Sender<T>,
-    rx: Receiver<T>,
+    /// Monitor stream connection. kept alive by this Rc.
+    monitor: Rc<RefCell<Stream>>,
 }
 
 /// The main controller for all pulse server interactions.
-/// Handles peak monitoring, stream discovery, and meter information.
-/// Stores data for all known streams, allowing public access.
 pub struct Pulse {
     mainloop: Rc<RefCell<Mainloop>>,
     context: Rc<RefCell<Context>>,
-    channel: Channel<TxMessage>,
+
+    tx: Sender<TxMessage>,
+    rx: Receiver<TxMessage>,
 
     pub default_sink: u32,
     pub active_sink: u32,
 
-    pub sinks: HashMap<u32, StreamData>,
-    pub sink_inputs: HashMap<u32, StreamData>,
+    sinks: HashMap<u32, StreamData>,
+    sink_inputs: HashMap<u32, StreamData>,
 }
 
 impl Pulse {
-    /// Creates a new pulse controller, configuring (but not initializing) the pulse connection.
-    pub fn new() -> Self {
-        let mut proplist = Proplist::new().unwrap();
+    /// Creates a new pulse controller.
+    pub fn new() -> Result<Self, PulseError> {
+        let mut proplist = Proplist::new().ok_or(PulseError::ContextInit)?;
         proplist
             .set_str(properties::APPLICATION_NAME, "Myxer")
-            .unwrap();
+            .map_err(|_| PulseError::ContextInit)?;
 
         let mainloop = Rc::new(RefCell::new(
-            Mainloop::new().expect("Failed to initialize pulse mainloop."),
+            Mainloop::new().ok_or(PulseError::MainloopInit)?,
         ));
 
         let context = Rc::new(RefCell::new(
             Context::new_with_proplist(&*mainloop.borrow(), "Myxer Context", &proplist)
-                .expect("Failed to initialize pulse context."),
+                .ok_or(PulseError::ContextInit)?,
         ));
 
-        let (tx, rx) = async_channel::unbounded::<TxMessage>();
+        let (tx, rx) = mpsc::channel();
 
-        Pulse {
+        Ok(Pulse {
             mainloop,
             context,
-            channel: Channel { tx, rx },
-
+            tx,
+            rx,
             default_sink: u32::MAX,
             active_sink: u32::MAX,
-
             sinks: HashMap::new(),
             sink_inputs: HashMap::new(),
-        }
+        })
     }
 
-    /// Initiates a connection to pulse. Blocks until success, panics on failure.
-    /// TODO: Graceful error handling, with debug message.
-    /// TODO: Try to see if there's a way to avoid using unsafe? It's in the docs...  but...?
-    pub fn connect(&mut self) {
-        let mut mainloop = self.mainloop.borrow_mut();
-        let mut ctx = self.context.borrow_mut();
+    /// Initiates a connection to pulse. Blocks until success.
+    pub fn connect(&mut self) -> Result<(), PulseError> {
+        // 1. Set up state callback
+        {
+            let mut ctx = self.context.borrow_mut();
+            let ml_weak = Rc::downgrade(&self.mainloop);
+            let ctx_weak = Rc::downgrade(&self.context);
 
-        let mainloop_shr_ref = self.mainloop.clone();
-        let ctx_shr_ref = self.context.clone();
-
-        ctx.set_state_callback(Some(Box::new(move || {
-            match unsafe { (*ctx_shr_ref.as_ptr()).get_state() } {
-                ContextState::Ready | ContextState::Failed | ContextState::Terminated => unsafe {
-                    (*mainloop_shr_ref.as_ptr()).signal(false);
-                },
-                _ => {}
-            }
-        })));
-
-        ctx.connect(None, CtxFlagSet::NOFLAGS, None)
-            .expect("Failed to connect to the pulse server.");
-
-        mainloop.lock();
-        mainloop.start().expect("Failed to start pulse mainloop.");
-
-        loop {
-            match ctx.get_state() {
-                ContextState::Ready => {
-                    ctx.set_state_callback(None);
-                    mainloop.unlock();
-                    break;
+            ctx.set_state_callback(Some(Box::new(move || {
+                if let (Some(ml_rc), Some(ctx_rc)) = (ml_weak.upgrade(), ctx_weak.upgrade()) {
+                    if let Ok(state) = ctx_rc.try_borrow().map(|c| c.get_state()) {
+                        if matches!(
+                            state,
+                            ContextState::Ready | ContextState::Failed | ContextState::Terminated
+                        ) {
+                            if let Ok(mut ml) = ml_rc.try_borrow_mut() {
+                                ml.signal(false);
+                            }
+                        }
+                    }
                 }
+            })));
+
+            ctx.connect(None, CtxFlagSet::NOFLAGS, None).map_err(|e| {
+                PulseError::ConnectionFailed(
+                    e.to_string().unwrap_or_else(|| "Unknown error".into()),
+                )
+            })?;
+        }
+
+        // 2. Start Mainloop
+        {
+            let mut ml = self.mainloop.borrow_mut();
+            ml.lock();
+            ml.start().map_err(|_| PulseError::MainloopStart)?;
+            ml.unlock();
+        }
+
+        // 3. Wait for Ready state - Polling with Sleep
+        // This avoids the ml.wait() deadlock entirely by not holding a lock
+        // while the background thread is trying to signal or update state.
+        loop {
+            let state = {
+                let mut ml = self.mainloop.borrow_mut();
+                ml.lock();
+                let s = self.context.borrow().get_state();
+                ml.unlock();
+                s
+            };
+
+            match state {
+                ContextState::Ready => break,
                 ContextState::Failed | ContextState::Terminated => {
-                    eprintln!("Context state failed/terminated, quitting...");
-                    mainloop.unlock();
-                    mainloop.stop();
-                    panic!("Pulse session terminated.");
+                    self.mainloop.borrow_mut().stop();
+                    return Err(PulseError::SessionTerminated);
                 }
                 _ => {
-                    mainloop.wait();
+                    // Drop all borrows and sleep for a tiny bit.
+                    // This gives the PulseAudio thread plenty of room to
+                    // acquire the RefCell borrow and run callbacks.
+                    std::thread::sleep(Duration::from_millis(10));
                 }
             }
         }
 
-        drop(ctx);
-        drop(mainloop);
+        // 4. Success
+        self.context.borrow_mut().set_state_callback(None);
         self.subscribe();
+        Ok(())
     }
 
-    /// Sets the volume of the stream to the volumes specified.
-    /// This operation is asynchronous, so changes will not be reflected immediately.
-    ///
-    ////// `t`       - The type of stream to set the volume of.
-    ////// `index`   - The index of the stream to set the volume of.
-    ////// `volumes` - The desired volumes to set the channels of the stream to.
+    /// Sets the volume of the stream.
     pub fn set_volume(&self, t: StreamType, index: u32, volumes: ChannelVolumes) {
         let mut introspect = self.context.borrow().introspect();
         let mut mainloop = self.mainloop.borrow_mut();
@@ -195,13 +198,8 @@ impl Pulse {
     }
 
     /// Mutes or unmutes a stream.
-    /// This operation is asynchronous, so changes will not be reflected immediately.
-    ///
-    ////// `t`     - The type of stream to update.
-    ////// `index` - The index of the stream to update.
-    ////// `mute`  - Whether the stream should be muted or not.
     pub fn set_muted(&self, t: StreamType, index: u32, mute: bool) {
-        // If unmuting a stream that has been set to 0 volume, it should be reset to full.
+        // Unmuting logic: restore volume if it was zeroed
         if !mute {
             let entry = match t {
                 StreamType::Sink => self.sinks.get(&index),
@@ -209,7 +207,8 @@ impl Pulse {
             };
 
             if let Some(entry) = entry {
-                if entry.data.volume.max().0 == 0 {
+                // If max volume is 0, reset to 100% (MAX_NATURAL_VOL)
+                if entry.data.volume.max().0 == Volume::MUTED.0 {
                     let mut volumes = ChannelVolumes::default();
                     volumes.set_len(entry.data.volume.len());
                     volumes.set(entry.data.volume.len(), Volume(MAX_NATURAL_VOL));
@@ -230,164 +229,175 @@ impl Pulse {
         mainloop.unlock();
     }
 
-    /// Binds listeners to server events, and triggers an
-    /// initial sweep to populate the internal stores.
-    /// Called by connect(), separated for readability.
+    /// Binds listeners to server events.
     fn subscribe(&mut self) {
-        /// Updates the client when the server information changes.
-        fn tx_server(tx: &Sender<TxMessage>, item: &ServerInfo<'_>) {
-            tx.send_blocking(TxMessage::Default(
-                item.default_sink_name.clone().unwrap().into_owned(),
-            ))
-            .expect("The channel needs to be open.");
+        // Helper to send messages without panicking
+        fn send_msg(tx: &Sender<TxMessage>, msg: TxMessage) {
+            let _ = tx.send(msg); // Ignore error if receiver is dropped
         }
 
-        /// Updates the client when a sink changes.
-        fn tx_sink(tx: &Sender<TxMessage>, result: ListResult<&SinkInfo<'_>>) {
-            if let ListResult::Item(item) = result {
-                tx.send_blocking(TxMessage::StreamUpdate(
-                    StreamType::Sink,
-                    Box::new(TxStreamData {
-                        data: MeterData {
-                            t: StreamType::Sink,
-                            index: item.index,
-                            icon: "multimedia-volume-control".to_owned(),
-                            name: item.name.clone().unwrap().into_owned(),
-                            description: item.description.clone().unwrap().into_owned(),
-                            volume: item.volume,
-                            muted: item.mute,
-                        },
-                        monitor_index: item.monitor_source,
-                    }),
-                ))
-                .expect("The channel needs to be open.")
+        // --- Callbacks ---
+        // Note: These run in the PulseAudio thread. We must not panic here.
+
+        fn tx_server(tx: &Sender<TxMessage>, item: &ServerInfo<'_>) {
+            if let Some(name) = &item.default_sink_name {
+                send_msg(tx, TxMessage::DefaultSinkName(name.clone().into_owned()));
             }
         }
 
-        /// Updates the client when a sink input changes.
-        fn tx_sink_input(tx: &Sender<TxMessage>, result: ListResult<&SinkInputInfo<'_>>) {
+        fn tx_sink(tx: &Sender<TxMessage>, result: ListResult<&SinkInfo<'_>>) {
             if let ListResult::Item(item) = result {
-                tx.send_blocking(TxMessage::StreamUpdate(
-                    StreamType::SinkInput,
-                    Box::new(TxStreamData {
-                        data: MeterData {
-                            t: StreamType::SinkInput,
-                            index: item.index,
-                            icon: item
-                                .proplist
-                                .get_str("application.icon_name")
-                                .unwrap_or_else(|| "audio-card".to_owned()),
-                            name: item.name.clone().unwrap().into_owned(),
-                            description: item
-                                .proplist
-                                .get_str("application.name")
-                                .unwrap_or_else(|| "".to_owned()),
-                            volume: item.volume,
-                            muted: item.mute,
-                        },
-                        monitor_index: item.sink,
-                    }),
-                ))
-                .expect("The channel needs to be open.")
-            };
+                let data = MeterData {
+                    t: StreamType::Sink,
+                    index: item.index,
+                    icon: "multimedia-volume-control".to_owned(),
+                    name: item.name.clone().unwrap_or_default().into_owned(),
+                    description: item.description.clone().unwrap_or_default().into_owned(),
+                    volume: item.volume,
+                    muted: item.mute,
+                };
+
+                send_msg(
+                    tx,
+                    TxMessage::StreamUpdate(
+                        StreamType::Sink,
+                        Box::new(TxStreamData {
+                            data,
+                            monitor_index: item.monitor_source,
+                        }),
+                    ),
+                );
+            }
         }
 
+        fn tx_sink_input(tx: &Sender<TxMessage>, result: ListResult<&SinkInputInfo<'_>>) {
+            if let ListResult::Item(item) = result {
+                let icon = item
+                    .proplist
+                    .get_str("application.icon_name")
+                    .unwrap_or_else(|| "audio-card".to_owned());
+                let description = item
+                    .proplist
+                    .get_str("application.name")
+                    .unwrap_or_default();
+
+                let data = MeterData {
+                    t: StreamType::SinkInput,
+                    index: item.index,
+                    icon,
+                    name: item.name.clone().unwrap_or_default().into_owned(),
+                    description,
+                    volume: item.volume,
+                    muted: item.mute,
+                };
+
+                send_msg(
+                    tx,
+                    TxMessage::StreamUpdate(
+                        StreamType::SinkInput,
+                        Box::new(TxStreamData {
+                            data,
+                            monitor_index: item.sink,
+                        }),
+                    ),
+                );
+            }
+        }
+
+        // Setup introspection and subscriptions
         let mut mainloop = self.mainloop.borrow_mut();
         mainloop.lock();
+
         let mut context = self.context.borrow_mut();
         let introspect = context.introspect();
 
-        let tx = self.channel.tx.clone();
+        // Initial Data Fetch
+        let tx = self.tx.clone();
         introspect.get_sink_info_list(move |res| tx_sink(&tx, res));
-        let tx = self.channel.tx.clone();
+        let tx = self.tx.clone();
         introspect.get_sink_input_info_list(move |res| tx_sink_input(&tx, res));
-        let tx = self.channel.tx.clone();
+        let tx = self.tx.clone();
         introspect.get_server_info(move |res| tx_server(&tx, res));
 
-        let tx = self.channel.tx.clone();
+        // Event Subscriptions
+        let tx = self.tx.clone();
         context.subscribe(
             InterestMaskSet::SERVER | InterestMaskSet::SINK | InterestMaskSet::SINK_INPUT,
             |_| (),
         );
+
         context.set_subscribe_callback(Some(Box::new(move |fac, op, index| {
             let tx = tx.clone();
-            let facility = fac.unwrap();
-            let operation = op.unwrap();
 
-            match facility {
-                Facility::Server => {
-                    introspect.get_server_info(move |res| tx_server(&tx, res));
-                }
-                Facility::Sink => match operation {
-                    Operation::Removed => tx
-                        .send_blocking(TxMessage::StreamRemove(StreamType::Sink, index))
-                        .expect("The channel needs to be open."),
-                    _ => {
-                        introspect.get_sink_info_by_index(index, move |res| tx_sink(&tx, res));
+            if let (Some(facility), Some(operation)) = (fac, op) {
+                match facility {
+                    Facility::Server => {
+                        introspect.get_server_info(move |res| tx_server(&tx, res));
                     }
-                },
-                Facility::SinkInput => match operation {
-                    Operation::Removed => tx
-                        .send_blocking(TxMessage::StreamRemove(StreamType::SinkInput, index))
-                        .expect("The channel needs to be open."),
-                    _ => {
-                        introspect.get_sink_input_info(index, move |res| tx_sink_input(&tx, res));
-                    }
-                },
-                _ => (),
-            };
+                    Facility::Sink => match operation {
+                        Operation::Removed => {
+                            send_msg(&tx, TxMessage::StreamRemove(StreamType::Sink, index))
+                        }
+                        _ => {
+                            introspect.get_sink_info_by_index(index, move |res| tx_sink(&tx, res));
+                        }
+                    },
+                    Facility::SinkInput => match operation {
+                        Operation::Removed => {
+                            send_msg(&tx, TxMessage::StreamRemove(StreamType::SinkInput, index))
+                        }
+                        _ => {
+                            introspect
+                                .get_sink_input_info(index, move |res| tx_sink_input(&tx, res));
+                        }
+                    },
+                    _ => (),
+                };
+            }
         })));
 
         mainloop.unlock();
     }
 
-    /// Handles queued messages from the pulse thread, updating the internal storage.
-    /// Returns a boolean indicating that a layout refresh is required.
+    /// Handles queued messages from the pulse thread.
+    /// Returns true if the layout needs a refresh.
     pub fn update(&mut self) -> bool {
         let mut received = false;
 
-        loop {
-            let res = self.channel.rx.try_recv();
-            match res {
-                Ok(res) => {
-                    received = true;
-                    match res {
-                        TxMessage::Default(sink) => self.update_default(sink),
-                        TxMessage::StreamUpdate(t, data) => self.update_stream(t, &data),
-                        TxMessage::StreamRemove(t, ind) => self.remove_stream(t, ind),
-                        TxMessage::Peak(t, ind, peak) => self.update_peak(t, ind, peak),
+        // Drain the channel non-blocking
+        while let Ok(msg) = self.rx.try_recv() {
+            received = true;
+            match msg {
+                TxMessage::DefaultSinkName(sink) => self.update_default(sink),
+                TxMessage::StreamUpdate(t, data) => {
+                    // Log error but don't crash if stream creation fails
+                    if let Err(e) = self.update_stream(t, &data) {
+                        eprintln!("Error updating stream: {}", e);
                     }
                 }
-                _ => break,
+                TxMessage::StreamRemove(t, ind) => self.remove_stream(t, ind),
+                TxMessage::Peak(t, ind, peak) => self.update_peak(t, ind, peak),
             }
         }
 
         received
     }
 
-    /// Closes the connection to the pulse server, and cleans up any dangling monitors.
-    /// After this operation, no other methods should be called, and the instance should be freed from memory.
-    pub fn cleanup(&mut self) {
-        while let Some((i, _)) = self.sinks.iter().next() {
-            let i = *i;
-            self.remove_stream(StreamType::Sink, i)
-        }
-        while let Some((i, _)) = self.sink_inputs.iter().next() {
-            let i = *i;
-            self.remove_stream(StreamType::SinkInput, i)
-        }
+    // --- Accessors for immutable data ---
 
-        let mut mainloop = self.mainloop.borrow_mut();
-        mainloop.stop();
+    pub fn get_sinks(&self) -> &HashMap<u32, StreamData> {
+        &self.sinks
     }
 
-    /// Updates the stored default sink and source to the ones identified.
-    /// This method is called by the update method, the names are provided by the pulse server.
-    ///
-    ////// `sink`   - The default sink.
-    fn update_default(&mut self, sink: String) {
+    pub fn get_sink_inputs(&self) -> &HashMap<u32, StreamData> {
+        &self.sink_inputs
+    }
+
+    // --- Private Internal Logic ---
+
+    fn update_default(&mut self, sink_name: String) {
         for (i, v) in &self.sinks {
-            if v.data.name == sink {
+            if v.data.name == sink_name {
                 self.default_sink = *i;
                 self.active_sink = *i;
                 break;
@@ -395,13 +405,12 @@ impl Pulse {
         }
     }
 
-    /// Updates a stream in the store, or creates a new one and begins monitoring the peaks.
-    /// This method is called by the update method, the data is provided by the pulse server.
-    ///
-    /// * `t`      - The type of stream to update.
-    /// * `stream` - The new stream's data.
-    fn update_stream(&mut self, t: StreamType, stream: &TxStreamData) {
-        let data = stream.data.clone();
+    fn update_stream(
+        &mut self,
+        t: StreamType,
+        stream_data: &TxStreamData,
+    ) -> Result<(), PulseError> {
+        let data = stream_data.data.clone();
         let index = data.index;
 
         let entry = match t {
@@ -412,7 +421,7 @@ impl Pulse {
         if let Some(stream) = entry {
             stream.data = data;
         } else {
-            let source_str = stream.monitor_index.to_string();
+            let source_str = stream_data.monitor_index.to_string();
             let monitor = self.create_monitor_stream(
                 t,
                 if t == StreamType::SinkInput {
@@ -421,26 +430,23 @@ impl Pulse {
                     Some(&source_str)
                 },
                 index,
-            );
-            let data = StreamData {
+            )?;
+
+            let stream_entry = StreamData {
                 data,
                 peak: 0,
-                repetitions: 0,
+                monitor_index: stream_data.monitor_index,
                 monitor,
-                monitor_index: stream.monitor_index,
             };
+
             match t {
-                StreamType::Sink => self.sinks.insert(index, data),
-                StreamType::SinkInput => self.sink_inputs.insert(index, data),
+                StreamType::Sink => self.sinks.insert(index, stream_entry),
+                StreamType::SinkInput => self.sink_inputs.insert(index, stream_entry),
             };
         }
+        Ok(())
     }
 
-    /// Removes a stream from the store, stopping the monitor, if there is one.
-    /// This method is called by the update method, the data is provided by the pulse server.
-    ///
-    /// * `t`     - The type of stream to remove.
-    /// * `index` - The index of the stream to remove.
     fn remove_stream(&mut self, t: StreamType, index: u32) {
         let stream_opt = match t {
             StreamType::Sink => self.sinks.get_mut(&index),
@@ -451,10 +457,12 @@ impl Pulse {
             let mut monitor = stream.monitor.borrow_mut();
             let mut mainloop = self.mainloop.borrow_mut();
             mainloop.lock();
+
             if monitor.get_state().is_good() {
                 monitor.set_read_callback(None);
                 let _ = monitor.disconnect();
             }
+
             mainloop.unlock();
         }
 
@@ -464,51 +472,27 @@ impl Pulse {
         };
     }
 
-    /// Updates a stored stream's peak.
-    /// This method is called by the update method, the data is provided by a monitor stream.
-    ///
-    /// * `t`     - The type of stream to update.
-    /// * `index` - The index of the stream to update.
-    /// * `peak`  - The peak value to store.
     fn update_peak(&mut self, t: StreamType, index: u32, peak: u32) {
         match t {
-            StreamType::Sink => self.sinks.entry(index).and_modify(|e| e.peak = peak),
-            StreamType::SinkInput => self.sink_inputs.entry(index).and_modify(|e| e.peak = peak),
+            StreamType::Sink => {
+                if let Some(e) = self.sinks.get_mut(&index) {
+                    e.peak = peak;
+                }
+            }
+            StreamType::SinkInput => {
+                if let Some(e) = self.sink_inputs.get_mut(&index) {
+                    e.peak = peak;
+                }
+            }
         };
     }
 
-    /// Creates a monitor stream for the stream specified, and returns it.
-    /// Panics if there's an error.
-    /// TODO: Don't panic.
-    ///
-    /// * `t`            - The type of stream to monitor.
-    /// * `source`       - The source string of the stream, if one is needed.
-    /// * `stream_index` - The index of the stream to monitor.
     fn create_monitor_stream(
         &mut self,
         t: StreamType,
         source: Option<&str>,
         stream_index: u32,
-    ) -> Rc<RefCell<Stream>> {
-        fn read_callback(stream: &mut Stream, t: StreamType, index: u32, tx: &Sender<TxMessage>) {
-            let mut raw_peak = 0.0;
-            while stream.readable_size().is_some() {
-                match stream.peek().unwrap() {
-                    PeekResult::Hole(_) => stream.discard().unwrap(),
-                    PeekResult::Data(b) => {
-                        #[allow(clippy::transmute_ptr_to_ref)]
-                        let buf = slice_as_array!(b, [u8; 4]).expect("Bad length.");
-                        raw_peak = f32::from_le_bytes(*buf).max(raw_peak);
-                        stream.discard().unwrap();
-                    }
-                    _ => break,
-                }
-            }
-            let peak = (raw_peak.sqrt() * 65535.0 * 1.5).round() as u32;
-            tx.send_blocking(TxMessage::Peak(t, index, peak))
-                .expect("The channel needs to be open.");
-        }
-
+    ) -> Result<Rc<RefCell<Stream>>, PulseError> {
         let attr = BufferAttr {
             fragsize: 4,
             maxlength: u32::MAX,
@@ -518,39 +502,107 @@ impl Pulse {
         let spec = Spec {
             channels: 1,
             format: Format::F32le,
-            rate: 30,
+            rate: 30, // Low rate for UI updates
         };
-        assert!(spec.is_valid());
 
-        let stream = Rc::new(RefCell::new(
-            Stream::new(&mut self.context.borrow_mut(), "Peak Detect", &spec, None).unwrap(),
-        ));
+        if !spec.is_valid() {
+            return Err(PulseError::StreamCreation);
+        }
+
+        let stream = {
+            let mut ctx = self.context.borrow_mut();
+            match Stream::new(&mut ctx, "Peak Detect", &spec, None) {
+                Some(s) => Rc::new(RefCell::new(s)),
+                None => return Err(PulseError::StreamCreation),
+            }
+        };
+
         {
             let mut stream_mut = stream.borrow_mut();
-            if t == StreamType::SinkInput {
-                stream_mut.set_monitor_stream(stream_index).unwrap();
+            if t == StreamType::SinkInput && stream_mut.set_monitor_stream(stream_index).is_err() {
+                return Err(PulseError::StreamCreation);
             }
 
             let mut mainloop = self.mainloop.borrow_mut();
             mainloop.lock();
-            stream_mut
-                .connect_record(
-                    source,
-                    Some(&attr),
-                    StreamFlagSet::DONT_MOVE
-                        | StreamFlagSet::ADJUST_LATENCY
-                        | StreamFlagSet::PEAK_DETECT,
-                )
-                .unwrap();
+
+            let res = stream_mut.connect_record(
+                source,
+                Some(&attr),
+                StreamFlagSet::DONT_MOVE
+                    | StreamFlagSet::ADJUST_LATENCY
+                    | StreamFlagSet::PEAK_DETECT,
+            );
+
             mainloop.unlock();
 
+            if res.is_err() {
+                return Err(PulseError::StreamCreation);
+            }
+
+            // Setup read callback
             let stream_clone = stream.clone();
-            let txc = self.channel.tx.clone();
+            let tx = self.tx.clone();
+
             stream_mut.set_read_callback(Some(Box::new(move |_| {
-                read_callback(&mut stream_clone.borrow_mut(), t, stream_index, &txc)
+                // IMPORTANT: We are in the pulse thread.
+                // Borrowing stream_clone is safe because set_read_callback implies strict ownership rules
+                // and the main loop is locked during this callback.
+                monitor_read_callback(&mut stream_clone.borrow_mut(), t, stream_index, &tx);
             })));
         }
 
-        stream
+        Ok(stream)
+    }
+}
+
+/// Helper function to process raw audio bytes into a peak value.
+/// Isolates the specific math scaling logic.
+fn calculate_peak(raw_peak: f32) -> u32 {
+    (raw_peak.sqrt() * MAX_NATURAL_VOL as f32 * MAX_VOL_SCALE as f32).round() as u32
+}
+
+/// Standalone callback logic for monitors.
+fn monitor_read_callback(stream: &mut Stream, t: StreamType, index: u32, tx: &Sender<TxMessage>) {
+    let mut raw_peak: f32 = 0.0;
+
+    while stream.readable_size().unwrap_or(0) > 0 {
+        match stream.peek() {
+            Ok(PeekResult::Data(bytes)) => {
+                // Convert slice to array safely
+                if let Ok(buf) = bytes.try_into() {
+                    let val = f32::from_le_bytes(buf);
+                    raw_peak = val.max(raw_peak);
+                }
+                let _ = stream.discard();
+            }
+            Ok(PeekResult::Hole(_)) => {
+                let _ = stream.discard();
+            }
+            _ => break,
+        }
+    }
+
+    if raw_peak > 0.0 {
+        let peak = calculate_peak(raw_peak);
+        let _ = tx.send(TxMessage::Peak(t, index, peak));
+    }
+}
+
+// Clean up resources when Pulse is dropped
+impl Drop for Pulse {
+    fn drop(&mut self) {
+        // Disconnect streams
+        for stream in self.sinks.values() {
+            let _ = stream.monitor.borrow_mut().disconnect();
+        }
+        for stream in self.sink_inputs.values() {
+            let _ = stream.monitor.borrow_mut().disconnect();
+        }
+
+        // Stop mainloop
+        if let Ok(mut ml) = self.mainloop.try_borrow_mut() {
+            ml.stop();
+        }
     }
 }

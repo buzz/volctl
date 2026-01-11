@@ -37,10 +37,12 @@ impl GtkApplicationImpl for Application {}
 
 impl Default for Application {
     fn default() -> Self {
+        let pulse_instance = Pulse::new().expect("Failed to create PulseAudio controller");
+
         Self {
             hold_guard: RefCell::from(None),
             mixer_window: OnceCell::new(),
-            pulse: Rc::from(RefCell::from(Pulse::new())),
+            pulse: Rc::from(RefCell::from(pulse_instance)),
             settings: OnceCell::from(gio::Settings::with_path("apps.volctl", "/apps/volctl/")),
             tray_handle: RefCell::from(None),
             volume: Cell::new(0),

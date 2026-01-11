@@ -3,8 +3,11 @@ pub const APP_ID: &str = "org.volctl";
 /// The maximum natural volume, i.e. 100%
 pub const MAX_NATURAL_VOL: u32 = 65536;
 
-/// The maximum scale volume, i.e. 150%
-pub const MAX_SCALE_VOL: u32 = (MAX_NATURAL_VOL as f64 * 1.5) as u32;
+/// The maximum volume scale, i.e. 150%
+pub const MAX_VOL_SCALE: f64 = 1.5;
+
+/// The maximum scale volume
+pub const MAX_SCALE_VOL: u32 = (MAX_NATURAL_VOL as f64 * MAX_VOL_SCALE) as u32;
 
 // Settings
 pub const SETTINGS_SCHEMA_KEY: &str = "apps.volctl";

@@ -37,7 +37,11 @@ impl Application {
 
     fn init_pulse(&self) {
         // Connect to PulseAudio
-        self.pulse.borrow_mut().connect();
+        if let Err(e) = self.pulse.borrow_mut().connect() {
+            eprintln!("Critical Error: Could not connect to PulseAudio: {}", e);
+            // TODO: show a GtkMessageDialog here
+            return;
+        }
 
         // Periodically update widgets from PulseAudio
         let app = self.obj();

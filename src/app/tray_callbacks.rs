@@ -29,7 +29,7 @@ impl Application {
         let imp = self.imp();
         let pulse = imp.pulse.borrow();
 
-        if let Some(active_sink) = pulse.sinks.get(&pulse.active_sink) {
+        if let Some(active_sink) = pulse.get_sinks().get(&pulse.active_sink) {
             let mut volumes = active_sink.data.volume;
 
             match amount.cmp(&0) {
@@ -59,13 +59,15 @@ impl Application {
     pub fn toggle_muted_active_sink_volume(&self) {
         let pulse = self.imp().pulse.borrow();
 
-        if let Some(active_sink) = pulse.sinks.get(&pulse.active_sink) {
+        if let Some(active_sink) = pulse.get_sinks().get(&pulse.active_sink) {
             pulse.set_muted(StreamType::Sink, pulse.active_sink, !active_sink.data.muted);
         }
     }
 
     /// Show about dialog
-    pub fn show_about(&self) {}
+    pub fn show_about(&self) {
+        // TODO: about dialog
+    }
 
     /// Show preferences dialog
     pub fn show_prefs(&self) {
@@ -74,14 +76,13 @@ impl Application {
     }
 
     /// Open external mixer program
-    pub fn external_mixer(&self) {}
+    pub fn external_mixer(&self) {
+        // TODO: open mixer
+    }
 
     /// Request volctl to quit
     pub fn request_quit(&self) {
         let imp = self.imp();
-
-        // Close pulse
-        imp.pulse.borrow_mut().cleanup();
 
         // Close mixer window
         if let Some(win) = imp.mixer_window.get() {
