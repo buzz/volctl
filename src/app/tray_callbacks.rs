@@ -2,11 +2,12 @@ use std::cmp::Ordering;
 
 use gdk::prelude::SettingsExt;
 use glib::subclass::types::ObjectSubclassIsExt;
-use gtk::prelude::{GtkWindowExt, WidgetExt};
+use gtk::prelude::GtkWindowExt;
 use libpulse::volume::Volume;
 
 use crate::constants::{MAX_NATURAL_VOL, MAX_SCALE_VOL, SETTINGS_ALLOW_EXTRA_VOLUME};
 use crate::pulse::StreamType;
+use crate::ui::mixer_window::MixerWindow;
 use crate::ui::prefs_window::PreferencesWindow;
 
 use super::Application;
@@ -14,13 +15,15 @@ use super::Application;
 impl Application {
     /// Show/hide mixer popup
     pub fn toggle_mixer_popup(&self, x: i32, y: i32) {
-        if let Some(window) = self.imp().mixer_window.get() {
-            if window.get_visible() {
-                window.set_visible(false);
-            } else {
-                window.move_(x, y);
-                window.present();
-            }
+        let imp = self.imp();
+
+        if let Some(window) = imp.mixer_window.take() {
+            window.close();
+        } else {
+            let window = MixerWindow::default();
+            window.move_(x, y);
+            window.present();
+            *imp.mixer_window.borrow_mut() = Some(window);
         }
     }
 
@@ -85,8 +88,8 @@ impl Application {
         let imp = self.imp();
 
         // Close mixer window
-        if let Some(win) = imp.mixer_window.get() {
-            win.destroy();
+        if let Some(win) = imp.mixer_window.take() {
+            win.close();
         }
 
         // Discard application hold guard which will make the GTK main loop terminate

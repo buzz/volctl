@@ -8,10 +8,7 @@ use gtk::prelude::SettingsExt;
 use ksni::TrayService;
 
 use crate::constants::{MAX_NATURAL_VOL, SETTINGS_MOUSE_WHEEL_STEP};
-use crate::ui::{
-    mixer_window::MixerWindow,
-    tray::{TrayMessage, VolctlTray},
-};
+use crate::ui::tray::{TrayMessage, VolctlTray};
 
 use super::Application;
 
@@ -23,18 +20,11 @@ impl ApplicationImpl for Application {
         *self.hold_guard.borrow_mut() = Some(self.obj().hold());
 
         self.init_tray();
-        self.create_mixer_window();
         self.init_pulse();
     }
 }
 
 impl Application {
-    fn create_mixer_window(&self) {
-        self.mixer_window
-            .set(MixerWindow::default())
-            .expect("Failed to set mixer window.");
-    }
-
     fn init_pulse(&self) {
         // Connect to PulseAudio
         if let Err(e) = self.pulse.borrow_mut().connect() {

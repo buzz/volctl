@@ -14,7 +14,7 @@ mod activate;
 
 pub struct Application {
     pub(super) hold_guard: RefCell<Option<gio::ApplicationHoldGuard>>,
-    pub(super) mixer_window: OnceCell<MixerWindow>,
+    pub(super) mixer_window: RefCell<Option<MixerWindow>>,
     pub(super) pulse: Rc<RefCell<Pulse>>,
     pub(super) settings: OnceCell<gio::Settings>,
     pub(super) tray_handle: RefCell<Option<Handle<VolctlTray>>>,
@@ -41,7 +41,7 @@ impl Default for Application {
 
         Self {
             hold_guard: RefCell::from(None),
-            mixer_window: OnceCell::new(),
+            mixer_window: RefCell::from(None),
             pulse: Rc::from(RefCell::from(pulse_instance)),
             settings: OnceCell::from(gio::Settings::with_path("apps.volctl", "/apps/volctl/")),
             tray_handle: RefCell::from(None),
