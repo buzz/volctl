@@ -1,7 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
+use glib::prelude::{ToValue, ToVariant};
 use glib::subclass::object::{ObjectImpl, ObjectImplExt};
-use glib::subclass::types::{ObjectSubclass, ObjectSubclassExt};
+use glib::subclass::types::{ObjectSubclass, ObjectSubclassExt, ObjectSubclassIsExt};
 use gtk::gio;
 use gtk::prelude::{
     BoxExt, CheckButtonExt, GridExt, GtkWindowExt, RangeExt, SettingsExt, SettingsExtManual,
@@ -187,6 +188,30 @@ impl ObjectImpl for PreferencesWindow {
         self.add_osd_position(&grid, &settings, &mut row);
 
         self.update_rows(&settings);
+
+        // Update sub-control sensitivity when toggles change
+        let obj = self.obj().clone();
+        settings.connect_changed(
+            Some(SETTINGS_AUTO_CLOSE),
+            glib::clone!(
+                #[weak]
+                obj,
+                move |settings, _| {
+                    obj.imp().update_rows(settings);
+                }
+            ),
+        );
+        settings.connect_changed(
+            Some(SETTINGS_OSD_ENABLED),
+            glib::clone!(
+                #[weak]
+                obj,
+                move |settings, _| {
+                    obj.imp().update_rows(settings);
+                }
+            ),
+        );
+
         obj.set_child(Some(&grid));
     }
 }
@@ -234,7 +259,7 @@ impl PreferencesWindow {
             .valign(Align::Center)
             .build();
 
-        let _ = settings.bind(key, &switch, "active");
+        settings.bind(key, &switch, "active").build();
         grid.attach(&switch, 1, *row, 1, 1);
         *row += 1;
     }
@@ -269,9 +294,18 @@ impl PreferencesWindow {
         hbox.append(&scale);
         hbox.append(&value_label);
 
-        let _ = params
+        params
             .settings
-            .bind(params.key, &scale.adjustment(), "value");
+            .bind(params.key, &scale.adjustment(), "value")
+            .mapping(|variant, _target_type| {
+                let val: i32 = variant.get()?;
+                Some(val.to_value())
+            })
+            .set_mapping(|value, _variant_type| {
+                let val: f64 = value.get().ok()?;
+                Some((val as i32).to_variant())
+            })
+            .build();
 
         params.grid.attach(&hbox, 1, *params.row, 1, 1);
         *params.row += 1;
@@ -290,7 +324,9 @@ impl PreferencesWindow {
             .hexpand(true)
             .halign(Align::Fill)
             .build();
-        let _ = settings.bind(SETTINGS_MIXER_COMMAND, &entry, "text");
+        settings
+            .bind(SETTINGS_MIXER_COMMAND, &entry, "text")
+            .build();
         grid.attach(&entry, 1, *row, 1, 1);
         *row += 1;
     }
