@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 async-channel = "2.5"
+cairo-rs = { version = "0.22", features = ["use_glib"] }
 gdk = { version = "0.11", package = "gdk4", features = ["v4_18"] }
 gdk-x11 = { version = "0.11", package = "gdk4-x11", features = ["v4_18"] }
 glib = "0.22"

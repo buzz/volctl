@@ -115,6 +115,34 @@ impl OsdWidget {
         window.set_default_size(width, height);
         window.set_focus_on_click(false);
 
+        // Apply CSS styling
+        window.set_css_classes(&["osd-window"]);
+        static CSS_LOADED: std::sync::Once = std::sync::Once::new();
+        CSS_LOADED.call_once(|| {
+            let css_provider = gtk::CssProvider::new();
+            css_provider.load_from_string(
+                r#"
+                .osd-window {
+                    background: transparent;
+                    border: none;
+                    border-width: 0;
+                    border-color: transparent;
+                    outline: none;
+                    outline-width: 0;
+                    outline-color: transparent;
+                    box-shadow: none;
+                }
+                "#,
+            );
+            if let Some(display) = gtk::gdk::Display::default() {
+                gtk::style_context_add_provider_for_display(
+                    &display,
+                    &css_provider,
+                    gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+                );
+            }
+        });
+
         // Add render widget to window
         window.set_child(Some(&render_widget));
 
