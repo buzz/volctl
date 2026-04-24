@@ -1,9 +1,9 @@
 use gdk::RGBA;
+use gtk::Snapshot;
 use gtk::graphene::Point;
 use gtk::gsk::{FillRule, PathBuilder, RoundedRect, Stroke};
 use gtk::pango;
 use gtk::prelude::*;
-use gtk::Snapshot;
 
 use crate::constants::{
     OSD_BASE_FONT_SIZE, OSD_BASE_HEIGHT, OSD_BASE_LINE_WIDTH, OSD_BASE_PADDING, OSD_BASE_WIDTH,

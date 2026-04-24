@@ -51,12 +51,12 @@ impl Application {
             }
 
             // Update mixer window if it's visible
-            if let Some(mixer_window) = imp.mixer_window.borrow().as_ref() {
-                if mixer_window.get_visible() {
-                    mixer_window.update_sinks(pulse.get_sinks());
-                    mixer_window.update_sink_inputs(pulse.get_sink_inputs());
-                    // TODO: peaks
-                }
+            if let Some(mixer_window) = imp.mixer_window.borrow().as_ref()
+                && mixer_window.get_visible()
+            {
+                mixer_window.update_sinks(pulse.get_sinks());
+                mixer_window.update_sink_inputs(pulse.get_sink_inputs());
+                // TODO: peaks
             }
         };
     }

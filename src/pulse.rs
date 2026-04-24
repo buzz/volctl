@@ -10,7 +10,7 @@ use libpulse::context::subscribe::{Facility, InterestMaskSet, Operation};
 use libpulse::context::{Context, FlagSet as CtxFlagSet, State as ContextState};
 use libpulse::def::BufferAttr;
 use libpulse::mainloop::threaded::Mainloop;
-use libpulse::proplist::{properties, Proplist};
+use libpulse::proplist::{Proplist, properties};
 use libpulse::sample::{Format, Spec};
 use libpulse::stream::{FlagSet as StreamFlagSet, PeekResult, Stream};
 use libpulse::volume::{ChannelVolumes, Volume};
@@ -117,17 +117,15 @@ impl Pulse {
             let ctx_weak = Rc::downgrade(&self.context);
 
             ctx.set_state_callback(Some(Box::new(move || {
-                if let (Some(ml_rc), Some(ctx_rc)) = (ml_weak.upgrade(), ctx_weak.upgrade()) {
-                    if let Ok(state) = ctx_rc.try_borrow().map(|c| c.get_state()) {
-                        if matches!(
-                            state,
-                            ContextState::Ready | ContextState::Failed | ContextState::Terminated
-                        ) {
-                            if let Ok(mut ml) = ml_rc.try_borrow_mut() {
-                                ml.signal(false);
-                            }
-                        }
-                    }
+                if let (Some(ml_rc), Some(ctx_rc)) = (ml_weak.upgrade(), ctx_weak.upgrade())
+                    && let Ok(state) = ctx_rc.try_borrow().map(|c| c.get_state())
+                    && matches!(
+                        state,
+                        ContextState::Ready | ContextState::Failed | ContextState::Terminated
+                    )
+                    && let Ok(mut ml) = ml_rc.try_borrow_mut()
+                {
+                    ml.signal(false);
                 }
             })));
 

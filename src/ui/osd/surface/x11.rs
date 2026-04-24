@@ -196,27 +196,26 @@ impl X11Surface {
             .reply()
             .ok()?;
 
-        if let Some(active_xid) = active_reply.value32()?.next() {
-            if let Ok(geom_cookie) = conn.get_geometry(active_xid) {
-                if let Ok(geom) = geom_cookie.reply() {
-                    let win_center_x = geom.x as i32 + geom.width as i32 / 2;
-                    let win_center_y = geom.y as i32 + geom.height as i32 / 2;
+        if let Some(active_xid) = active_reply.value32()?.next()
+            && let Ok(geom_cookie) = conn.get_geometry(active_xid)
+            && let Ok(geom) = geom_cookie.reply()
+        {
+            let win_center_x = geom.x as i32 + geom.width as i32 / 2;
+            let win_center_y = geom.y as i32 + geom.height as i32 / 2;
 
-                    let display = gdk::Display::default()?;
-                    let monitors = display.monitors();
-                    for i in 0..monitors.n_items() {
-                        if let Some(obj) = monitors.item(i) {
-                            if let Ok(monitor) = obj.downcast::<gdk::Monitor>() {
-                                let rect = monitor.geometry();
-                                if win_center_x >= rect.x()
-                                    && win_center_x < rect.x() + rect.width()
-                                    && win_center_y >= rect.y()
-                                    && win_center_y < rect.y() + rect.height()
-                                {
-                                    return Some(rect);
-                                }
-                            }
-                        }
+            let display = gdk::Display::default()?;
+            let monitors = display.monitors();
+            for i in 0..monitors.n_items() {
+                if let Some(obj) = monitors.item(i)
+                    && let Ok(monitor) = obj.downcast::<gdk::Monitor>()
+                {
+                    let rect = monitor.geometry();
+                    if win_center_x >= rect.x()
+                        && win_center_x < rect.x() + rect.width()
+                        && win_center_y >= rect.y()
+                        && win_center_y < rect.y() + rect.height()
+                    {
+                        return Some(rect);
                     }
                 }
             }
@@ -342,20 +341,20 @@ impl super::SurfaceBackend for X11Surface {
 
         let (x, y) = self.calculate_position(position);
 
-        if let Some(xid) = self.get_xid() {
-            if let Some(conn) = &self.conn {
-                let values = ConfigureWindowAux::default().x(x).y(y);
-                // If the connection is available, configure directly instead of
-                // deferring to an idle callback.
-                match conn.configure_window(xid, &values) {
-                    Ok(_) => {
-                        if let Err(err) = conn.flush() {
-                            eprintln!("Flush failed: {}", err);
-                        }
+        if let Some(xid) = self.get_xid()
+            && let Some(conn) = &self.conn
+        {
+            let values = ConfigureWindowAux::default().x(x).y(y);
+            // If the connection is available, configure directly instead of
+            // deferring to an idle callback.
+            match conn.configure_window(xid, &values) {
+                Ok(_) => {
+                    if let Err(err) = conn.flush() {
+                        eprintln!("Flush failed: {}", err);
                     }
-                    Err(err) => eprintln!("Moving OSD window failed: {}", err),
-                };
-            }
+                }
+                Err(err) => eprintln!("Moving OSD window failed: {}", err),
+            };
         }
     }
 

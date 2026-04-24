@@ -9,7 +9,7 @@ use gtk::subclass::widget::WidgetImplExt;
 use gtk::subclass::{widget::WidgetImpl, window::WindowImpl};
 use gtk::{Box, Orientation};
 
-use crate::ui::utils::{get_display_type, DisplayType};
+use crate::ui::utils::{DisplayType, get_display_type};
 
 use super::constants::COL_SPACING;
 use super::scale::VolumeScale;

@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::{BoxExt, WidgetExt};
 
-use super::utils::{get_display_type, DisplayType};
+use super::utils::{DisplayType, get_display_type};
 use crate::pulse::StreamData;
 use scale::VolumeScale;
 

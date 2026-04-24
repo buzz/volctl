@@ -14,10 +14,10 @@ use crate::constants::{
     SETTINGS_OSD_TIMEOUT,
 };
 use crate::ui::osd::controller::OsdStateController;
+use crate::ui::osd::surface::SurfaceBackend;
 use crate::ui::osd::surface::wayland::WaylandSurface;
 use crate::ui::osd::surface::x11::X11Surface;
-use crate::ui::osd::surface::SurfaceBackend;
-use crate::ui::utils::{get_display_type, DisplayType};
+use crate::ui::utils::{DisplayType, get_display_type};
 
 /// Cached OSD settings, refreshed via gsettings `changed` signals.
 #[derive(Clone)]

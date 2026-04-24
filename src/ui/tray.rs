@@ -1,5 +1,5 @@
 use async_channel::Sender;
-use ksni::{menu::StandardItem, Category, MenuItem, Orientation, ToolTip, Tray};
+use ksni::{Category, MenuItem, Orientation, ToolTip, Tray, menu::StandardItem};
 
 use crate::constants::MAX_NATURAL_VOL;
 

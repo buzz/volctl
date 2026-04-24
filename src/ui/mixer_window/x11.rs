@@ -2,13 +2,13 @@ use std::rc::Rc;
 
 use gdk_x11::X11Surface;
 use glib::object::Cast;
-use glib::{idle_add, ControlFlow};
+use glib::{ControlFlow, idle_add};
 use gtk::prelude::{NativeExt, WidgetExt};
 use x11rb::connection::Connection;
 use x11rb::errors::ReplyError;
 use x11rb::protocol::xproto::{
-    AtomEnum, ClientMessageEvent, ConfigureWindowAux, ConnectionExt, EventMask, PropMode,
-    CLIENT_MESSAGE_EVENT,
+    AtomEnum, CLIENT_MESSAGE_EVENT, ClientMessageEvent, ConfigureWindowAux, ConnectionExt,
+    EventMask, PropMode,
 };
 use x11rb::rust_connection::RustConnection;
 use x11rb::wrapper::ConnectionExt as _;
