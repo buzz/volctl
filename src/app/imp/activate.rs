@@ -5,7 +5,7 @@ use gdk::subclass::prelude::{ApplicationImpl, ApplicationImplExt};
 use glib::clone;
 use glib::subclass::types::ObjectSubclassExt;
 use gtk::prelude::SettingsExt;
-use ksni::TrayService;
+use ksni::blocking::TrayMethods;
 
 use crate::constants::{MAX_NATURAL_VOL, SETTINGS_MOUSE_WHEEL_STEP};
 use crate::ui::tray::{TrayMessage, VolctlTray};
@@ -54,13 +54,12 @@ impl Application {
         let (tx, rx) = async_channel::bounded::<TrayMessage>(1);
 
         // Start tray service
-        let tray_service = TrayService::new(VolctlTray {
+        let tray = VolctlTray {
             tx,
             volume: 0,
             muted: false,
-        });
-        *self.tray_handle.borrow_mut() = Some(tray_service.handle());
-        tray_service.spawn();
+        };
+        *self.tray_handle.borrow_mut() = Some(tray.spawn().expect("Failed to create system tray"));
 
         // Listen for messages from the tray thread
         let settings_clone = self

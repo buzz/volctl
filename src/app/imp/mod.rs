@@ -5,7 +5,7 @@ use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use gtk::gio;
 use gtk::subclass::prelude::GtkApplicationImpl;
-use ksni::Handle;
+use ksni::blocking::Handle;
 
 use crate::pulse::Pulse;
 use crate::ui::osd::OsdController;

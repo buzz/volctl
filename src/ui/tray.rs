@@ -1,5 +1,5 @@
 use async_channel::Sender;
-use ksni::{menu::StandardItem, Category, MenuItem, ToolTip, Tray};
+use ksni::{menu::StandardItem, Category, MenuItem, Orientation, ToolTip, Tray};
 
 use crate::constants::MAX_NATURAL_VOL;
 
@@ -130,8 +130,10 @@ impl Tray for VolctlTray {
         println!("ksni: Secondary activate {} {}", x, y);
     }
 
-    fn scroll(&mut self, delta: i32, dir: &str) {
-        if dir == "vertical" && self.tx.send_blocking(TrayMessage::Scroll(delta)).is_err() {
+    fn scroll(&mut self, delta: i32, orientation: Orientation) {
+        if matches!(orientation, Orientation::Vertical)
+            && self.tx.send_blocking(TrayMessage::Scroll(delta)).is_err()
+        {
             eprintln!("Failed to send Scroll message, channel closed");
         }
     }
