@@ -5,13 +5,13 @@ use glib::subclass::object::{ObjectImpl, ObjectImplExt};
 use glib::subclass::types::{ObjectSubclass, ObjectSubclassExt, ObjectSubclassIsExt};
 use gtk::gio;
 use gtk::prelude::{
-    BoxExt, CheckButtonExt, GridExt, GtkWindowExt, RangeExt, SettingsExt, SettingsExtManual,
-    WidgetExt,
+    BoxExt, CheckButtonExt, GridExt, GtkWindowExt, RangeExt, ScaleExt, SettingsExt,
+    SettingsExtManual, WidgetExt,
 };
 use gtk::subclass::{widget::WidgetImpl, window::WindowImpl};
 use gtk::{
-    Adjustment, Align, CheckButton, Entry, Grid, HeaderBar, Label, Orientation, Scale, SizeGroup,
-    SizeGroupMode, Switch,
+    Adjustment, Align, CheckButton, Entry, Grid, HeaderBar, Label, Orientation, PositionType,
+    Scale, SizeGroup, SizeGroupMode, Switch,
 };
 
 use crate::constants::{
@@ -94,16 +94,19 @@ impl ObjectImpl for PreferencesWindow {
 
         // Tray icon section
         self.create_section_label(&grid, "Tray icon", &mut row);
-        self.add_scale(ScaleParams {
+        let mouse_wheel_scale = self.add_scale(ScaleParams {
             grid: &grid,
             settings: &settings,
             key: SETTINGS_MOUSE_WHEEL_STEP,
             label_text: "Mouse wheel step",
-            adjustment: &Adjustment::new(1.0, 1.0, 50.0, 1.0, 1.0, 0.0),
+            adjustment: &Adjustment::new(1.0, 1.0, 30.0, 1.0, 1.0, 0.0),
             digits: 1,
             format_value_func: |_, value| format!("{:.1} %", value),
             row: &mut row,
         });
+        let mut wheel_ticks: Vec<f64> = (1..=10).map(|v| v as f64).collect();
+        wheel_ticks.extend((15..=30).step_by(5).map(|v| v as f64));
+        self.add_tick_marks(&mouse_wheel_scale, &wheel_ticks);
 
         self.add_mixer_command_entry(&grid, &settings, &mut row);
         self.add_prefer_gtksi_switch(&grid, &settings, &mut row);
@@ -149,6 +152,10 @@ impl ObjectImpl for PreferencesWindow {
             format_value_func: |_, value| format!("{:.1} sec", value / 1000.0),
             row: &mut row,
         });
+        self.add_tick_marks(
+            &timeout_scale,
+            &(1..=15).map(|s| s as f64 * 1000.0).collect::<Vec<_>>(),
+        );
         *self.row_timeout.borrow_mut() = Some(timeout_scale);
 
         // OSD section
@@ -171,6 +178,10 @@ impl ObjectImpl for PreferencesWindow {
             format_value_func: |_, value| format!("{:.1} sec", value / 1000.0),
             row: &mut row,
         });
+        self.add_tick_marks(
+            &osd_timeout_scale,
+            &(0..=10).map(|s| s as f64 * 1000.0).collect::<Vec<_>>(),
+        );
         *self.row_osd_timeout.borrow_mut() = Some(osd_timeout_scale);
 
         let osd_size_scale = self.add_scale(ScaleParams {
@@ -183,6 +194,7 @@ impl ObjectImpl for PreferencesWindow {
             format_value_func: |_, value| format!("{} %", value.round() as i32),
             row: &mut row,
         });
+        self.add_tick_marks(&osd_size_scale, &[100.0, 200.0, 300.0, 400.0, 500.0]);
         *self.row_osd_size.borrow_mut() = Some(osd_size_scale);
 
         self.add_osd_position(&grid, &settings, &mut row);
@@ -232,7 +244,7 @@ impl PreferencesWindow {
     fn add_label(&self, grid: &Grid, label_text: &str, row: &mut i32) {
         let label = Label::builder()
             .halign(Align::Start)
-            .valign(Align::Center)
+            .valign(Align::Start)
             .label(label_text)
             .margin_bottom(6)
             .margin_start(MARGIN)
@@ -267,7 +279,7 @@ impl PreferencesWindow {
     fn add_scale<P: Fn(&Scale, f64) -> String + 'static>(&self, params: ScaleParams<P>) -> Scale {
         self.add_label(params.grid, params.label_text, params.row);
 
-        let value_label = Label::builder().halign(Align::Start).build();
+        let value_label = Label::builder().halign(Align::End).hexpand(true).build();
 
         let scale = Scale::builder()
             .adjustment(params.adjustment)
@@ -286,13 +298,21 @@ impl PreferencesWindow {
             value_label_clone.set_label(&format_clone(s, s.value()));
         });
 
+        let label_box = gtk::Box::builder()
+            .orientation(Orientation::Horizontal)
+            .halign(Align::End)
+            .hexpand(false)
+            .width_request(60)
+            .build();
+        label_box.append(&value_label);
+
         let hbox = gtk::Box::builder()
             .orientation(Orientation::Horizontal)
             .spacing(MARGIN)
             .valign(Align::Center)
             .build();
         hbox.append(&scale);
-        hbox.append(&value_label);
+        hbox.append(&label_box);
 
         params
             .settings
@@ -377,6 +397,12 @@ impl PreferencesWindow {
         grid.attach(&pos_grid, 1, *row, 1, 1);
         *row += 1;
         *self.row_osd_position_group.borrow_mut() = radio_buttons;
+    }
+
+    fn add_tick_marks(&self, scale: &Scale, values: &[f64]) {
+        for &v in values {
+            scale.add_mark(v, PositionType::Bottom, None);
+        }
     }
 
     fn update_rows(&self, settings: &gio::Settings) {
