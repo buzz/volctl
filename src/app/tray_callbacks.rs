@@ -69,7 +69,8 @@ impl Application {
 
     /// Show about dialog
     pub fn show_about(&self) {
-        // TODO: about dialog
+        let about_dialog = crate::ui::about_dialog::new();
+        about_dialog.present();
     }
 
     /// Show preferences dialog
