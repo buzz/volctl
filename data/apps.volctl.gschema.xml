@@ -1,0 +1,82 @@
+<schemalist>
+  <enum id="apps.volctl.osd_position">
+    <value nick="top-left" value="0"/>
+    <value nick="top-center" value="1"/>
+    <value nick="top-right" value="2"/>
+    <value nick="center-left" value="3"/>
+    <value nick="center-center" value="4"/>
+    <value nick="center-right" value="5"/>
+    <value nick="bottom-left" value="6"/>
+    <value nick="bottom-center" value="7"/>
+    <value nick="bottom-right" value="8"/>
+  </enum>
+  <schema id="apps.volctl" gettext-domain="volctl">
+    <!-- Tray icon -->
+    <key type="i" name="mouse-wheel-step">
+      <range min="1" max="30"/>
+      <default>15</default>
+      <summary>Mouse wheel step</summary>
+      <description>The sensitivity of mouse wheel volume changes.</description>
+    </key>
+    <key type="s" name="mixer-command">
+      <default>""</default>
+      <summary>Custom mixer command</summary>
+      <description>Command that is executed to launch the system audio mixer application. (Default: pavucontrol)</description>
+    </key>
+    <key type="b" name="prefer-gtksi">
+      <default>false</default>
+      <summary>Prefer XEmbed</summary>
+      <description>Prefer XEmbed/Gtk.StatusIcon over SNI. Each one supports different functionality. Choose based on your preference and Desktop Environment support. (Restart required!)</description>
+    </key>
+    <!-- Volume sliders -->
+    <key type="b" name="show-percentage">
+      <default>false</default>
+      <summary>Show percentage</summary>
+      <description>Display percentage under volume sliders.</description>
+    </key>
+    <key type="b" name="vu-enabled">
+      <default>true</default>
+      <summary>Show volume meters</summary>
+      <description>Display real time volume meters in sliders.</description>
+    </key>
+    <key type="b" name="auto-close">
+      <default>true</default>
+      <summary>Enable auto-close</summary>
+      <description>Auto-close volume sliders pop-up after timeout.</description>
+    </key>
+    <key type="i" name="timeout">
+      <range min="500" max="15000"/>
+      <default>3000</default>
+      <summary>Auto-close timeout</summary>
+      <description>Time after the pop-up closes automatically.</description>
+    </key>
+    <key type="b" name="allow-extra-volume">
+      <default>false</default>
+      <summary>Allow extra volume</summary>
+      <description>Enable increasing volume beyond 100%.</description>
+    </key>
+    <!-- OSD -->
+    <key type="b" name="osd-enabled">
+      <default>true</default>
+      <summary>Enable OSD</summary>
+      <description>Display on-screen display on volume change.</description>
+    </key>
+    <key type="i" name="osd-timeout">
+      <range min="0" max="10000"/>
+      <default>1000</default>
+      <summary>OSD timeout</summary>
+      <description>Time the OSD is being shown.</description>
+    </key>
+    <key type="i" name="osd-scale">
+      <range min="50" max="500"/>
+      <default>100</default>
+      <summary>OSD size</summary>
+      <description>OSD scale in percent.</description>
+    </key>
+    <key enum="apps.volctl.osd_position" name="osd-position">
+      <default>"bottom-right"</default>
+      <summary>OSD position</summary>
+      <description>OSD position: center, bottom-right, middle-right, top-right, top-center, top-left, middle-left, bottom-left, bottom-center</description>
+    </key>
+  </schema>
+</schemalist>
