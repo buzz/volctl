@@ -4,3 +4,4 @@ pub mod osd;
 pub mod prefs_window;
 pub mod tray;
 pub mod utils;
+pub mod x11;

@@ -1,59 +1,98 @@
 use std::cell::{Cell, RefCell};
+use std::ffi::CString;
+use std::os::raw::{c_int, c_ulong, c_void};
 use std::rc::Rc;
 
-use gdk_x11::X11Surface as GdkX11Surface;
+use gdk_x11::{X11Surface as GdkX11Surface, x11::xlib};
 use gtk::gio::Settings;
 use gtk::prelude::*;
-use x11rb::connection::Connection;
-use x11rb::errors::ReplyError;
-
-use x11rb::protocol::shape::{ConnectionExt as ShapeConnectionExt, SK, SO};
-use x11rb::protocol::xproto::ClipOrdering;
-use x11rb::protocol::xproto::{
-    AtomEnum, ChangeWindowAttributesAux, ConfigureWindowAux, ConnectionExt, PropMode,
-};
-use x11rb::rust_connection::RustConnection;
-use x11rb::wrapper::ConnectionExt as WrapperConnectionExt;
 
 use crate::constants::{OSD_BASE_HEIGHT, OSD_BASE_WIDTH, OSD_SCREEN_MARGIN, SETTINGS_OSD_SCALE};
 use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::widget::OsdWidget;
+use crate::ui::x11::X11Context;
+
+// X11 constants
+const SHAPE_BOUNDING: c_int = 0;
+const SHAPE_INPUT: c_int = 2;
+
+#[link(name = "Xfixes")]
+unsafe extern "C" {
+    fn XFixesCreateRegion(
+        display: *mut xlib::Display,
+        rects: *const c_void,
+        nrects: c_int,
+    ) -> c_ulong;
+
+    fn XFixesSetWindowShapeRegion(
+        display: *mut xlib::Display,
+        win: xlib::Window,
+        shape: c_int,
+        x_off: c_int,
+        y_off: c_int,
+        region: c_ulong,
+    );
+
+    fn XFixesDestroyRegion(display: *mut xlib::Display, region: c_ulong);
+}
+
+#[derive(Clone)]
+struct AtomCollection {
+    _net_wm_window_type: xlib::Atom,
+    _net_wm_window_type_notification: xlib::Atom,
+    _net_wm_state: xlib::Atom,
+    _net_wm_state_above: xlib::Atom,
+    _net_wm_state_skip_taskbar: xlib::Atom,
+    _net_wm_state_skip_pager: xlib::Atom,
+    _net_wm_state_sticky: xlib::Atom,
+}
+
+impl AtomCollection {
+    fn new(x11_context: &X11Context) -> Option<Self> {
+        let intern = |name: &str| {
+            let c_name = CString::new(name).ok()?;
+            let atom = unsafe {
+                (x11_context.xlib.XInternAtom)(x11_context.display, c_name.as_ptr(), xlib::False)
+            };
+            if atom == 0 { None } else { Some(atom) }
+        };
+
+        Some(Self {
+            _net_wm_window_type: intern("_NET_WM_WINDOW_TYPE")?,
+            _net_wm_window_type_notification: intern("_NET_WM_WINDOW_TYPE_NOTIFICATION")?,
+            _net_wm_state: intern("_NET_WM_STATE")?,
+            _net_wm_state_above: intern("_NET_WM_STATE_ABOVE")?,
+            _net_wm_state_skip_taskbar: intern("_NET_WM_STATE_SKIP_TASKBAR")?,
+            _net_wm_state_skip_pager: intern("_NET_WM_STATE_SKIP_PAGER")?,
+            _net_wm_state_sticky: intern("_NET_WM_STATE_STICKY")?,
+        })
+    }
+}
 
 pub struct X11Surface {
     widget: OsdWidget,
     controller: Rc<OsdStateController>,
     scale: Cell<f64>,
-    conn: Option<Rc<RustConnection>>,
-    screen_num: usize,
-    xid: Cell<Option<u32>>,
-    atoms: Option<AtomCollection>,
+    atoms: RefCell<Option<AtomCollection>>,
     position: RefCell<String>,
     composited: bool,
-}
-
-x11rb::atom_manager! {
-    pub AtomCollection: AtomCollectionCookie {
-        _NET_ACTIVE_WINDOW,
-        _NET_WM_WINDOW_TYPE,
-        _NET_WM_WINDOW_TYPE_NOTIFICATION,
-        _NET_WM_STATE,
-        _NET_WM_STATE_ABOVE,
-        _NET_WM_STATE_SKIP_TASKBAR,
-        _NET_WM_STATE_SKIP_PAGER,
-        _NET_WM_STATE_STICKY,
-    }
+    x11: X11Context,
 }
 
 impl X11Surface {
-    pub fn new(settings: &Settings, controller: Rc<OsdStateController>) -> Self {
+    pub fn new(
+        settings: &Settings,
+        controller: Rc<OsdStateController>,
+        x11_context: X11Context,
+    ) -> Self {
         let scale = settings.int(SETTINGS_OSD_SCALE) as f64 / 100.0;
         let width = (OSD_BASE_WIDTH * scale) as i32;
         let height = (OSD_BASE_HEIGHT * scale) as i32;
 
+        let display = gdk::Display::default().unwrap();
+
         // Detect compositor before creating the widget (affects rendering)
-        let composited = gdk::Display::default()
-            .map(|d| d.is_composited())
-            .unwrap_or(false);
+        let composited = display.is_composited();
 
         let widget = OsdWidget::new(scale, composited);
 
@@ -63,48 +102,21 @@ impl X11Surface {
         window.set_default_size(width, height);
         window.set_focus_on_click(false);
 
-        let (conn, screen_num, atoms) = match x11rb::connect(None) {
-            Ok((conn, screen_num)) => {
-                let conn = Rc::new(conn);
-                let atoms = match AtomCollection::new(&conn) {
-                    Ok(cookie) => match cookie.reply() {
-                        Ok(atoms) => Some(atoms),
-                        Err(e) => {
-                            eprintln!("Failed to reply AtomCollectionCookie: {}", e);
-                            None
-                        }
-                    },
-                    Err(e) => {
-                        eprintln!("Failed to create AtomCollectionCookie: {}", e);
-                        None
-                    }
-                };
-                (Some(conn), screen_num, atoms)
-            }
-            Err(e) => {
-                eprintln!("No X11 connection: {}", e);
-                (None, 0, None)
-            }
-        };
+        let atoms = AtomCollection::new(&x11_context);
 
         Self {
             widget,
             controller,
             scale: Cell::new(scale),
-            conn,
-            screen_num,
-            xid: Cell::new(None),
-            atoms,
+            atoms: RefCell::new(atoms),
             position: RefCell::new("top-left".to_string()),
             composited,
+            x11: x11_context,
         }
     }
 
-    fn get_xid(&self) -> Option<u32> {
-        if let Some(xid) = self.xid.get() {
-            return Some(xid);
-        }
-
+    /// Get the window XID from the GDK surface.
+    fn get_xid(&self) -> Option<xlib::XID> {
         let window = self.widget.window();
         if !window.is_realized() {
             return None;
@@ -112,126 +124,118 @@ impl X11Surface {
 
         let surface = window.surface()?;
         let x11_surface = surface.downcast::<GdkX11Surface>().ok()?;
-        let xid = x11_surface.xid() as u32;
-        self.xid.set(Some(xid));
+        let xid = x11_surface.xid();
         Some(xid)
     }
 
-    fn set_override_redirect(&self, xid: u32) -> Result<(), ReplyError> {
-        if let Some(conn) = &self.conn {
-            conn.change_window_attributes(
+    /// Lazily initialize atoms on first access.
+    fn get_atoms(&self) -> AtomCollection {
+        let mut atoms = self.atoms.borrow_mut();
+        if atoms.is_none() {
+            *atoms = AtomCollection::new(&self.x11);
+        }
+        atoms.as_ref().expect("atoms initialized above").clone()
+    }
+
+    fn set_override_redirect(&self, xid: xlib::XID) {
+        unsafe {
+            let mut attrs = std::mem::zeroed::<xlib::XSetWindowAttributes>();
+            attrs.override_redirect = 1;
+
+            (self.x11.xlib.XChangeWindowAttributes)(
+                self.x11.display,
                 xid,
-                &ChangeWindowAttributesAux::new().override_redirect(1u32),
-            )?
-            .check()
-        } else {
-            Ok(())
+                xlib::CWOverrideRedirect,
+                &mut attrs,
+            );
         }
     }
 
-    fn set_window_type(&self, xid: u32) -> Result<(), ReplyError> {
-        if let (Some(conn), Some(atoms)) = (&self.conn, &self.atoms) {
-            conn.change_property32(
-                PropMode::REPLACE,
+    fn set_window_type(&self, xid: xlib::XID) {
+        let atoms = self.get_atoms();
+        let value = atoms._net_wm_window_type_notification;
+        unsafe {
+            (self.x11.xlib.XChangeProperty)(
+                self.x11.display,
                 xid,
-                atoms._NET_WM_WINDOW_TYPE,
-                AtomEnum::ATOM,
-                &[atoms._NET_WM_WINDOW_TYPE_NOTIFICATION],
-            )?
-            .check()
-        } else {
-            Ok(())
+                atoms._net_wm_window_type,
+                xlib::XA_ATOM,
+                32, // 32-bit atoms
+                xlib::PropModeReplace,
+                &value as *const _ as *const u8,
+                1,
+            );
         }
     }
 
-    fn set_click_through_shape(&self, xid: u32) -> Result<(), ReplyError> {
-        // Use SHAPE extension to set empty input shape (click-through)
-        // SO::SET=0, SK::INPUT=2, empty rectangles = no input area
-        if let Some(conn) = &self.conn {
-            conn.shape_rectangles(SO::SET, SK::INPUT, ClipOrdering::UNSORTED, xid, 0, 0, &[])?
-                .check()
-        } else {
-            Ok(())
+    fn set_click_through_shape(&self, xid: xlib::XID) {
+        unsafe {
+            // Clear bounding
+            XFixesSetWindowShapeRegion(self.x11.display, xid, SHAPE_BOUNDING, 0, 0, 0);
+            // Empty input region
+            let region = XFixesCreateRegion(self.x11.display, std::ptr::null(), 0);
+            XFixesSetWindowShapeRegion(self.x11.display, xid, SHAPE_INPUT, 0, 0, region);
+            XFixesDestroyRegion(self.x11.display, region);
         }
     }
 
-    fn set_wm_states(&self, xid: u32) -> Result<(), ReplyError> {
-        // Set _NET_WM_STATE: ABOVE, SKIP_TASKBAR, SKIP_PAGER, STICKY
-        // These ensure the window stays above others, doesn't appear in taskbar/pager,
-        // and stays on all workspaces.
-        if let (Some(conn), Some(atoms)) = (&self.conn, &self.atoms) {
-            conn.change_property32(
-                PropMode::REPLACE,
+    fn set_wm_states(&self, xid: xlib::XID) {
+        let atoms = self.get_atoms();
+        let states = [
+            atoms._net_wm_state_above,
+            atoms._net_wm_state_skip_taskbar,
+            atoms._net_wm_state_skip_pager,
+            atoms._net_wm_state_sticky,
+        ];
+        unsafe {
+            (self.x11.xlib.XChangeProperty)(
+                self.x11.display,
                 xid,
-                atoms._NET_WM_STATE,
-                AtomEnum::ATOM,
-                &[
-                    atoms._NET_WM_STATE_ABOVE,
-                    atoms._NET_WM_STATE_SKIP_TASKBAR,
-                    atoms._NET_WM_STATE_SKIP_PAGER,
-                    atoms._NET_WM_STATE_STICKY,
-                ],
-            )?
-            .check()
-        } else {
-            Ok(())
+                atoms._net_wm_state,
+                xlib::XA_ATOM,
+                32,
+                xlib::PropModeReplace,
+                states.as_ptr() as *const u8,
+                states.len() as c_int,
+            );
+        }
+    }
+
+    fn configure_position(&self, xid: xlib::XID, x: i32, y: i32) {
+        unsafe {
+            let mut changes = std::mem::zeroed::<xlib::XWindowChanges>();
+            changes.x = x;
+            changes.y = y;
+            (self.x11.xlib.XConfigureWindow)(
+                self.x11.display,
+                xid,
+                (xlib::CWX | xlib::CWY).into(),
+                &mut changes,
+            );
+            (self.x11.xlib.XFlush)(self.x11.display);
         }
     }
 
     fn get_monitor_geometry(&self) -> Option<gdk::Rectangle> {
-        let conn = self.conn.as_ref()?;
-        let setup = conn.setup();
-        let screen = setup.roots.get(self.screen_num)?;
-
-        let active_atom = conn
-            .intern_atom(false, b"_NET_ACTIVE_WINDOW")
-            .ok()?
-            .reply()
-            .ok()?
-            .atom;
-
-        let active_reply = conn
-            .get_property(false, screen.root, active_atom, AtomEnum::WINDOW, 0, 1)
-            .ok()?
-            .reply()
-            .ok()?;
-
-        if let Some(active_xid) = active_reply.value32()?.next()
-            && let Ok(geom_cookie) = conn.get_geometry(active_xid)
-            && let Ok(geom) = geom_cookie.reply()
-        {
-            let win_center_x = geom.x as i32 + geom.width as i32 / 2;
-            let win_center_y = geom.y as i32 + geom.height as i32 / 2;
-
-            let display = gdk::Display::default()?;
-            let monitors = display.monitors();
-            for i in 0..monitors.n_items() {
-                if let Some(obj) = monitors.item(i)
-                    && let Ok(monitor) = obj.downcast::<gdk::Monitor>()
-                {
-                    let rect = monitor.geometry();
-                    if win_center_x >= rect.x()
-                        && win_center_x < rect.x() + rect.width()
-                        && win_center_y >= rect.y()
-                        && win_center_y < rect.y() + rect.height()
-                    {
-                        return Some(rect);
-                    }
-                }
-            }
-        }
-
         let display = gdk::Display::default()?;
-        // Fallback to first monitor
-        let monitors = display.monitors();
-        if monitors.n_items() > 0 {
-            monitors
-                .item(0)
-                .and_then(|m| m.downcast::<gdk::Monitor>().ok())
-                .map(|m| m.geometry())
-        } else {
-            None
+
+        // Try the monitor containing the OSD surface's current position
+        if let Some(surface) = self.widget.window().surface()
+            && let Some(monitor) = display.monitor_at_surface(&surface)
+        {
+            return Some(monitor.geometry());
         }
+
+        // Fallback: primary (first) monitor
+        let monitors = display.monitors();
+        if monitors.n_items() > 0
+            && let Some(obj) = monitors.item(0)
+            && let Ok(monitor) = obj.downcast::<gdk::Monitor>()
+        {
+            return Some(monitor.geometry());
+        }
+
+        None
     }
 
     fn calculate_position(&self, position: &str) -> (i32, i32) {
@@ -250,12 +254,6 @@ impl X11Surface {
             ypos = geometry.y();
             swidth = geometry.width();
             sheight = geometry.height();
-        } else if let Some(conn) = &self.conn {
-            // Fallback: query screen dimensions from X11 root window
-            if let Some(root) = conn.setup().roots.get(self.screen_num) {
-                swidth = root.width_in_pixels as i32;
-                sheight = root.height_in_pixels as i32;
-            }
         }
 
         let parts: Vec<&str> = position.split('-').collect();
@@ -298,31 +296,15 @@ impl super::SurfaceBackend for X11Surface {
         }
 
         if let Some(xid) = self.get_xid() {
-            if let Err(e) = self.set_override_redirect(xid) {
-                eprintln!("Failed to set override_redirect: {}", e);
-            }
-            if let Err(e) = self.set_window_type(xid) {
-                eprintln!("Failed to set window type: {}", e);
-            }
-            if let Err(e) = self.set_wm_states(xid) {
-                eprintln!("Failed to set WM states: {}", e);
-            }
-            if let Err(e) = self.set_click_through_shape(xid) {
-                eprintln!("Failed to set click-through: {}", e);
-            }
+            self.set_override_redirect(xid);
+            self.set_window_type(xid);
+            self.set_wm_states(xid);
+            self.set_click_through_shape(xid);
 
             // Apply position before mapping to avoid flicker
             let position = self.position.borrow();
             let (x, y) = self.calculate_position(&position);
-
-            let values = ConfigureWindowAux::default().x(x).y(y);
-            if let Some(conn) = &self.conn {
-                if let Err(err) = conn.configure_window(xid, &values) {
-                    eprintln!("Positioning OSD window failed: {}", err);
-                } else if let Err(err) = conn.flush() {
-                    eprintln!("Flush failed: {}", err);
-                }
-            }
+            self.configure_position(xid, x, y);
         }
 
         let volume = self.controller.get_volume_normalized();
@@ -341,20 +323,8 @@ impl super::SurfaceBackend for X11Surface {
 
         let (x, y) = self.calculate_position(position);
 
-        if let Some(xid) = self.get_xid()
-            && let Some(conn) = &self.conn
-        {
-            let values = ConfigureWindowAux::default().x(x).y(y);
-            // If the connection is available, configure directly instead of
-            // deferring to an idle callback.
-            match conn.configure_window(xid, &values) {
-                Ok(_) => {
-                    if let Err(err) = conn.flush() {
-                        eprintln!("Flush failed: {}", err);
-                    }
-                }
-                Err(err) => eprintln!("Moving OSD window failed: {}", err),
-            };
+        if let Some(xid) = self.get_xid() {
+            self.configure_position(xid, x, y);
         }
     }
 

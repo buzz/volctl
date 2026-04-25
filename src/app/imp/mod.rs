@@ -9,6 +9,8 @@ use ksni::blocking::Handle;
 
 use crate::pulse::Pulse;
 use crate::ui::osd::OsdController;
+use crate::ui::utils::{DisplayType, get_display_type};
+use crate::ui::x11::X11Context;
 use crate::ui::{mixer_window::MixerWindow, tray::VolctlTray};
 
 mod activate;
@@ -40,9 +42,13 @@ impl GtkApplicationImpl for Application {}
 impl Default for Application {
     fn default() -> Self {
         let pulse_instance = Pulse::new().expect("Failed to create PulseAudio controller");
+        let x11_context = match get_display_type() {
+            DisplayType::X11 => Some(X11Context::default()),
+            _ => None,
+        };
 
         let settings = gio::Settings::with_path("apps.volctl", "/apps/volctl/");
-        let osd_controller = OsdController::new(&settings);
+        let osd_controller = OsdController::new(&settings, x11_context);
 
         Self {
             hold_guard: RefCell::from(None),

@@ -7,7 +7,7 @@ edition = "2024"
 async-channel = "2.5"
 cairo-rs = { version = "0.22", features = ["use_glib"] }
 gdk = { version = "0.11", package = "gdk4", features = ["v4_18"] }
-gdk-x11 = { version = "0.11", package = "gdk4-x11", features = ["v4_18"] }
+gdk-x11 = { version = "0.11", package = "gdk4-x11", features = ["v4_18", "xlib"] }
 glib = "0.22"
 gtk = { version = "0.11", package = "gtk4", features = ["v4_18"] }
 gtk-layer-shell = { version = "0.8", package = "gtk4-layer-shell" }
