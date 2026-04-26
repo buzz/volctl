@@ -12,8 +12,10 @@ use gtk::{Box, Orientation};
 use crate::ui::utils::{DisplayType, get_display_type};
 use crate::ui::x11::X11Context;
 
-use super::constants::COL_SPACING;
 use super::scale::VolumeScale;
+
+const COL_SPACING: i32 = 2;
+const PADDING: i32 = 8;
 
 pub struct MixerWindow {
     pub(super) box_: Rc<RefCell<Box>>,
@@ -60,6 +62,10 @@ impl Default for MixerWindow {
                     .orientation(Orientation::Horizontal)
                     .homogeneous(true)
                     .spacing(COL_SPACING)
+                    .margin_top(PADDING)
+                    .margin_bottom(PADDING)
+                    .margin_start(PADDING)
+                    .margin_end(PADDING)
                     .build(),
             )),
             sinks: Rc::from(RefCell::from(HashMap::new())),

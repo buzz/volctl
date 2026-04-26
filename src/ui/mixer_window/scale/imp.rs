@@ -58,8 +58,9 @@ impl Default for VolumeScale {
                 .inverted(true)
                 .draw_value(true)
                 .value_pos(PositionType::Bottom)
+                .margin_top(4)
                 .build(),
-            mute_btn: ToggleButton::builder().margin_bottom(6).build(),
+            mute_btn: ToggleButton::builder().build(),
             data: Rc::from(RefCell::from(MeterData::default())),
         }
     }

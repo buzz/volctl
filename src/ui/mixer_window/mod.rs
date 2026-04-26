@@ -11,7 +11,6 @@ use super::x11::X11Context;
 use crate::pulse::StreamData;
 use scale::VolumeScale;
 
-mod constants;
 mod imp;
 mod scale;
 mod wayland;
