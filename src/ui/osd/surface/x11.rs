@@ -1,5 +1,4 @@
 use std::cell::{Cell, RefCell};
-use std::ffi::CString;
 use std::os::raw::{c_int, c_ulong, c_void};
 use std::rc::Rc;
 
@@ -10,7 +9,10 @@ use gtk::prelude::*;
 use crate::constants::{OSD_BASE_HEIGHT, OSD_BASE_WIDTH, OSD_SCREEN_MARGIN, SETTINGS_OSD_SCALE};
 use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::widget::OsdWidget;
-use crate::ui::x11::X11Context;
+use crate::ui::x11::{
+    AtomCollection, X11Context, configure_window_position, set_override_redirect, set_window_type,
+    set_wm_states_property,
+};
 
 // X11 constants
 const SHAPE_BOUNDING: c_int = 0;
@@ -34,39 +36,6 @@ unsafe extern "C" {
     );
 
     fn XFixesDestroyRegion(display: *mut xlib::Display, region: c_ulong);
-}
-
-#[derive(Clone, Copy)]
-struct AtomCollection {
-    _net_wm_window_type: xlib::Atom,
-    _net_wm_window_type_notification: xlib::Atom,
-    _net_wm_state: xlib::Atom,
-    _net_wm_state_above: xlib::Atom,
-    _net_wm_state_skip_taskbar: xlib::Atom,
-    _net_wm_state_skip_pager: xlib::Atom,
-    _net_wm_state_sticky: xlib::Atom,
-}
-
-impl AtomCollection {
-    fn new(x11_context: &X11Context) -> Option<Self> {
-        let intern = |name: &str| {
-            let c_name = CString::new(name).ok()?;
-            let atom = unsafe {
-                (x11_context.xlib().XInternAtom)(x11_context.display, c_name.as_ptr(), xlib::False)
-            };
-            if atom == 0 { None } else { Some(atom) }
-        };
-
-        Some(Self {
-            _net_wm_window_type: intern("_NET_WM_WINDOW_TYPE")?,
-            _net_wm_window_type_notification: intern("_NET_WM_WINDOW_TYPE_NOTIFICATION")?,
-            _net_wm_state: intern("_NET_WM_STATE")?,
-            _net_wm_state_above: intern("_NET_WM_STATE_ABOVE")?,
-            _net_wm_state_skip_taskbar: intern("_NET_WM_STATE_SKIP_TASKBAR")?,
-            _net_wm_state_skip_pager: intern("_NET_WM_STATE_SKIP_PAGER")?,
-            _net_wm_state_sticky: intern("_NET_WM_STATE_STICKY")?,
-        })
-    }
 }
 
 pub struct X11Surface {
@@ -124,8 +93,7 @@ impl X11Surface {
 
         let surface = window.surface()?;
         let x11_surface = surface.downcast::<GdkX11Surface>().ok()?;
-        let xid = x11_surface.xid();
-        Some(xid)
+        Some(x11_surface.xid())
     }
 
     /// Lazily initialize atoms on first access.
@@ -137,37 +105,6 @@ impl X11Surface {
         *atoms.as_ref().expect("atoms initialized above")
     }
 
-    fn set_override_redirect(&self, xid: xlib::XID) {
-        unsafe {
-            let mut attrs = std::mem::zeroed::<xlib::XSetWindowAttributes>();
-            attrs.override_redirect = 1;
-
-            (self.x11.xlib().XChangeWindowAttributes)(
-                self.x11.display,
-                xid,
-                xlib::CWOverrideRedirect,
-                &mut attrs,
-            );
-        }
-    }
-
-    fn set_window_type(&self, xid: xlib::XID) {
-        let atoms = self.get_atoms();
-        let value = atoms._net_wm_window_type_notification;
-        unsafe {
-            (self.x11.xlib().XChangeProperty)(
-                self.x11.display,
-                xid,
-                atoms._net_wm_window_type,
-                xlib::XA_ATOM,
-                32, // 32-bit atoms
-                xlib::PropModeReplace,
-                &value as *const _ as *const u8,
-                1,
-            );
-        }
-    }
-
     fn set_click_through_shape(&self, xid: xlib::XID) {
         unsafe {
             // Clear bounding
@@ -176,43 +113,6 @@ impl X11Surface {
             let region = XFixesCreateRegion(self.x11.display, std::ptr::null(), 0);
             XFixesSetWindowShapeRegion(self.x11.display, xid, SHAPE_INPUT, 0, 0, region);
             XFixesDestroyRegion(self.x11.display, region);
-        }
-    }
-
-    fn set_wm_states(&self, xid: xlib::XID) {
-        let atoms = self.get_atoms();
-        let states = [
-            atoms._net_wm_state_above,
-            atoms._net_wm_state_skip_taskbar,
-            atoms._net_wm_state_skip_pager,
-            atoms._net_wm_state_sticky,
-        ];
-        unsafe {
-            (self.x11.xlib().XChangeProperty)(
-                self.x11.display,
-                xid,
-                atoms._net_wm_state,
-                xlib::XA_ATOM,
-                32,
-                xlib::PropModeReplace,
-                states.as_ptr() as *const u8,
-                states.len() as c_int,
-            );
-        }
-    }
-
-    fn configure_position(&self, xid: xlib::XID, x: i32, y: i32) {
-        unsafe {
-            let mut changes = std::mem::zeroed::<xlib::XWindowChanges>();
-            changes.x = x;
-            changes.y = y;
-            (self.x11.xlib().XConfigureWindow)(
-                self.x11.display,
-                xid,
-                (xlib::CWX | xlib::CWY).into(),
-                &mut changes,
-            );
-            (self.x11.xlib().XFlush)(self.x11.display);
         }
     }
 
@@ -296,15 +196,26 @@ impl super::SurfaceBackend for X11Surface {
         }
 
         if let Some(xid) = self.get_xid() {
-            self.set_override_redirect(xid);
-            self.set_window_type(xid);
-            self.set_wm_states(xid);
+            set_override_redirect(&self.x11, xid);
+            let atoms = self.get_atoms();
+            set_window_type(&self.x11, xid, atoms._net_wm_window_type_notification);
+            set_wm_states_property(
+                &self.x11,
+                xid,
+                &atoms,
+                &[
+                    atoms._net_wm_state_above,
+                    atoms._net_wm_state_skip_taskbar,
+                    atoms._net_wm_state_skip_pager,
+                    atoms._net_wm_state_sticky,
+                ],
+            );
             self.set_click_through_shape(xid);
 
             // Apply position before mapping to avoid flicker
             let position = self.position.borrow();
             let (x, y) = self.calculate_position(&position);
-            self.configure_position(xid, x, y);
+            configure_window_position(&self.x11, xid, x, y);
         }
 
         let volume = self.controller.get_volume_normalized();
@@ -324,7 +235,7 @@ impl super::SurfaceBackend for X11Surface {
         let (x, y) = self.calculate_position(position);
 
         if let Some(xid) = self.get_xid() {
-            self.configure_position(xid, x, y);
+            configure_window_position(&self.x11, xid, x, y);
         }
     }
 

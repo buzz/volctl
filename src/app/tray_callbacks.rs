@@ -27,6 +27,13 @@ impl Application {
             };
             let window = MixerWindow::new(x11_context);
             window.move_(x, y);
+
+            // Populate with current PulseAudio data before showing
+            let pulse = imp.pulse.borrow();
+            window.update_sinks(pulse.get_sinks());
+            window.update_sink_inputs(pulse.get_sink_inputs());
+            drop(pulse);
+
             window.present();
             *imp.mixer_window.borrow_mut() = Some(window);
         }
