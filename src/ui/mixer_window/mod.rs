@@ -4,6 +4,7 @@ use glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::{BoxExt, WidgetExt};
 
 use super::utils::{DisplayType, get_display_type};
+use super::x11::X11Context;
 use crate::pulse::StreamData;
 use scale::VolumeScale;
 
@@ -20,12 +21,16 @@ glib::wrapper! {
 }
 
 impl MixerWindow {
-    pub fn new() -> Self {
+    pub fn new(x11_context: Option<X11Context>) -> Self {
         let window: MixerWindow = glib::Object::builder()
             .property("decorated", false)
             .property("resizable", false)
             .property("deletable", false)
             .build();
+
+        if let Some(ctx) = x11_context {
+            *window.imp().x11_context.borrow_mut() = Some(ctx);
+        }
 
         window
     }
@@ -87,6 +92,6 @@ impl MixerWindow {
 
 impl Default for MixerWindow {
     fn default() -> Self {
-        Self::new()
+        Self::new(None)
     }
 }

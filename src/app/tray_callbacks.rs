@@ -9,6 +9,7 @@ use crate::constants::{MAX_NATURAL_VOL, MAX_SCALE_VOL, SETTINGS_ALLOW_EXTRA_VOLU
 use crate::pulse::StreamType;
 use crate::ui::mixer_window::MixerWindow;
 use crate::ui::prefs_window::PreferencesWindow;
+use crate::ui::utils::{DisplayType, get_display_type};
 
 use super::Application;
 
@@ -20,7 +21,11 @@ impl Application {
         if let Some(window) = imp.mixer_window.take() {
             window.close();
         } else {
-            let window = MixerWindow::default();
+            let x11_context = match get_display_type() {
+                DisplayType::X11 => imp.x11_context,
+                _ => None,
+            };
+            let window = MixerWindow::new(x11_context);
             window.move_(x, y);
             window.present();
             *imp.mixer_window.borrow_mut() = Some(window);
@@ -52,7 +57,7 @@ impl Application {
                     volumes.decrease(Volume(amount.unsigned_abs()));
                 }
                 Ordering::Equal => {}
-            };
+            }
 
             pulse.set_volume(StreamType::Sink, pulse.active_sink, volumes);
         }

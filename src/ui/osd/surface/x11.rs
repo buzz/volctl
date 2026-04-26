@@ -36,7 +36,7 @@ unsafe extern "C" {
     fn XFixesDestroyRegion(display: *mut xlib::Display, region: c_ulong);
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 struct AtomCollection {
     _net_wm_window_type: xlib::Atom,
     _net_wm_window_type_notification: xlib::Atom,
@@ -52,7 +52,7 @@ impl AtomCollection {
         let intern = |name: &str| {
             let c_name = CString::new(name).ok()?;
             let atom = unsafe {
-                (x11_context.xlib.XInternAtom)(x11_context.display, c_name.as_ptr(), xlib::False)
+                (x11_context.xlib().XInternAtom)(x11_context.display, c_name.as_ptr(), xlib::False)
             };
             if atom == 0 { None } else { Some(atom) }
         };
@@ -134,7 +134,7 @@ impl X11Surface {
         if atoms.is_none() {
             *atoms = AtomCollection::new(&self.x11);
         }
-        atoms.as_ref().expect("atoms initialized above").clone()
+        *atoms.as_ref().expect("atoms initialized above")
     }
 
     fn set_override_redirect(&self, xid: xlib::XID) {
@@ -142,7 +142,7 @@ impl X11Surface {
             let mut attrs = std::mem::zeroed::<xlib::XSetWindowAttributes>();
             attrs.override_redirect = 1;
 
-            (self.x11.xlib.XChangeWindowAttributes)(
+            (self.x11.xlib().XChangeWindowAttributes)(
                 self.x11.display,
                 xid,
                 xlib::CWOverrideRedirect,
@@ -155,7 +155,7 @@ impl X11Surface {
         let atoms = self.get_atoms();
         let value = atoms._net_wm_window_type_notification;
         unsafe {
-            (self.x11.xlib.XChangeProperty)(
+            (self.x11.xlib().XChangeProperty)(
                 self.x11.display,
                 xid,
                 atoms._net_wm_window_type,
@@ -188,7 +188,7 @@ impl X11Surface {
             atoms._net_wm_state_sticky,
         ];
         unsafe {
-            (self.x11.xlib.XChangeProperty)(
+            (self.x11.xlib().XChangeProperty)(
                 self.x11.display,
                 xid,
                 atoms._net_wm_state,
@@ -206,13 +206,13 @@ impl X11Surface {
             let mut changes = std::mem::zeroed::<xlib::XWindowChanges>();
             changes.x = x;
             changes.y = y;
-            (self.x11.xlib.XConfigureWindow)(
+            (self.x11.xlib().XConfigureWindow)(
                 self.x11.display,
                 xid,
                 (xlib::CWX | xlib::CWY).into(),
                 &mut changes,
             );
-            (self.x11.xlib.XFlush)(self.x11.display);
+            (self.x11.xlib().XFlush)(self.x11.display);
         }
     }
 

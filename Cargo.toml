@@ -14,4 +14,3 @@ gtk-layer-shell = { version = "0.8", package = "gtk4-layer-shell" }
 ksni = { version = "0.3.4", features = ["blocking"] }
 libpulse = { version = "2.30", package = "libpulse-binding", features = ["pa_v8"] }
 thiserror = "2.0"
-x11rb = { version = "0.13", features = ["xfixes"] }
