@@ -1,6 +1,9 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use gdk::prelude::{DeviceExt, DisplayExt, ListModelExt, MonitorExt, SeatExt};
+use glib::object::Cast;
 use glib::subclass::types::ObjectSubclassIsExt;
+use glib::translate::ToGlibPtr;
 use gtk::prelude::{BoxExt, WidgetExt};
 
 use super::utils::{DisplayType, get_display_type};
@@ -78,16 +81,128 @@ impl MixerWindow {
         match get_display_type() {
             DisplayType::Wayland => self.move_wayland(x, y),
             DisplayType::X11 => {
-                if self.is_realized() {
-                    self.move_x11(x, y);
-                } else {
-                    self.connect_realize(move |window| {
-                        window.move_x11(x, y);
-                    });
-                }
+                self.move_x11(x, y);
             }
         }
     }
+}
+
+/// Calculate the mixer window position using screen-quadrant logic.
+///
+/// Given the tray-click anchor `(x, y)` and the window's allocated size, decides
+/// which side of the pointer the window should appear so that it stays on-screen
+/// and doesn't overlap the taskbar.
+pub(crate) fn calculate_mixer_position(window: &MixerWindow, x: i32, y: i32) -> (i32, i32) {
+    let (min_size, _natural) = window.preferred_size();
+    // Requisition is a FFI struct; access fields via the raw pointer.
+    let (win_w, win_h) = unsafe {
+        let ptr = min_size.to_glib_none().0;
+        ((*ptr).width, (*ptr).height)
+    };
+
+    let (x, y) = if x == 0 && y == 0 {
+        if let Some((_, px, py)) = get_pointer_position() {
+            (px as i32, py as i32)
+        } else {
+            (x, y)
+        }
+    } else {
+        (x, y)
+    };
+
+    // Find the monitor that contains the click point.
+    let monitor_rect = find_monitor_at_point(x, y);
+
+    // Apply quadrant logic:
+    //   - anchor is in left  half of monitor → window goes to the RIGHT  of anchor
+    //   - anchor is in right half of monitor → window goes to the LEFT   of anchor
+    //   - anchor is in top    half of monitor → window goes BELOW  anchor
+    //   - anchor is in bottom half of monitor → window goes ABOVE  anchor
+    let win_x = if (x - monitor_rect.x()) < monitor_rect.width() / 2 {
+        x
+    } else {
+        x - win_w
+    };
+
+    let win_y = if (y - monitor_rect.y()) < monitor_rect.height() / 2 {
+        y
+    } else {
+        y - win_h
+    };
+
+    // Clamp so the window never overflows the right or bottom monitor edge.
+    let mut final_x = win_x;
+    let mut final_y = win_y;
+
+    if final_x + win_w > monitor_rect.x() + monitor_rect.width() {
+        final_x = monitor_rect.x() + monitor_rect.width() - win_w;
+    }
+    if final_y + win_h > monitor_rect.y() + monitor_rect.height() {
+        final_y = monitor_rect.y() + monitor_rect.height() - win_h;
+    }
+
+    // Also ensure we don't go off the left or top edge.
+    if final_x < monitor_rect.x() {
+        final_x = monitor_rect.x();
+    }
+    if final_y < monitor_rect.y() {
+        final_y = monitor_rect.y();
+    }
+
+    (final_x, final_y)
+}
+
+/// Get the current mouse pointer position.
+///
+/// Returns `(monitor, x, y)` or `None` if the seat/pointer is unavailable.
+fn get_pointer_position() -> Option<(gdk::Monitor, f64, f64)> {
+    let display = gdk::Display::default()?;
+    let seat = display.default_seat()?;
+    let pointer = seat.pointer()?;
+    let (surface, x, y) = pointer.surface_at_position();
+    let monitor = surface
+        .and_then(|s| display.monitor_at_surface(&s))
+        .or_else(|| {
+            display
+                .monitors()
+                .item(0)
+                .and_then(|o: glib::Object| o.downcast::<gdk::Monitor>().ok())
+        })?;
+    Some((monitor, x, y))
+}
+
+/// Find the monitor whose geometry contains the given point.
+///
+/// Falls back to the primary (first) monitor if no monitor contains the point.
+fn find_monitor_at_point(x: i32, y: i32) -> gdk::Rectangle {
+    let display = gdk::Display::default();
+    let display = match display {
+        Some(d) => d,
+        None => return gdk::Rectangle::new(0, 0, 1, 1),
+    };
+
+    let monitors = display.monitors();
+    for i in 0..monitors.n_items() {
+        let Some(obj) = monitors.item(i) else {
+            continue;
+        };
+        let Ok(monitor) = obj.downcast::<gdk::Monitor>() else {
+            continue;
+        };
+        let geo = monitor.geometry();
+        if x >= geo.x() && x < geo.x() + geo.width() && y >= geo.y() && y < geo.y() + geo.height() {
+            return geo;
+        }
+    }
+
+    // Fallback: primary monitor
+    if let Some(obj) = monitors.item(0)
+        && let Ok(monitor) = obj.downcast::<gdk::Monitor>()
+    {
+        return monitor.geometry();
+    }
+
+    gdk::Rectangle::new(0, 0, 1, 1)
 }
 
 impl Default for MixerWindow {

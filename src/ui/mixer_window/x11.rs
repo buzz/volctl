@@ -4,15 +4,15 @@ use glib::object::Cast;
 use glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::{NativeExt, WidgetExt};
 
-use super::MixerWindow;
+use super::{MixerWindow, calculate_mixer_position};
 use crate::ui::x11::{
     AtomCollection, X11Context, configure_window_position, send_wm_state_add, set_window_type,
 };
 
 // X11
 impl MixerWindow {
+    /// Position the window at `(x, y)` using quadrant logic.
     pub fn move_x11(&self, x: i32, y: i32) {
-        let xid = self.get_xid_x11();
         let x11 = self
             .imp()
             .x11_context
@@ -21,9 +21,23 @@ impl MixerWindow {
             .copied()
             .expect("X11 context");
 
-        // Defer positioning to the next main-loop iteration so the WM has already
-        // mapped and placed the window. This prevents the WM from overriding our
-        // coordinates with its own smart-placement logic.
+        if self.is_realized() {
+            self.apply_position_x11(x11, x, y);
+        } else {
+            self.connect_realize(move |window| {
+                window.apply_position_x11(x11, x, y);
+            });
+        }
+    }
+
+    /// Apply the calculated position to the X11 window.
+    fn apply_position_x11(&self, x11: X11Context, anchor_x: i32, anchor_y: i32) {
+        let xid = self.get_xid_x11();
+        let (x, y) = calculate_mixer_position(self, anchor_x, anchor_y);
+
+        // Defer the actual X11 move to the next main-loop iteration so the WM has
+        // already mapped and placed the window. This prevents the WM from overriding
+        // our coordinates with its own smart-placement logic.
         glib::idle_add_once(move || {
             configure_window_position(&x11, xid, x, y);
         });
