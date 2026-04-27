@@ -23,11 +23,6 @@
       <summary>Custom mixer command</summary>
       <description>Command that is executed to launch the system audio mixer application. (Default: pavucontrol)</description>
     </key>
-    <key type="b" name="prefer-gtksi">
-      <default>false</default>
-      <summary>Prefer XEmbed</summary>
-      <description>Prefer XEmbed/Gtk.StatusIcon over SNI. Each one supports different functionality. Choose based on your preference and Desktop Environment support. (Restart required!)</description>
-    </key>
     <!-- Volume sliders -->
     <key type="b" name="show-percentage">
       <default>false</default>

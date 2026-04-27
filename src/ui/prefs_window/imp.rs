@@ -109,7 +109,6 @@ impl ObjectImpl for PreferencesWindow {
         self.add_tick_marks(&mouse_wheel_scale, &wheel_ticks);
 
         self.add_mixer_command_entry(&grid, &settings, &mut row);
-        self.add_prefer_gtksi_switch(&grid, &settings, &mut row);
 
         // Volume sliders section
         self.create_section_label(&grid, "Volume sliders", &mut row);
@@ -331,10 +330,6 @@ impl PreferencesWindow {
         *params.row += 1;
 
         scale
-    }
-
-    fn add_prefer_gtksi_switch(&self, grid: &Grid, settings: &gio::Settings, row: &mut i32) {
-        self.add_switch(grid, settings, "prefer-gtksi", "Prefer XEmbed", row);
     }
 
     fn add_mixer_command_entry(&self, grid: &Grid, settings: &gio::Settings, row: &mut i32) {
