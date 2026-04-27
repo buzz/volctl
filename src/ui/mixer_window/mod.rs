@@ -82,9 +82,10 @@ impl MixerWindow {
         for (stream_idx, stream) in streams {
             // Add or get sink from hashmap
             let pulse_rc = imp.pulse.get().unwrap().clone();
+            let settings = imp.settings.get().unwrap().clone();
             let scale = scales
                 .entry(*stream_idx)
-                .or_insert_with(|| VolumeScale::new(pulse_rc));
+                .or_insert_with(|| VolumeScale::new(pulse_rc.clone(), settings.clone()));
 
             // Append sink widget
             if scale.parent().is_none() {

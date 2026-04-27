@@ -4,11 +4,10 @@ use std::rc::Rc;
 use glib::subclass::object::ObjectImplExt;
 use glib::subclass::types::ObjectSubclassExt;
 use glib::subclass::{object::ObjectImpl, types::ObjectSubclass};
-use gtk::prelude::{BoxExt, ScaleExt, WidgetExt};
+use gtk::prelude::{BoxExt, ScaleExt};
 use gtk::subclass::{box_::BoxImpl, widget::WidgetImpl};
 use gtk::{Adjustment, Orientation, PositionType, Scale, ToggleButton};
 
-use crate::constants::MAX_NATURAL_VOL;
 use crate::pulse::{MeterData, Pulse};
 
 pub struct VolumeScale {
@@ -20,6 +19,8 @@ pub struct VolumeScale {
     /// GTK signal handler IDs so update() can block them during programmatic changes.
     pub(super) value_changed_handler: OnceCell<glib::SignalHandlerId>,
     pub(super) toggled_handler: OnceCell<glib::SignalHandlerId>,
+    /// Settings reference for allow-extra-volume reactivity.
+    pub(super) settings: OnceCell<gtk::gio::Settings>,
 }
 
 #[glib::object_subclass]
@@ -34,7 +35,27 @@ impl ObjectImpl for VolumeScale {
         self.parent_constructed();
         let obj = self.obj();
 
-        self.scale.set_size_request(24, 128);
+        // Inset the `<marks>` container of vertical scales so snap-marks align
+        // with the center of the knob (knob travel is shorter than full trough height).
+        static SCALE_CSS_LOADED: std::sync::Once = std::sync::Once::new();
+        SCALE_CSS_LOADED.call_once(|| {
+            let provider = gtk::CssProvider::new();
+            provider.load_from_string(
+                r#"
+                scale.vertical marks {
+                    margin-top: 0;
+                }
+            "#,
+            );
+            if let Some(display) = gtk::gdk::Display::default() {
+                gtk::style_context_add_provider_for_display(
+                    &display,
+                    &provider,
+                    gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+                );
+            }
+        });
+
         self.scale
             .set_format_value_func(|_, value| super::VolumeScale::format_scale_value(value));
 
@@ -49,18 +70,21 @@ impl BoxImpl for VolumeScale {}
 
 impl Default for VolumeScale {
     fn default() -> Self {
+        let adj = Adjustment::builder()
+            .lower(0.0)
+            .upper(1.0)
+            .step_increment(0.01)
+            .page_increment(0.1)
+            .build();
+
         Self {
             scale: Scale::builder()
                 .orientation(Orientation::Vertical)
-                .adjustment(
-                    &Adjustment::builder()
-                        .step_increment(10.0)
-                        .lower(0.0)
-                        .upper(MAX_NATURAL_VOL as f64)
-                        .build(),
-                )
+                .adjustment(&adj)
+                .round_digits(2)
+                .digits(2)
                 .inverted(true)
-                .draw_value(true)
+                .draw_value(false)
                 .value_pos(PositionType::Bottom)
                 .margin_top(4)
                 .build(),
@@ -69,6 +93,7 @@ impl Default for VolumeScale {
             pulse: OnceCell::new(),
             value_changed_handler: OnceCell::new(),
             toggled_handler: OnceCell::new(),
+            settings: OnceCell::new(),
         }
     }
 }

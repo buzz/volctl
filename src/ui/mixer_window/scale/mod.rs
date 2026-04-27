@@ -2,11 +2,15 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use glib::subclass::types::ObjectSubclassIsExt;
-use gtk::prelude::{ButtonExt, ObjectExt, RangeExt, ToggleButtonExt, WidgetExt};
+use gtk::gio;
+use gtk::prelude::{
+    AdjustmentExt, ButtonExt, ObjectExt, RangeExt, ScaleExt, SettingsExt, ToggleButtonExt,
+    WidgetExt,
+};
 use gtk::{Image, Orientation};
 use libpulse::volume::{ChannelVolumes, Volume};
 
-use crate::constants::MAX_NATURAL_VOL;
+use crate::constants::{MAX_NATURAL_VOL, MAX_VOL_SCALE, SETTINGS_ALLOW_EXTRA_VOLUME};
 use crate::pulse::{MeterData, Pulse};
 
 mod imp;
@@ -18,13 +22,17 @@ glib::wrapper! {
 }
 
 impl VolumeScale {
-    pub fn new(pulse: Rc<RefCell<Pulse>>) -> Self {
+    pub fn new(pulse: Rc<RefCell<Pulse>>, settings: gio::Settings) -> Self {
         let obj: Self = glib::Object::builder()
             .property("orientation", Orientation::Vertical)
             .build();
 
         let imp = obj.imp();
         imp.pulse.set(pulse.clone()).ok();
+        imp.settings.set(settings.clone()).ok();
+
+        // Configure scale range based on allow-extra-volume setting
+        Self::configure_scale_range(&obj);
 
         // Clone the Rc reference outside the closure so the imp() borrow is released
         let data: Rc<RefCell<MeterData>> = Rc::clone(&imp.data);
@@ -46,10 +54,10 @@ impl VolumeScale {
                     return;
                 }
 
-                let value = scale.value() as u32;
+                let value = scale.value() * MAX_NATURAL_VOL as f64;
                 let mut volumes = ChannelVolumes::default();
                 volumes.set_len(ch_count);
-                volumes.set(ch_count, Volume(value));
+                volumes.set(ch_count, Volume(value as u32));
 
                 let p = pulse.borrow();
                 p.set_volume(stream_type, index, volumes);
@@ -75,7 +83,50 @@ impl VolumeScale {
             imp.toggled_handler.set(handler_id).ok();
         }
 
+        // React to allow-extra-volume setting changes
+        {
+            let obj_clone = obj.clone();
+            settings.connect_changed(Some(SETTINGS_ALLOW_EXTRA_VOLUME), move |_, _| {
+                Self::configure_scale_range(&obj_clone);
+            });
+        }
+
         obj
+    }
+
+    /// Apply scale range, size, and snap-mark based on the current allow-extra-volume setting.
+    fn configure_scale_range(obj: &Self) {
+        let imp = obj.imp();
+        let settings = match imp.settings.get() {
+            Some(s) => s.clone(),
+            None => return,
+        };
+        let extra = settings.boolean(SETTINGS_ALLOW_EXTRA_VOLUME);
+
+        let (upper, height, has_mark) = if extra {
+            (MAX_VOL_SCALE, (128.0 * MAX_VOL_SCALE) as i32, true)
+        } else {
+            (1.0, 128, false)
+        };
+
+        // Update adjustment upper bound and clamp current value
+        let adj = imp.scale.adjustment();
+        adj.set_upper(upper);
+        let current = adj.value();
+        if current > upper {
+            adj.set_value(upper);
+        }
+
+        // Update scale height
+        imp.scale.set_size_request(24, height);
+
+        // Clear previous marks to prevent duplicate stacking on setting toggles.
+        imp.scale.clear_marks();
+
+        // Add snap-mark at 100% when extra volume is enabled.
+        if has_mark {
+            imp.scale.add_mark(1.0, gtk::PositionType::Left, None);
+        }
     }
 
     pub fn update(&self, data: &MeterData) {
@@ -111,7 +162,7 @@ impl VolumeScale {
 
             (
                 if volume_changed {
-                    Some(data.volume.avg().0 as f64)
+                    Some(data.volume.avg().0 as f64 / MAX_NATURAL_VOL as f64)
                 } else {
                     None
                 },
@@ -167,6 +218,6 @@ impl VolumeScale {
     }
 
     fn format_scale_value(value: f64) -> String {
-        format!("{:.0}", (value / MAX_NATURAL_VOL as f64) * 100.0)
+        format!("{:.0}", value * 100.0)
     }
 }
