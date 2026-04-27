@@ -25,7 +25,13 @@ impl Application {
                 DisplayType::X11 => imp.x11_context,
                 _ => None,
             };
-            let window = MixerWindow::new(imp.pulse.clone(), x11_context);
+            let mixer_window = imp.mixer_window.clone();
+            let window = MixerWindow::new(
+                imp.pulse.clone(),
+                imp.settings.get().unwrap().clone(),
+                x11_context,
+                mixer_window,
+            );
             window.move_(x, y);
 
             // Populate with current PulseAudio data before showing

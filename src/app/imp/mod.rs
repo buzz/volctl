@@ -17,7 +17,7 @@ mod activate;
 
 pub struct Application {
     pub(super) hold_guard: RefCell<Option<gio::ApplicationHoldGuard>>,
-    pub(super) mixer_window: RefCell<Option<MixerWindow>>,
+    pub(super) mixer_window: Rc<RefCell<Option<MixerWindow>>>,
     pub(super) osd_controller: OnceCell<OsdController>,
     pub(super) pulse: Rc<RefCell<Pulse>>,
     pub(super) settings: OnceCell<gio::Settings>,
@@ -55,7 +55,7 @@ impl Default for Application {
 
         Self {
             hold_guard: RefCell::from(None),
-            mixer_window: RefCell::from(None),
+            mixer_window: Rc::new(RefCell::new(None)),
             osd_controller: OnceCell::from(osd_controller),
             pulse: Rc::from(RefCell::from(pulse_instance)),
             settings: OnceCell::from(settings),

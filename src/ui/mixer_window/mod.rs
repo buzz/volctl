@@ -1,5 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use gtk::gio;
+
 use crate::pulse::Pulse;
 
 use gdk::prelude::{DeviceExt, DisplayExt, ListModelExt, MonitorExt, SeatExt};
@@ -25,7 +27,12 @@ glib::wrapper! {
 }
 
 impl MixerWindow {
-    pub fn new(pulse: Rc<RefCell<Pulse>>, x11_context: Option<X11Context>) -> Self {
+    pub fn new(
+        pulse: Rc<RefCell<Pulse>>,
+        settings: gio::Settings,
+        x11_context: Option<X11Context>,
+        parent_ref: Rc<RefCell<Option<MixerWindow>>>,
+    ) -> Self {
         let window: MixerWindow = glib::Object::builder()
             .property("decorated", false)
             .property("resizable", false)
@@ -34,9 +41,14 @@ impl MixerWindow {
 
         let imp = window.imp();
         imp.pulse.set(pulse).ok();
+        imp.settings.set(settings).ok();
         if let Some(ctx) = x11_context {
             *imp.x11_context.borrow_mut() = Some(ctx);
         }
+        *imp.parent_ref.borrow_mut() = Some(parent_ref.clone());
+
+        // Start auto-close timeout after settings is set
+        imp.enable_auto_close_timeout();
 
         window
     }
