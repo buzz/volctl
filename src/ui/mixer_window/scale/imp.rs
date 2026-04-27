@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::rc::Rc;
 
 use glib::subclass::object::ObjectImplExt;
@@ -9,13 +9,17 @@ use gtk::subclass::{box_::BoxImpl, widget::WidgetImpl};
 use gtk::{Adjustment, Orientation, PositionType, Scale, ToggleButton};
 
 use crate::constants::MAX_NATURAL_VOL;
-use crate::pulse::MeterData;
+use crate::pulse::{MeterData, Pulse};
 
-#[derive(Debug)]
 pub struct VolumeScale {
     pub(super) scale: Scale,
     pub(super) mute_btn: ToggleButton,
     pub(super) data: Rc<RefCell<MeterData>>,
+    /// Set after construction. Used by signal handlers.
+    pub(super) pulse: OnceCell<Rc<RefCell<Pulse>>>,
+    /// GTK signal handler IDs so update() can block them during programmatic changes.
+    pub(super) value_changed_handler: OnceCell<glib::SignalHandlerId>,
+    pub(super) toggled_handler: OnceCell<glib::SignalHandlerId>,
 }
 
 #[glib::object_subclass]
@@ -62,6 +66,9 @@ impl Default for VolumeScale {
                 .build(),
             mute_btn: ToggleButton::builder().build(),
             data: Rc::from(RefCell::from(MeterData::default())),
+            pulse: OnceCell::new(),
+            value_changed_handler: OnceCell::new(),
+            toggled_handler: OnceCell::new(),
         }
     }
 }

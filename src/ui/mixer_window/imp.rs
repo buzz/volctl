@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{OnceCell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -9,6 +9,7 @@ use gtk::subclass::widget::WidgetImplExt;
 use gtk::subclass::{widget::WidgetImpl, window::WindowImpl};
 use gtk::{Box, Orientation};
 
+use crate::pulse::Pulse;
 use crate::ui::utils::{DisplayType, get_display_type};
 use crate::ui::x11::X11Context;
 
@@ -23,6 +24,7 @@ pub struct MixerWindow {
     pub(super) sinks: Rc<RefCell<HashMap<u32, VolumeScale>>>,
     pub(super) sink_inputs: Rc<RefCell<HashMap<u32, VolumeScale>>>,
     pub(super) x11_context: RefCell<Option<X11Context>>,
+    pub(super) pulse: OnceCell<Rc<RefCell<Pulse>>>,
 }
 
 #[glib::object_subclass]
@@ -71,6 +73,7 @@ impl Default for MixerWindow {
             sinks: Rc::from(RefCell::from(HashMap::new())),
             sink_inputs: Rc::from(RefCell::from(HashMap::new())),
             x11_context: RefCell::from(None),
+            pulse: OnceCell::new(),
         }
     }
 }

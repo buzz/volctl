@@ -1,5 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+use crate::pulse::Pulse;
+
 use gdk::prelude::{DeviceExt, DisplayExt, ListModelExt, MonitorExt, SeatExt};
 use glib::object::Cast;
 use glib::subclass::types::ObjectSubclassIsExt;
@@ -23,15 +25,17 @@ glib::wrapper! {
 }
 
 impl MixerWindow {
-    pub fn new(x11_context: Option<X11Context>) -> Self {
+    pub fn new(pulse: Rc<RefCell<Pulse>>, x11_context: Option<X11Context>) -> Self {
         let window: MixerWindow = glib::Object::builder()
             .property("decorated", false)
             .property("resizable", false)
             .property("deletable", false)
             .build();
 
+        let imp = window.imp();
+        imp.pulse.set(pulse).ok();
         if let Some(ctx) = x11_context {
-            *window.imp().x11_context.borrow_mut() = Some(ctx);
+            *imp.x11_context.borrow_mut() = Some(ctx);
         }
 
         window
@@ -65,7 +69,10 @@ impl MixerWindow {
 
         for (stream_idx, stream) in streams {
             // Add or get sink from hashmap
-            let scale = scales.entry(*stream_idx).or_default();
+            let pulse_rc = imp.pulse.get().unwrap().clone();
+            let scale = scales
+                .entry(*stream_idx)
+                .or_insert_with(|| VolumeScale::new(pulse_rc));
 
             // Append sink widget
             if scale.parent().is_none() {
@@ -202,10 +209,4 @@ fn find_monitor_at_point(x: i32, y: i32) -> gdk::Rectangle {
     }
 
     gdk::Rectangle::new(0, 0, 1, 1)
-}
-
-impl Default for MixerWindow {
-    fn default() -> Self {
-        Self::new(None)
-    }
 }
