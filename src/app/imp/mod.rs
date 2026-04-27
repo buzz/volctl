@@ -1,4 +1,5 @@
 use std::cell::{Cell, OnceCell, RefCell};
+use std::process::Child;
 use std::rc::Rc;
 
 use glib::subclass::object::ObjectImpl;
@@ -17,6 +18,7 @@ mod activate;
 
 pub struct Application {
     pub(super) hold_guard: RefCell<Option<gio::ApplicationHoldGuard>>,
+    pub(super) mixer_child: RefCell<Option<Child>>,
     pub(super) mixer_window: Rc<RefCell<Option<MixerWindow>>>,
     pub(super) osd_controller: OnceCell<OsdController>,
     pub(super) pulse: Rc<RefCell<Pulse>>,
@@ -55,6 +57,7 @@ impl Default for Application {
 
         Self {
             hold_guard: RefCell::from(None),
+            mixer_child: RefCell::from(None),
             mixer_window: Rc::new(RefCell::new(None)),
             osd_controller: OnceCell::from(osd_controller),
             pulse: Rc::from(RefCell::from(pulse_instance)),

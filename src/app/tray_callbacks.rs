@@ -5,7 +5,10 @@ use glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::GtkWindowExt;
 use libpulse::volume::Volume;
 
-use crate::constants::{MAX_NATURAL_VOL, MAX_SCALE_VOL, SETTINGS_ALLOW_EXTRA_VOLUME};
+use crate::constants::{
+    DEFAULT_MIXER_CMD, MAX_NATURAL_VOL, MAX_SCALE_VOL, SETTINGS_ALLOW_EXTRA_VOLUME,
+    SETTINGS_MIXER_COMMAND,
+};
 use crate::pulse::StreamType;
 use crate::ui::mixer_window::MixerWindow;
 use crate::ui::prefs_window::PreferencesWindow;
@@ -99,7 +102,50 @@ impl Application {
 
     /// Open external mixer program
     pub fn external_mixer(&self) {
-        // TODO: open mixer
+        let imp = self.imp();
+        let settings = imp.settings.get().expect("settings not initialized");
+        let cmd_str = settings.string(SETTINGS_MIXER_COMMAND);
+
+        // Parse command: use default if empty, otherwise shell-split
+        let mut args: Vec<String> = if cmd_str.is_empty() {
+            vec![DEFAULT_MIXER_CMD.into()]
+        } else {
+            shlex::Shlex::new(&cmd_str).collect()
+        };
+
+        if args.is_empty() {
+            eprintln!("Empty mixer command after parsing");
+            return;
+        }
+
+        // Check if previous process is still running
+        let mut mixer_child = imp.mixer_child.borrow_mut();
+        if let Some(child) = mixer_child.as_mut() {
+            match child.try_wait() {
+                Ok(Some(_status)) => {
+                    // Process already exited, clear and spawn new one
+                    *mixer_child = None;
+                }
+                Ok(None) => {
+                    // Still running: do nothing (matches Python's poll() is None check)
+                    return;
+                }
+                Err(e) => {
+                    eprintln!("Error checking mixer process status: {}", e);
+                }
+            }
+        }
+
+        // Spawn new process
+        let cmd = args.remove(0);
+        match std::process::Command::new(&cmd).args(&args).spawn() {
+            Ok(child) => {
+                *mixer_child = Some(child);
+            }
+            Err(e) => {
+                eprintln!("Failed to launch mixer '{}': {}", cmd, e);
+            }
+        }
     }
 
     /// Request volctl to quit

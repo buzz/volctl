@@ -126,8 +126,10 @@ impl Tray for VolctlTray {
         }
     }
 
-    fn secondary_activate(&mut self, x: i32, y: i32) {
-        println!("ksni: Secondary activate {} {}", x, y);
+    fn secondary_activate(&mut self, _x: i32, _y: i32) {
+        if self.tx.send_blocking(TrayMessage::ExternalMixer).is_err() {
+            eprintln!("Failed to send ExternalMixer message, channel closed");
+        }
     }
 
     fn scroll(&mut self, delta: i32, orientation: Orientation) {

@@ -1,5 +1,8 @@
 pub const APP_ID: &str = "org.volctl";
 
+/// Default external mixer command
+pub const DEFAULT_MIXER_CMD: &str = "pavucontrol";
+
 /// The maximum natural volume, i.e. 100%
 pub const MAX_NATURAL_VOL: u32 = 65536;
 
