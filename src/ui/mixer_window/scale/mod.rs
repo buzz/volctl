@@ -7,10 +7,12 @@ use gtk::prelude::{
     AdjustmentExt, ButtonExt, ObjectExt, RangeExt, ScaleExt, SettingsExt, ToggleButtonExt,
     WidgetExt,
 };
-use gtk::{Image, Orientation};
+use gtk::{IconTheme, Image, Orientation, gdk};
 use libpulse::volume::{ChannelVolumes, Volume};
 
-use crate::constants::{MAX_NATURAL_VOL, MAX_VOL_SCALE, SETTINGS_ALLOW_EXTRA_VOLUME, SETTINGS_SHOW_PERCENTAGE};
+use crate::constants::{
+    MAX_NATURAL_VOL, MAX_VOL_SCALE, SETTINGS_ALLOW_EXTRA_VOLUME, SETTINGS_SHOW_PERCENTAGE,
+};
 use crate::pulse::{MeterData, Pulse};
 
 mod imp;
@@ -206,7 +208,10 @@ impl VolumeScale {
         }
 
         if needs_icon {
-            let icon = Image::from_icon_name(&new_icon.unwrap());
+            let icon_name = new_icon.unwrap();
+            // Resolve icon name, falling back to default if not found in the theme.
+            let icon_name = resolve_icon_name(&icon_name);
+            let icon = Image::from_icon_name(&icon_name);
             imp.mute_btn.set_child(Some(&icon));
         }
 
@@ -236,4 +241,16 @@ impl VolumeScale {
     fn format_scale_value(value: f64) -> String {
         format!("{:.0}", value * 100.0)
     }
+}
+
+/// Check if an icon name exists in the default GTK icon theme, falling back to
+/// `"multimedia-volume-control"` if not found.
+fn resolve_icon_name(icon_name: &str) -> String {
+    if let Some(display) = gdk::Display::default() {
+        let theme = IconTheme::for_display(&display);
+        if theme.has_icon(icon_name) {
+            return icon_name.to_owned();
+        }
+    }
+    "multimedia-volume-control".to_owned()
 }

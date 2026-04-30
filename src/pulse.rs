@@ -248,7 +248,7 @@ impl Pulse {
                 let data = MeterData {
                     t: StreamType::Sink,
                     index: item.index,
-                    icon: "multimedia-volume-control".to_owned(),
+                    icon: "audio-card".to_owned(),
                     name: item.name.clone().unwrap_or_default().into_owned(),
                     description: item.description.clone().unwrap_or_default().into_owned(),
                     volume: item.volume,
@@ -270,10 +270,7 @@ impl Pulse {
 
         fn tx_sink_input(tx: &Sender<TxMessage>, result: ListResult<&SinkInputInfo<'_>>) {
             if let ListResult::Item(item) = result {
-                let icon = item
-                    .proplist
-                    .get_str("application.icon_name")
-                    .unwrap_or_else(|| "audio-card".to_owned());
+                let icon = get_icon_name_from_sink_input(&item.proplist);
                 let description = item
                     .proplist
                     .get_str("application.name")
@@ -552,6 +549,29 @@ impl Pulse {
 
         Ok(stream)
     }
+}
+
+/// Resolve the icon name for a sink input, following the same fallback chain as the Python
+/// implementation (`slider_win._icon_name_from_sink_input`).
+///
+/// Fallback order:
+/// 1. `application.icon_name` property
+/// 2. `media.icon_name` property
+/// 3. `application.process.binary` property (e.g., "firefox")
+/// 4. `application.name` lowercased with spaces replaced by dashes
+/// 5. If no icon name found at all → `"multimedia-volume-control"`
+fn get_icon_name_from_sink_input(proplist: &libpulse::proplist::Proplist) -> String {
+    proplist
+        .get_str("application.icon_name")
+        .or_else(|| proplist.get_str("media.icon_name"))
+        .or_else(|| proplist.get_str("application.process.binary"))
+        .or_else(|| {
+            proplist
+                .get_str("application.name")
+                .map(|name| name.to_lowercase().replace(' ', "-"))
+        })
+        .map(|s| s.to_owned())
+        .unwrap_or_else(|| "multimedia-volume-control".to_owned())
 }
 
 /// Helper function to process raw audio bytes into a peak value.
