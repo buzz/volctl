@@ -1,4 +1,4 @@
-use gtk::{AboutDialog, License};
+use gtk::{AboutDialog, License, prelude::*};
 
 /// Application metadata constants
 const PROGRAM_NAME: &str = "Volume Control";
@@ -18,5 +18,21 @@ pub fn new() -> AboutDialog {
     about.set_comments(Some(COMMENTS));
     about.set_website(Some(WEBSITE));
     about.set_logo_icon_name(Some(LOGO_ICON_NAME));
+
+    // Disable text selection on all labels in the about dialog
+    disable_label_selection(&about);
+
     about
+}
+
+fn disable_label_selection(widget: &impl IsA<gtk::Widget>) {
+    if let Some(label) = widget.dynamic_cast_ref::<gtk::Label>() {
+        label.set_selectable(false);
+        return;
+    }
+    let mut child = widget.first_child();
+    while let Some(c) = child {
+        disable_label_selection(&c);
+        child = c.next_sibling();
+    }
 }
