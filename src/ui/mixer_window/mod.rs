@@ -55,10 +55,55 @@ impl MixerWindow {
 
     pub fn update_sinks(&self, sink_streams: &HashMap<u32, StreamData>) {
         self.update_volume_scales(sink_streams, self.imp().sinks.clone());
+        self.update_separator_visibility();
     }
 
     pub fn update_sink_inputs(&self, sink_input_streams: &HashMap<u32, StreamData>) {
         self.update_volume_scales(sink_input_streams, self.imp().sink_inputs.clone());
+        self.update_separator_visibility();
+    }
+
+    /// Update separator visibility based on whether we have both sinks and sink inputs
+    fn update_separator_visibility(&self) {
+        let imp = self.imp();
+        let sinks = imp.sinks.borrow();
+        let sink_inputs = imp.sink_inputs.borrow();
+        let mut separator = imp.separator.borrow_mut();
+
+        // Show separator only if we have both sinks and sink inputs
+        if !sinks.is_empty() && !sink_inputs.is_empty() {
+            if separator.is_none() {
+                let sep = gtk::Separator::new(gtk::Orientation::Vertical);
+                sep.set_margin_top(8);
+                let box_ = imp.box_.borrow();
+                // Find the last sink widget by iterating through box children
+                let mut last_sink: Option<gtk::Widget> = None;
+                let children = box_.observe_children();
+                for i in 0..children.n_items() {
+                    if let Some(child) = children
+                        .item(i)
+                        .and_then(|o| o.downcast::<gtk::Widget>().ok())
+                    {
+                        let child_obj: glib::Object = child.clone().into();
+                        if sinks.values().any(|scale| {
+                            let scale_obj: glib::Object = scale.clone().into();
+                            scale_obj == child_obj
+                        }) {
+                            last_sink = Some(child);
+                        }
+                    }
+                }
+                if let Some(ref last) = last_sink {
+                    box_.insert_child_after(&sep, Some(last));
+                } else {
+                    box_.append(&sep);
+                }
+                *separator = Some(sep);
+            }
+        } else if let Some(sep) = separator.take() {
+            let box_ = imp.box_.borrow();
+            box_.remove(&sep);
+        }
     }
 
     fn update_volume_scales(

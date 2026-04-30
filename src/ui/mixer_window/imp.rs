@@ -9,7 +9,7 @@ use gtk::gio;
 use gtk::prelude::{GtkWindowExt, SettingsExt, WidgetExt};
 use gtk::subclass::widget::WidgetImplExt;
 use gtk::subclass::{widget::WidgetImpl, window::WindowImpl};
-use gtk::{Box, EventControllerMotion, Orientation};
+use gtk::{Box, EventControllerMotion, Orientation, Separator};
 
 use crate::constants::{SETTINGS_AUTO_CLOSE, SETTINGS_TIMEOUT};
 use crate::pulse::Pulse;
@@ -23,6 +23,8 @@ const PADDING: i32 = 8;
 
 pub struct MixerWindow {
     pub(super) box_: Rc<RefCell<Box>>,
+    // Separator between audio interface and application sliders
+    pub(super) separator: Rc<RefCell<Option<Separator>>>,
     // Stores scale widgets by stream index
     pub(super) sinks: Rc<RefCell<HashMap<u32, VolumeScale>>>,
     pub(super) sink_inputs: Rc<RefCell<HashMap<u32, VolumeScale>>>,
@@ -127,7 +129,6 @@ impl Default for MixerWindow {
             box_: Rc::from(RefCell::from(
                 Box::builder()
                     .orientation(Orientation::Horizontal)
-                    .homogeneous(true)
                     .spacing(COL_SPACING)
                     .margin_top(PADDING)
                     .margin_bottom(PADDING)
@@ -135,6 +136,7 @@ impl Default for MixerWindow {
                     .margin_end(PADDING)
                     .build(),
             )),
+            separator: Rc::from(RefCell::from(None)),
             sinks: Rc::from(RefCell::from(HashMap::new())),
             sink_inputs: Rc::from(RefCell::from(HashMap::new())),
             x11_context: RefCell::from(None),
