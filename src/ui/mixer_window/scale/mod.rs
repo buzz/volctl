@@ -10,7 +10,7 @@ use gtk::prelude::{
 use gtk::{Image, Orientation};
 use libpulse::volume::{ChannelVolumes, Volume};
 
-use crate::constants::{MAX_NATURAL_VOL, MAX_VOL_SCALE, SETTINGS_ALLOW_EXTRA_VOLUME};
+use crate::constants::{MAX_NATURAL_VOL, MAX_VOL_SCALE, SETTINGS_ALLOW_EXTRA_VOLUME, SETTINGS_SHOW_PERCENTAGE};
 use crate::pulse::{MeterData, Pulse};
 
 mod imp;
@@ -93,6 +93,19 @@ impl VolumeScale {
                 Self::configure_scale_range(&obj_clone);
             });
         }
+
+        // React to show-percentage setting changes
+        {
+            let obj_clone = obj.clone();
+            settings.connect_changed(Some(SETTINGS_SHOW_PERCENTAGE), move |settings, _| {
+                let show = settings.boolean(SETTINGS_SHOW_PERCENTAGE);
+                obj_clone.imp().scale.set_draw_value(show);
+            });
+        }
+
+        // Set initial draw_value based on show-percentage setting
+        let show_percentage = settings.boolean(SETTINGS_SHOW_PERCENTAGE);
+        imp.scale.set_draw_value(show_percentage);
 
         obj
     }

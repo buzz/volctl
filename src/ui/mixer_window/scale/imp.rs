@@ -99,7 +99,6 @@ impl Default for VolumeScale {
                 .round_digits(2)
                 .digits(2)
                 .inverted(true)
-                .draw_value(false)
                 .value_pos(PositionType::Bottom)
                 .margin_top(4)
                 .build(),
