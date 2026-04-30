@@ -31,6 +31,9 @@ impl VolumeScale {
         imp.pulse.set(pulse.clone()).ok();
         imp.settings.set(settings.clone()).ok();
 
+        // Add CSS class for styling
+        imp.mute_btn.add_css_class("toggle");
+
         // Configure scale range based on allow-extra-volume setting
         Self::configure_scale_range(&obj);
 

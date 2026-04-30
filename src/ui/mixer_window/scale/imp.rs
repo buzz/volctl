@@ -45,6 +45,21 @@ impl ObjectImpl for VolumeScale {
                 scale.vertical marks {
                     margin-top: 0;
                 }
+                button.toggle {
+                    padding: 0;
+                    margin: 0;
+                    border: none;
+                    background: transparent;
+                }
+                button.toggle:hover {
+                    background-color: transparent;
+                    border-color: transparent;
+                }
+                button.toggle:checked {
+                    background-color: transparent;
+                    border-color: transparent;
+                    opacity: 0.5;
+                }
             "#,
             );
             if let Some(display) = gtk::gdk::Display::default() {
