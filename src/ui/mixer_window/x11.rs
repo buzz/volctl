@@ -21,26 +21,28 @@ impl MixerWindow {
             .copied()
             .expect("X11 context");
 
-        if self.is_realized() {
-            self.apply_position_x11(x11, x, y);
-        } else {
-            self.connect_realize(move |window| {
-                window.apply_position_x11(x11, x, y);
-            });
+        // If not yet realized, force realization now so we have an XID.
+        // This mirrors the OSD approach: realize → set position → present.
+        if !self.is_realized() {
+            gtk::prelude::WidgetExt::realize(self);
         }
+
+        self.apply_position_x11(x11, x, y);
     }
 
     /// Apply the calculated position to the X11 window.
     fn apply_position_x11(&self, x11: X11Context, anchor_x: i32, anchor_y: i32) {
+        if self.imp().position_applied.get() {
+            return;
+        }
+        self.imp().position_applied.set(true);
+
         let xid = self.get_xid_x11();
         let (x, y) = calculate_mixer_position(self, anchor_x, anchor_y);
 
-        // Defer the actual X11 move to the next main-loop iteration so the WM has
-        // already mapped and placed the window. This prevents the WM from overriding
-        // our coordinates with its own smart-placement logic.
-        glib::idle_add_once(move || {
-            configure_window_position(&x11, xid, x, y);
-        });
+        // Apply immediately (mirrors the OSD approach) so the XConfigureWindow
+        // request is queued before XMapWindow, preventing the (0,0) flicker.
+        configure_window_position(&x11, xid, x, y);
     }
 
     pub fn realize_x11(&self) {

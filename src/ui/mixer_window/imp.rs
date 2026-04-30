@@ -1,4 +1,4 @@
-use std::cell::{OnceCell, RefCell};
+use std::cell::{Cell, OnceCell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -34,6 +34,8 @@ pub struct MixerWindow {
     pub(super) auto_close_timeout: RefCell<Option<glib::SourceId>>,
     // Back-reference to the app's mixer_window RefCell so we can clear ourselves
     pub(super) parent_ref: RefCell<Option<Rc<RefCell<Option<super::MixerWindow>>>>>,
+    // Whether the X11 window position has been applied (prevents double-positioning)
+    pub(super) position_applied: Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -82,17 +84,20 @@ impl MixerWindow {
             let id = glib::timeout_add_local(
                 std::time::Duration::from_millis(timeout_ms as u64),
                 move || {
-                    if let Some(ref_) = &parent_ref {
-                        *ref_.borrow_mut() = None;
-                    }
                     // Defer destruction to the next event cycle so GTK can fully
                     // process the current event before destroying the window.
                     // This prevents the first click after auto-close from being swallowed.
+                    // Clear imp.mixer_window AFTER destroy() so there's no window
+                    // where a new click could spawn a duplicate mixer window.
                     if let Some(win) = weak_obj.upgrade() {
                         let weak_win = win.downgrade();
+                        let parent_ref_clone = parent_ref.clone();
                         glib::timeout_add_local(std::time::Duration::ZERO, move || {
                             if let Some(w) = weak_win.upgrade() {
                                 w.destroy();
+                            }
+                            if let Some(ref_) = &parent_ref_clone {
+                                *ref_.borrow_mut() = None;
                             }
                             glib::ControlFlow::Break
                         });
@@ -144,6 +149,7 @@ impl Default for MixerWindow {
             settings: OnceCell::new(),
             auto_close_timeout: RefCell::from(None),
             parent_ref: RefCell::from(None),
+            position_applied: Cell::new(false),
         }
     }
 }
