@@ -1,4 +1,4 @@
-use std::cell::{Cell, OnceCell, RefCell};
+use std::cell::{Cell, RefCell};
 use std::process::Child;
 use std::rc::Rc;
 
@@ -20,9 +20,9 @@ pub struct Application {
     pub(super) hold_guard: RefCell<Option<gio::ApplicationHoldGuard>>,
     pub(super) mixer_child: RefCell<Option<Child>>,
     pub(super) mixer_window: Rc<RefCell<Option<MixerWindow>>>,
-    pub(super) osd_controller: OnceCell<OsdController>,
+    pub(super) osd_controller: OsdController,
     pub(super) pulse: Rc<RefCell<Pulse>>,
-    pub(super) settings: OnceCell<gio::Settings>,
+    pub(super) settings: gio::Settings,
     pub(super) tray_handle: RefCell<Option<Handle<VolctlTray>>>,
     pub(super) x11_context: Option<X11Context>,
 
@@ -47,21 +47,27 @@ impl Default for Application {
         let pulse_instance = Pulse::new().expect("Failed to create PulseAudio controller");
         let settings = gio::Settings::with_path("apps.volctl", "/apps/volctl/");
 
-        // X11Context is Copy, so passing Some(ctx) does not consume the original
-        let x11_context = match get_display_type() {
-            DisplayType::X11 => Some(X11Context::default()),
-            _ => None,
+        let (display_type, x11_context) = match get_display_type() {
+            Ok(DisplayType::X11) => {
+                let ctx = X11Context::new().expect("X11 context required on X11 display");
+                (DisplayType::X11, Some(ctx))
+            }
+            Ok(DisplayType::Wayland) => (DisplayType::Wayland, None),
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to detect display type, assuming Wayland");
+                (DisplayType::Wayland, None)
+            }
         };
 
-        let osd_controller = OsdController::new(&settings, x11_context);
+        let osd_controller = OsdController::new(&settings, x11_context, display_type);
 
         Self {
             hold_guard: RefCell::from(None),
             mixer_child: RefCell::from(None),
             mixer_window: Rc::new(RefCell::new(None)),
-            osd_controller: OnceCell::from(osd_controller),
+            osd_controller,
             pulse: Rc::from(RefCell::from(pulse_instance)),
-            settings: OnceCell::from(settings),
+            settings,
             tray_handle: RefCell::from(None),
             x11_context,
             volume: Cell::new(0),

@@ -25,13 +25,13 @@ impl Application {
             window.close();
         } else {
             let x11_context = match get_display_type() {
-                DisplayType::X11 => imp.x11_context,
-                _ => None,
+                Ok(DisplayType::X11) => imp.x11_context,
+                Ok(DisplayType::Wayland) | Err(_) => None,
             };
             let mixer_window = imp.mixer_window.clone();
             let window = MixerWindow::new(
                 imp.pulse.clone(),
-                imp.settings.get().unwrap().clone(),
+                imp.settings.clone(),
                 x11_context,
                 mixer_window,
             );
@@ -58,11 +58,7 @@ impl Application {
 
             match amount.cmp(&0) {
                 Ordering::Greater => {
-                    let extra_volume = imp
-                        .settings
-                        .get()
-                        .unwrap()
-                        .boolean(SETTINGS_ALLOW_EXTRA_VOLUME);
+                    let extra_volume = imp.settings.boolean(SETTINGS_ALLOW_EXTRA_VOLUME);
                     let limit = match extra_volume {
                         true => MAX_SCALE_VOL,
                         false => MAX_NATURAL_VOL,
@@ -103,8 +99,7 @@ impl Application {
     /// Open external mixer program
     pub fn external_mixer(&self) {
         let imp = self.imp();
-        let settings = imp.settings.get().expect("settings not initialized");
-        let cmd_str = settings.string(SETTINGS_MIXER_COMMAND);
+        let cmd_str = imp.settings.string(SETTINGS_MIXER_COMMAND);
 
         // Parse command: use default if empty, otherwise shell-split
         let mut args: Vec<String> = if cmd_str.is_empty() {
@@ -114,7 +109,7 @@ impl Application {
         };
 
         if args.is_empty() {
-            eprintln!("Empty mixer command after parsing");
+            tracing::warn!("Empty mixer command after parsing");
             return;
         }
 
@@ -131,7 +126,7 @@ impl Application {
                     return;
                 }
                 Err(e) => {
-                    eprintln!("Error checking mixer process status: {}", e);
+                    tracing::error!(error = %e, "Error checking mixer process status");
                 }
             }
         }
@@ -143,7 +138,7 @@ impl Application {
                 *mixer_child = Some(child);
             }
             Err(e) => {
-                eprintln!("Failed to launch mixer '{}': {}", cmd, e);
+                tracing::error!(cmd = %cmd, error = %e, "Failed to launch mixer");
             }
         }
     }
@@ -158,9 +153,7 @@ impl Application {
         }
 
         // Destroy OSD (cancels timers, destroys surface/window)
-        if let Some(osd_controller) = imp.osd_controller.get() {
-            osd_controller.destroy();
-        }
+        imp.osd_controller.destroy();
 
         // Discard application hold guard which will make the GTK main loop terminate
         *imp.hold_guard.borrow_mut() = None;

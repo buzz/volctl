@@ -7,12 +7,25 @@ use gdk_x11::{
 };
 use gtk::prelude::*;
 
+use crate::errors::X11Error;
+
 /// Shared X11 display context (thin wrapper around GDK's X11 Display*).
 pub struct X11Context {
     pub display: *mut Display,
 }
 
 impl X11Context {
+    /// Create a new X11 context from the current GDK display.
+    pub fn new() -> Result<Self, X11Error> {
+        let gdk_display = gdk::Display::default().ok_or(X11Error::NoDisplay)?;
+        let x11_display = gdk_display
+            .downcast_ref::<X11Display>()
+            .ok_or(X11Error::NotX11Display)?;
+        let display = unsafe { x11_display.xdisplay() };
+
+        Ok(Self { display })
+    }
+
     /// Get the cached xlib function table (opened once, cached by the x11-dl crate).
     pub fn xlib(&self) -> Xlib {
         Xlib::open().expect("Failed to open Xlib")
@@ -29,18 +42,6 @@ impl Clone for X11Context {
 }
 
 impl Copy for X11Context {}
-
-impl Default for X11Context {
-    fn default() -> Self {
-        let gdk_display = gdk::Display::default().unwrap();
-        let x11_display = gdk_display
-            .downcast_ref::<X11Display>()
-            .expect("GDK display must be X11");
-        let display = unsafe { x11_display.xdisplay() };
-
-        Self { display }
-    }
-}
 
 // ---------------------------------------------------------------------------
 // AtomCollection

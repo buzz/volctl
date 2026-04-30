@@ -40,9 +40,7 @@ impl Application {
                     }
 
                     // Update OSD
-                    if let Some(osd_controller) = imp.osd_controller.get() {
-                        osd_controller.update(new_volume, new_muted);
-                    }
+                    imp.osd_controller.update(new_volume, new_muted);
 
                     // Remember new values
                     imp.volume.set(new_volume);

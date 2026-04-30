@@ -1,6 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use gtk::gio;
+use tracing;
 
 use crate::pulse::Pulse;
 
@@ -143,9 +144,10 @@ impl MixerWindow {
 
     pub fn move_(&self, x: i32, y: i32) {
         match get_display_type() {
-            DisplayType::Wayland => self.move_wayland(x, y),
-            DisplayType::X11 => {
-                self.move_x11(x, y);
+            Ok(DisplayType::Wayland) => self.move_wayland(x, y),
+            Ok(DisplayType::X11) => self.move_x11(x, y),
+            Err(e) => {
+                tracing::warn!(error = %e, "Failed to detect display type for mixer window");
             }
         }
     }

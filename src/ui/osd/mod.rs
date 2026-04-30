@@ -17,7 +17,7 @@ use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::surface::SurfaceBackend;
 use crate::ui::osd::surface::wayland::WaylandSurface;
 use crate::ui::osd::surface::x11::X11Surface;
-use crate::ui::utils::{DisplayType, get_display_type};
+use crate::ui::utils::DisplayType;
 use crate::ui::x11::X11Context;
 
 /// Cached OSD settings, refreshed via gsettings `changed` signals.
@@ -88,15 +88,19 @@ pub struct OsdController {
 }
 
 impl OsdController {
-    pub fn new(settings: &Settings, x11_context: Option<X11Context>) -> Self {
+    pub fn new(
+        settings: &Settings,
+        x11_context: Option<X11Context>,
+        display_type: DisplayType,
+    ) -> Self {
         let controller = Rc::new(OsdStateController::new());
 
-        let surface: Rc<dyn SurfaceBackend> = match get_display_type() {
-            DisplayType::X11 => Rc::new(X11Surface::new(
-                settings,
-                controller.clone(),
-                x11_context.unwrap(),
-            )),
+        let surface: Rc<dyn SurfaceBackend> = match display_type {
+            DisplayType::X11 => {
+                // Safe: caller guarantees x11_context is Some when display_type is X11
+                let ctx = x11_context.expect("X11 context required on X11 display");
+                Rc::new(X11Surface::new(settings, controller.clone(), ctx))
+            }
             DisplayType::Wayland => Rc::new(WaylandSurface::new(settings, controller.clone())),
         };
 

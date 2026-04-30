@@ -8,6 +8,7 @@ use gtk::prelude::SettingsExt;
 use ksni::blocking::TrayMethods;
 
 use crate::constants::{MAX_NATURAL_VOL, SETTINGS_MOUSE_WHEEL_STEP};
+use crate::ui::dialog::show_error;
 use crate::ui::tray::{TrayMessage, VolctlTray};
 
 use super::Application;
@@ -28,8 +29,8 @@ impl Application {
     fn init_pulse(&self) {
         // Connect to PulseAudio
         if let Err(e) = self.pulse.borrow_mut().connect() {
-            eprintln!("Critical Error: Could not connect to PulseAudio: {}", e);
-            // TODO: show a GtkMessageDialog here
+            tracing::error!(error = %e, "Failed to connect PulseAudio");
+            show_error(&e);
             return;
         }
 
@@ -59,14 +60,19 @@ impl Application {
             volume: 0,
             muted: false,
         };
-        *self.tray_handle.borrow_mut() = Some(tray.spawn().expect("Failed to create system tray"));
+
+        match tray.spawn() {
+            Ok(handle) => *self.tray_handle.borrow_mut() = Some(handle),
+            Err(e) => {
+                tracing::error!(error = %e, "Failed to spawn system tray");
+                show_error(&e);
+                self.obj().request_quit();
+                return;
+            }
+        }
 
         // Listen for messages from the tray thread
-        let settings_clone = self
-            .settings
-            .get()
-            .expect("Failed to get settings.")
-            .clone();
+        let settings_clone = self.settings.clone();
         let app = self.obj();
         glib::spawn_future_local(clone!(
             #[weak]

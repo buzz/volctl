@@ -4,6 +4,7 @@ use std::rc::Rc;
 use gtk::gio;
 use gtk::prelude::*;
 use gtk_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
+use tracing;
 
 use crate::constants::{OSD_BASE_HEIGHT, OSD_BASE_WIDTH, OSD_SCREEN_MARGIN, SETTINGS_OSD_SCALE};
 use crate::ui::osd::controller::OsdStateController;
@@ -88,10 +89,7 @@ impl super::SurfaceBackend for WaylandSurface {
 
         let parts: Vec<&str> = position.split('-').collect();
         if parts.len() != 2 {
-            eprintln!(
-                "Invalid OSD position '{}', falling back to center",
-                position
-            );
+            tracing::warn!(position = %position, "Invalid OSD position, falling back to center");
             return;
         }
 

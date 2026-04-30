@@ -5,6 +5,7 @@ use std::rc::Rc;
 use gdk_x11::{X11Surface as GdkX11Surface, x11::xlib};
 use gtk::gio::Settings;
 use gtk::prelude::*;
+use tracing;
 
 use crate::constants::{OSD_BASE_HEIGHT, OSD_BASE_WIDTH, OSD_SCREEN_MARGIN, SETTINGS_OSD_SCALE};
 use crate::ui::osd::controller::OsdStateController;
@@ -97,12 +98,12 @@ impl X11Surface {
     }
 
     /// Lazily initialize atoms on first access.
-    fn get_atoms(&self) -> AtomCollection {
+    fn get_atoms(&self) -> Option<AtomCollection> {
         let mut atoms = self.atoms.borrow_mut();
         if atoms.is_none() {
             *atoms = AtomCollection::new(&self.x11);
         }
-        *atoms.as_ref().expect("atoms initialized above")
+        *atoms
     }
 
     fn set_click_through_shape(&self, xid: xlib::XID) {
@@ -197,19 +198,24 @@ impl super::SurfaceBackend for X11Surface {
 
         if let Some(xid) = self.get_xid() {
             set_override_redirect(&self.x11, xid);
-            let atoms = self.get_atoms();
-            set_window_type(&self.x11, xid, atoms._net_wm_window_type_notification);
-            set_wm_states_property(
-                &self.x11,
-                xid,
-                &atoms,
-                &[
-                    atoms._net_wm_state_above,
-                    atoms._net_wm_state_skip_taskbar,
-                    atoms._net_wm_state_skip_pager,
-                    atoms._net_wm_state_sticky,
-                ],
-            );
+
+            if let Some(atoms) = self.get_atoms() {
+                set_window_type(&self.x11, xid, atoms._net_wm_window_type_notification);
+                set_wm_states_property(
+                    &self.x11,
+                    xid,
+                    &atoms,
+                    &[
+                        atoms._net_wm_state_above,
+                        atoms._net_wm_state_skip_taskbar,
+                        atoms._net_wm_state_skip_pager,
+                        atoms._net_wm_state_sticky,
+                    ],
+                );
+            } else {
+                tracing::warn!("Failed to create X11 atoms, skipping WM properties");
+            }
+
             self.set_click_through_shape(xid);
 
             // Apply position before mapping to avoid flicker

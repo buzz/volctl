@@ -1,5 +1,6 @@
 use async_channel::Sender;
 use ksni::{Category, MenuItem, Orientation, ToolTip, Tray, menu::StandardItem};
+use tracing;
 
 use crate::constants::MAX_NATURAL_VOL;
 
@@ -66,7 +67,7 @@ impl Tray for VolctlTray {
                 icon_name: "audio-volume-muted".into(),
                 activate: Box::new(move |_| {
                     if tx_mute.send_blocking(TrayMessage::Mute).is_err() {
-                        eprintln!("Failed to send Mute message, channel closed");
+                        tracing::warn!(msg = %"Mute", "Channel closed, dropping message");
                     }
                 }),
                 ..Default::default()
@@ -77,7 +78,7 @@ impl Tray for VolctlTray {
                 icon_name: "multimedia-volume-control".into(),
                 activate: Box::new(move |_| {
                     if tx_mixer.send_blocking(TrayMessage::ExternalMixer).is_err() {
-                        eprintln!("Failed to send Mixer message, channel closed");
+                        tracing::warn!(msg = %"Mixer", "Channel closed, dropping message");
                     }
                 }),
                 ..Default::default()
@@ -88,7 +89,7 @@ impl Tray for VolctlTray {
                 icon_name: "preferences-desktop".into(),
                 activate: Box::new(move |_| {
                     if tx_prefs.send_blocking(TrayMessage::Preferences).is_err() {
-                        eprintln!("Failed to send Preferences message, channel closed");
+                        tracing::warn!(msg = %"Preferences", "Channel closed, dropping message");
                     }
                 }),
                 ..Default::default()
@@ -100,7 +101,7 @@ impl Tray for VolctlTray {
                 icon_name: "dialog-information".into(),
                 activate: Box::new(move |_| {
                     if tx_about.send_blocking(TrayMessage::About).is_err() {
-                        eprintln!("Failed to send About message, channel closed");
+                        tracing::warn!(msg = %"About", "Channel closed, dropping message");
                     }
                 }),
                 ..Default::default()
@@ -111,7 +112,7 @@ impl Tray for VolctlTray {
                 icon_name: "application-exit".into(),
                 activate: Box::new(move |_| {
                     if tx_quit.send_blocking(TrayMessage::Quit).is_err() {
-                        eprintln!("Failed to send Quit message, channel closed");
+                        tracing::warn!(msg = %"Quit", "Channel closed, dropping message");
                     }
                 }),
                 ..Default::default()
@@ -122,13 +123,13 @@ impl Tray for VolctlTray {
 
     fn activate(&mut self, x: i32, y: i32) {
         if self.tx.send_blocking(TrayMessage::Activate(x, y)).is_err() {
-            eprintln!("Failed to send Activate message, channel closed");
+            tracing::warn!(msg = %"Activate", "Channel closed, dropping message");
         }
     }
 
     fn secondary_activate(&mut self, _x: i32, _y: i32) {
         if self.tx.send_blocking(TrayMessage::ExternalMixer).is_err() {
-            eprintln!("Failed to send ExternalMixer message, channel closed");
+            tracing::warn!(msg = %"ExternalMixer", "Channel closed, dropping message");
         }
     }
 
@@ -136,7 +137,7 @@ impl Tray for VolctlTray {
         if matches!(orientation, Orientation::Vertical)
             && self.tx.send_blocking(TrayMessage::Scroll(delta)).is_err()
         {
-            eprintln!("Failed to send Scroll message, channel closed");
+            tracing::warn!(msg = %"Scroll", "Channel closed, dropping message");
         }
     }
 }

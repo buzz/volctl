@@ -3,6 +3,7 @@ use std::os::raw::c_int;
 use glib::object::Cast;
 use glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::{NativeExt, WidgetExt};
+use tracing;
 
 use super::{MixerWindow, calculate_mixer_position};
 use crate::ui::x11::{
@@ -13,13 +14,10 @@ use crate::ui::x11::{
 impl MixerWindow {
     /// Position the window at `(x, y)` using quadrant logic.
     pub fn move_x11(&self, x: i32, y: i32) {
-        let x11 = self
-            .imp()
-            .x11_context
-            .borrow()
-            .as_ref()
-            .copied()
-            .expect("X11 context");
+        let Some(x11) = self.imp().x11_context.borrow().as_ref().copied() else {
+            tracing::warn!("No X11 context for mixer window");
+            return;
+        };
 
         // If not yet realized, force realization now so we have an XID.
         // This mirrors the OSD approach: realize → set position → present.
@@ -37,7 +35,10 @@ impl MixerWindow {
         }
         self.imp().position_applied.set(true);
 
-        let xid = self.get_xid_x11();
+        let Some(xid) = self.get_xid_x11() else {
+            tracing::warn!("No X11 XID for mixer window");
+            return;
+        };
         let (x, y) = calculate_mixer_position(self, anchor_x, anchor_y);
 
         // Apply immediately (mirrors the OSD approach) so the XConfigureWindow
@@ -46,15 +47,18 @@ impl MixerWindow {
     }
 
     pub fn realize_x11(&self) {
-        let x11 = self
-            .imp()
-            .x11_context
-            .borrow()
-            .as_ref()
-            .copied()
-            .expect("X11 context");
-        let atoms = AtomCollection::new(&x11).expect("Failed to create atoms");
-        let xid = self.get_xid_x11();
+        let Some(x11) = self.imp().x11_context.borrow().as_ref().copied() else {
+            tracing::warn!("No X11 context for mixer window");
+            return;
+        };
+        let Some(atoms) = AtomCollection::new(&x11) else {
+            tracing::warn!("Failed to create X11 atoms");
+            return;
+        };
+        let Some(xid) = self.get_xid_x11() else {
+            tracing::warn!("No X11 XID for mixer window");
+            return;
+        };
 
         self.set_wm_properties_x11(&x11, &atoms, xid);
 
@@ -123,11 +127,9 @@ impl MixerWindow {
         }
     }
 
-    fn get_xid_x11(&self) -> gdk_x11::x11::xlib::XID {
-        let surface = self.surface().expect("Failed to get surface.");
-        let x11_surface = surface
-            .downcast::<gdk_x11::X11Surface>()
-            .expect("Failed to get X11 surface.");
-        x11_surface.xid()
+    fn get_xid_x11(&self) -> Option<gdk_x11::x11::xlib::XID> {
+        let surface = self.surface()?;
+        let x11_surface = surface.downcast::<gdk_x11::X11Surface>().ok()?;
+        Some(x11_surface.xid())
     }
 }

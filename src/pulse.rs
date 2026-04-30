@@ -367,7 +367,7 @@ impl Pulse {
                 TxMessage::StreamUpdate(t, data) => {
                     // Log error but don't crash if stream creation fails
                     if let Err(e) = self.update_stream(t, &data) {
-                        eprintln!("Error updating stream: {}", e);
+                        tracing::error!(error = %e, "Error updating stream");
                     }
                 }
                 TxMessage::StreamRemove(t, ind) => self.remove_stream(t, ind),

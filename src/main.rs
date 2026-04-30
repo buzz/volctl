@@ -9,6 +9,8 @@ use gdk::prelude::ApplicationExtManual;
 use app::Application;
 
 fn main() -> gtk::glib::ExitCode {
+    tracing_subscriber::fmt().init();
+
     if gtk::init().is_err() {
         panic!("Failed to initialize GTK.");
     }

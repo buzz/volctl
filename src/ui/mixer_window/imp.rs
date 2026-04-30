@@ -122,7 +122,7 @@ impl WidgetImpl for MixerWindow {
     fn realize(&self) {
         self.parent_realize();
 
-        if get_display_type() == DisplayType::X11 {
+        if matches!(get_display_type(), Ok(DisplayType::X11)) {
             self.obj().realize_x11();
         }
     }
