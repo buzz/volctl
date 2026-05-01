@@ -144,7 +144,7 @@ impl Tray for VolctlTray {
 
 impl VolctlTray {
     fn get_tooltip_markup(&self) -> String {
-        let text = format!("{:.0}%", self.volume_fraction() * 100.0);
+        let text = format!("Volume: {:.0}%", self.volume_fraction() * 100.0);
         if self.muted {
             format!("{} <span weight=\"bold\">(muted)</span>", text)
         } else {

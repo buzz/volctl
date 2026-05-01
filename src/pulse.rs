@@ -286,10 +286,7 @@ impl Pulse {
         fn tx_sink_input(tx: &Sender<TxMessage>, result: ListResult<&SinkInputInfo<'_>>) {
             if let ListResult::Item(item) = result {
                 let icon = get_icon_name_from_sink_input(&item.proplist);
-                let description = item
-                    .proplist
-                    .get_str("application.name")
-                    .unwrap_or_default();
+                let description = get_description_from_sink_input(item);
 
                 let data = MeterData {
                     t: StreamType::SinkInput,
@@ -706,6 +703,22 @@ fn get_icon_name_from_sink_input(proplist: &libpulse::proplist::Proplist) -> Str
         })
         .map(|s| s.to_owned())
         .unwrap_or_else(|| "multimedia-volume-control".to_owned())
+}
+
+/// Build the description tooltip for a sink input, following the same format as the Python
+/// implementation (`slider_win._name_from_sink_input`).
+///
+/// Format: `<b>Application Name</b>: Media Name` (e.g., `<b>mpv</b>: Song Title - Artist`)
+/// Falls back to just `application.name`, then to `sink_input.name`.
+fn get_description_from_sink_input(item: &SinkInputInfo<'_>) -> String {
+    let app_name = item.proplist.get_str("application.name");
+    let media_name = item.proplist.get_str("media.name");
+
+    match (app_name, media_name) {
+        (Some(app), Some(media)) => format!("<b>{}</b>: {}", app, media),
+        (Some(app), None) => app.to_owned(),
+        (None, _) => item.name.clone().unwrap_or_default().into_owned(),
+    }
 }
 
 /// Helper function to scale a raw peak value (0..1) to the volume scale (0..MAX_SCALE_VOL).

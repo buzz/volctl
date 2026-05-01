@@ -266,8 +266,8 @@ impl VolumeScale {
         }
 
         if let Some(tooltip) = new_tooltip {
-            imp.scale.set_tooltip_text(Some(&tooltip));
-            imp.mute_btn.set_tooltip_text(Some(&tooltip));
+            imp.scale.set_tooltip_markup(Some(&tooltip));
+            imp.mute_btn.set_tooltip_markup(Some(&tooltip));
         }
 
         if let Some(value) = new_volume {
