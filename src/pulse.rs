@@ -180,19 +180,20 @@ impl Pulse {
     /// Sets the volume of the stream.
     pub fn set_volume(&self, t: StreamType, index: u32, volumes: ChannelVolumes) {
         let mut introspect = self.context.borrow().introspect();
-        let mut mainloop = self.mainloop.borrow_mut();
-        mainloop.lock();
 
         match t {
             StreamType::Sink => {
-                introspect.set_sink_volume_by_index(index, &volumes, None);
+                let op = introspect.set_sink_volume_by_index(index, &volumes, None);
+                // Prevent Operation::drop from calling pa_operation_unref,
+                // which would destroy the operation before PulseAudio processes it.
+                // This matches the Python pulsectl behavior (raw pointer is ignored).
+                std::mem::forget(op);
             }
             StreamType::SinkInput => {
-                introspect.set_sink_input_volume(index, &volumes, None);
+                let op = introspect.set_sink_input_volume(index, &volumes, None);
+                std::mem::forget(op);
             }
         };
-
-        mainloop.unlock();
     }
 
     /// Mutes or unmutes a stream.
@@ -216,15 +217,17 @@ impl Pulse {
         };
 
         let mut introspect = self.context.borrow().introspect();
-        let mut mainloop = self.mainloop.borrow_mut();
-        mainloop.lock();
 
         match t {
-            StreamType::Sink => introspect.set_sink_mute_by_index(index, mute, None),
-            StreamType::SinkInput => introspect.set_sink_input_mute(index, mute, None),
+            StreamType::Sink => {
+                let op = introspect.set_sink_mute_by_index(index, mute, None);
+                std::mem::forget(op);
+            }
+            StreamType::SinkInput => {
+                let op = introspect.set_sink_input_mute(index, mute, None);
+                std::mem::forget(op);
+            }
         };
-
-        mainloop.unlock();
     }
 
     /// Binds listeners to server events.
