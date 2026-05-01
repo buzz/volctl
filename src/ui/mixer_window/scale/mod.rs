@@ -336,6 +336,14 @@ impl VolumeScale {
 
             imp.scale.set_fill_level(normalized);
 
+            // Toggle clipping CSS class when peak >= 1.0 (signal at or above full scale)
+            let is_clipping = normalized >= 1.0;
+            if is_clipping {
+                imp.scale.add_css_class("clipping");
+            } else {
+                imp.scale.remove_css_class("clipping");
+            }
+
             // Skip repaint if the value hasn't changed meaningfully.
             // This avoids unnecessary redraws when peaks are stable or fully decayed.
             let last = imp.last_displayed_peak.get();

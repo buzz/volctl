@@ -69,6 +69,9 @@ impl ObjectImpl for VolumeScale {
                     border-color: transparent;
                     opacity: 0.5;
                 }
+                scale.clipping > trough > fill {
+                    background-color: #e01b24;
+                }
             "#,
             );
             if let Some(display) = gtk::gdk::Display::default() {
