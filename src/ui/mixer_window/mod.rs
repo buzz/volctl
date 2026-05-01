@@ -139,6 +139,9 @@ impl MixerWindow {
             }
 
             scale.update(&stream.data);
+            // Always update peak: Pulse::update() applies smooth decay,
+            // so even streams without new peak data get decaying values.
+            scale.update_peak(stream.peak, stream.data.t);
         }
     }
 
