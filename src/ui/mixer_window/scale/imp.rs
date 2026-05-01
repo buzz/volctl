@@ -1,4 +1,4 @@
-use std::cell::{OnceCell, RefCell};
+use std::cell::{Cell, OnceCell, RefCell};
 use std::rc::Rc;
 
 use glib::subclass::object::ObjectImplExt;
@@ -14,6 +14,8 @@ pub struct VolumeScale {
     pub(super) scale: Scale,
     pub(super) mute_btn: ToggleButton,
     pub(super) data: Rc<RefCell<MeterData>>,
+    /// Allow 150% extra volume.
+    pub(super) allow_extra_volume: Cell<bool>,
     /// Set after construction. Used by signal handlers.
     pub(super) pulse: OnceCell<Rc<RefCell<Pulse>>>,
     /// GTK signal handler IDs so update() can block them during programmatic changes.
@@ -21,6 +23,10 @@ pub struct VolumeScale {
     pub(super) toggled_handler: OnceCell<glib::SignalHandlerId>,
     /// Settings reference for allow-extra-volume reactivity.
     pub(super) settings: OnceCell<gtk::gio::Settings>,
+    /// Last displayed peak fill level (0.0..1.0). Used to skip redundant GTK setters.
+    pub(super) last_displayed_peak: Cell<f64>,
+    /// Whether VU meter display is enabled. Used to skip fill_level updates in update_peak().
+    pub(super) vu_enabled: Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -42,8 +48,11 @@ impl ObjectImpl for VolumeScale {
             let provider = gtk::CssProvider::new();
             provider.load_from_string(
                 r#"
-                scale.vertical marks {
+                scale marks {
                     margin-top: 0;
+                }
+                scale value {
+                    margin-top: 4px;
                 }
                 button.toggle {
                     padding: 0;
@@ -101,13 +110,17 @@ impl Default for VolumeScale {
                 .inverted(true)
                 .value_pos(PositionType::Bottom)
                 .margin_top(4)
+                .restrict_to_fill_level(false)
                 .build(),
             mute_btn: ToggleButton::builder().build(),
             data: Rc::from(RefCell::from(MeterData::default())),
+            allow_extra_volume: true.into(),
             pulse: OnceCell::new(),
             value_changed_handler: OnceCell::new(),
             toggled_handler: OnceCell::new(),
             settings: OnceCell::new(),
+            last_displayed_peak: Cell::new(0.0),
+            vu_enabled: Cell::new(false),
         }
     }
 }

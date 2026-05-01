@@ -1,6 +1,8 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::Duration;
 
@@ -12,10 +14,10 @@ use libpulse::def::BufferAttr;
 use libpulse::mainloop::threaded::Mainloop;
 use libpulse::proplist::{Proplist, properties};
 use libpulse::sample::{Format, Spec};
-use libpulse::stream::{FlagSet as StreamFlagSet, PeekResult, Stream};
+use libpulse::stream::{FlagSet as StreamFlagSet, PeekResult, State as StreamState, Stream};
 use libpulse::volume::{ChannelVolumes, Volume};
 
-use crate::constants::{MAX_NATURAL_VOL, MAX_VOL_SCALE};
+use crate::constants::{MAX_NATURAL_VOL, MAX_SCALE_VOL, MAX_VOL_SCALE, PEAKS_RATE};
 use crate::errors::PulseError;
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
@@ -44,6 +46,9 @@ enum TxMessage {
     StreamUpdate(StreamType, Box<TxStreamData>),
     StreamRemove(StreamType, u32),
     Peak(StreamType, u32, u32),
+    /// Sent when a monitor stream is suspended (e.g., the audio app paused/stopped).
+    /// Triggers immediate peak decay to zero for the affected stream.
+    PeakZero(StreamType, u32),
 }
 
 /// Transferrable information pertaining to a stream.
@@ -57,6 +62,8 @@ pub struct TxStreamData {
 pub struct StreamData {
     pub data: MeterData,
     pub peak: u32,
+    /// Monotonic time (ms) when `peak` was last updated. Used for smooth decay.
+    peak_time: u64,
     pub monitor_index: u32,
     /// Monitor stream connection. kept alive by this Rc.
     monitor: Rc<RefCell<Stream>>,
@@ -69,6 +76,10 @@ pub struct Pulse {
 
     tx: Sender<TxMessage>,
     rx: Receiver<TxMessage>,
+
+    /// When false, peak monitor callbacks still read/discard audio data
+    /// (to prevent buffer overflow) but do not send TxMessage::Peak.
+    vu_enabled: Arc<AtomicBool>,
 
     pub default_sink: u32,
     pub active_sink: u32,
@@ -101,6 +112,7 @@ impl Pulse {
             context,
             tx,
             rx,
+            vu_enabled: Arc::new(AtomicBool::new(false)),
             default_sink: u32::MAX,
             active_sink: u32::MAX,
             sinks: HashMap::new(),
@@ -360,9 +372,20 @@ impl Pulse {
     /// Handles queued messages from the pulse thread.
     /// Returns true if the layout needs a refresh.
     pub fn update(&mut self) -> bool {
+        let now = glib::monotonic_time() as u64;
+
+        // Phase 1: Reset peaks for streams that will receive new data this frame.
+        // Streams without new peak data keep their peak (applies decay below).
+        for stream in self.sinks.values_mut() {
+            stream.peak = 0;
+        }
+        for stream in self.sink_inputs.values_mut() {
+            stream.peak = 0;
+        }
+
         let mut received = false;
 
-        // Drain the channel non-blocking
+        // Phase 2: Drain the channel non-blocking and apply new peak data.
         while let Ok(msg) = self.rx.try_recv() {
             received = true;
             match msg {
@@ -374,7 +397,28 @@ impl Pulse {
                     }
                 }
                 TxMessage::StreamRemove(t, ind) => self.remove_stream(t, ind),
-                TxMessage::Peak(t, ind, peak) => self.update_peak(t, ind, peak),
+                TxMessage::Peak(t, ind, peak) => self.update_peak(t, ind, peak, now),
+                TxMessage::PeakZero(t, ind) => self.zero_peak(t, ind, now),
+            }
+        }
+
+        // Phase 3: Apply smooth linear decay to streams without new peak data.
+        // Peak decreases by at most `elapsed_seconds * MAX_SCALE_VOL` per frame,
+        // reaching zero in ~1 second.
+        for streams in [&mut self.sinks, &mut self.sink_inputs] {
+            for stream in streams.values_mut() {
+                let elapsed_ms = now.saturating_sub(stream.peak_time);
+                if elapsed_ms > 0 {
+                    let decay_step = (elapsed_ms as f64 / 1000.0) * MAX_SCALE_VOL as f64;
+                    let current = stream.peak as f64;
+                    stream.peak = if current >= decay_step {
+                        (current - decay_step) as u32
+                    } else {
+                        0
+                    };
+                    // Advance peak_time so decay is frame-rate independent
+                    stream.peak_time = now;
+                }
             }
         }
 
@@ -389,6 +433,46 @@ impl Pulse {
 
     pub fn get_sink_inputs(&self) -> &HashMap<u32, StreamData> {
         &self.sink_inputs
+    }
+
+    /// Enable or disable VU peak monitoring.
+    /// When disabled, streams are corked (stops data flow) but the read
+    /// callback stays installed. Removing and re-adding the callback breaks
+    /// PulseAudio's PEAK_DETECT state, causing peaks to stop updating.
+    pub fn set_vu_enabled(&mut self, enabled: bool) {
+        self.vu_enabled.store(enabled, Ordering::Relaxed);
+
+        let mut mainloop = self.mainloop.borrow_mut();
+        mainloop.lock();
+
+        for streams in [&mut self.sinks, &mut self.sink_inputs] {
+            for stream in streams.values_mut() {
+                let mut monitor = stream.monitor.borrow_mut();
+                // Only operate on streams that are fully connected (READY).
+                // Streams in CREATING state will be handled when they transition.
+                if monitor.get_state() == StreamState::Ready {
+                    if enabled {
+                        // Uncork to resume data flow. The read callback is already
+                        // installed from stream creation and stays active.
+                        if monitor.is_corked().unwrap_or(false) {
+                            let _ = monitor.uncork(Some(Box::new(move |_| {})));
+                        }
+                    } else {
+                        // Cork to stop data flow. The callback stays installed
+                        // so PEAK_DETECT state is preserved.
+                        if !monitor.is_corked().unwrap_or(true) {
+                            let _ = monitor.cork(Some(Box::new(move |_| {})));
+                        }
+                    }
+                }
+            }
+        }
+
+        mainloop.unlock();
+    }
+
+    pub fn is_vu_enabled(&self) -> bool {
+        self.vu_enabled.load(Ordering::Relaxed)
     }
 
     // --- Private Internal Logic ---
@@ -433,6 +517,7 @@ impl Pulse {
             let stream_entry = StreamData {
                 data,
                 peak: 0,
+                peak_time: glib::monotonic_time() as u64,
                 monitor_index: stream_data.monitor_index,
                 monitor,
             };
@@ -470,16 +555,36 @@ impl Pulse {
         };
     }
 
-    fn update_peak(&mut self, t: StreamType, index: u32, peak: u32) {
+    fn update_peak(&mut self, t: StreamType, index: u32, peak: u32, now: u64) {
         match t {
             StreamType::Sink => {
                 if let Some(e) = self.sinks.get_mut(&index) {
                     e.peak = peak;
+                    e.peak_time = now;
                 }
             }
             StreamType::SinkInput => {
                 if let Some(e) = self.sink_inputs.get_mut(&index) {
                     e.peak = peak;
+                    e.peak_time = now;
+                }
+            }
+        };
+    }
+
+    /// Immediately zero the peak for a stream (e.g., when the monitor stream is suspended).
+    fn zero_peak(&mut self, t: StreamType, index: u32, now: u64) {
+        match t {
+            StreamType::Sink => {
+                if let Some(e) = self.sinks.get_mut(&index) {
+                    e.peak = 0;
+                    e.peak_time = now;
+                }
+            }
+            StreamType::SinkInput => {
+                if let Some(e) = self.sink_inputs.get_mut(&index) {
+                    e.peak = 0;
+                    e.peak_time = now;
                 }
             }
         };
@@ -500,7 +605,7 @@ impl Pulse {
         let spec = Spec {
             channels: 1,
             format: Format::F32le,
-            rate: 30, // Low rate for UI updates
+            rate: PEAKS_RATE,
         };
 
         if !spec.is_valid() {
@@ -524,13 +629,24 @@ impl Pulse {
             let mut mainloop = self.mainloop.borrow_mut();
             mainloop.lock();
 
-            let res = stream_mut.connect_record(
-                source,
-                Some(&attr),
-                StreamFlagSet::DONT_MOVE
-                    | StreamFlagSet::ADJUST_LATENCY
-                    | StreamFlagSet::PEAK_DETECT,
-            );
+            // Build flags: always use DONT_MOVE, ADJUST_LATENCY, PEAK_DETECT.
+            // For sink inputs, add DONT_INHIBIT_AUTO_SUSPEND so PA can auto-suspend
+            // the monitor stream when the app is idle (saves CPU).
+            //
+            // NOTE: We don't use START_CORKED here. When VU is disabled, we skip
+            // setting the read callback, which already prevents any peak processing.
+            // Using START_CORKED would require tracking uncork timing vs stream READY
+            // state transitions, which is fragile.
+            let flags = StreamFlagSet::DONT_MOVE
+                | StreamFlagSet::ADJUST_LATENCY
+                | StreamFlagSet::PEAK_DETECT
+                | if t == StreamType::SinkInput {
+                    StreamFlagSet::DONT_INHIBIT_AUTO_SUSPEND
+                } else {
+                    StreamFlagSet::empty()
+                };
+
+            let res = stream_mut.connect_record(source, Some(&attr), flags);
 
             mainloop.unlock();
 
@@ -541,12 +657,27 @@ impl Pulse {
             // Setup read callback
             let stream_clone = stream.clone();
             let tx = self.tx.clone();
+            let vu_enabled = self.vu_enabled.clone();
 
             stream_mut.set_read_callback(Some(Box::new(move |_| {
                 // IMPORTANT: We are in the pulse thread.
                 // Borrowing stream_clone is safe because set_read_callback implies strict ownership rules
                 // and the main loop is locked during this callback.
-                monitor_read_callback(&mut stream_clone.borrow_mut(), t, stream_index, &tx);
+                monitor_read_callback(
+                    &mut stream_clone.borrow_mut(),
+                    t,
+                    stream_index,
+                    &tx,
+                    &vu_enabled,
+                );
+            })));
+
+            // Setup suspended callback: when the stream is suspended (e.g., the
+            // monitored audio app pauses/stops), immediately zero the peak.
+            // This matches pavucontrol's behavior of calling decayToZero().
+            let tx = self.tx.clone();
+            stream_mut.set_suspended_callback(Some(Box::new(move || {
+                let _ = tx.send(TxMessage::PeakZero(t, stream_index));
             })));
         }
 
@@ -577,14 +708,24 @@ fn get_icon_name_from_sink_input(proplist: &libpulse::proplist::Proplist) -> Str
         .unwrap_or_else(|| "multimedia-volume-control".to_owned())
 }
 
-/// Helper function to process raw audio bytes into a peak value.
-/// Isolates the specific math scaling logic.
+/// Helper function to scale a raw peak value (0..1) to the volume scale (0..MAX_SCALE_VOL).
+///
+/// `PA_STREAM_PEAK_DETECT` writes the peak amplitude directly to the buffer as a float in [0, 1].
+/// We scale it to match the volume scale used by the VU meter.
 fn calculate_peak(raw_peak: f32) -> u32 {
-    (raw_peak.sqrt() * MAX_NATURAL_VOL as f32 * MAX_VOL_SCALE as f32).round() as u32
+    (raw_peak * MAX_NATURAL_VOL as f32 * MAX_VOL_SCALE as f32).round() as u32
 }
 
 /// Standalone callback logic for monitors.
-fn monitor_read_callback(stream: &mut Stream, t: StreamType, index: u32, tx: &Sender<TxMessage>) {
+/// Always reads and discards audio data (prevents buffer overflow),
+/// but only sends peak messages when `vu_enabled` is true.
+fn monitor_read_callback(
+    stream: &mut Stream,
+    t: StreamType,
+    index: u32,
+    tx: &Sender<TxMessage>,
+    vu_enabled: &Arc<AtomicBool>,
+) {
     let mut raw_peak: f32 = 0.0;
 
     while stream.readable_size().unwrap_or(0) > 0 {
@@ -604,7 +745,8 @@ fn monitor_read_callback(stream: &mut Stream, t: StreamType, index: u32, tx: &Se
         }
     }
 
-    if raw_peak > 0.0 {
+    // Only send peak messages when VU monitoring is active
+    if raw_peak > 0.0 && vu_enabled.load(Ordering::Relaxed) {
         let peak = calculate_peak(raw_peak);
         let _ = tx.send(TxMessage::Peak(t, index, peak));
     }

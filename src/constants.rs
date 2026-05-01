@@ -12,6 +12,9 @@ pub const MAX_VOL_SCALE: f64 = 1.5;
 /// The maximum scale volume
 pub const MAX_SCALE_VOL: u32 = (MAX_NATURAL_VOL as f64 * MAX_VOL_SCALE) as u32;
 
+/// Peak monitor rate
+pub const PEAKS_RATE: u32 = 144;
+
 // Settings
 pub const SETTINGS_SCHEMA_KEY: &str = "apps.volctl";
 pub const SETTINGS_PATH: &str = "/apps/volctl/";

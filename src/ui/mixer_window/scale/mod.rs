@@ -11,9 +11,10 @@ use gtk::{IconTheme, Image, Orientation, gdk};
 use libpulse::volume::{ChannelVolumes, Volume};
 
 use crate::constants::{
-    MAX_NATURAL_VOL, MAX_VOL_SCALE, SETTINGS_ALLOW_EXTRA_VOLUME, SETTINGS_SHOW_PERCENTAGE,
+    MAX_NATURAL_VOL, MAX_SCALE_VOL, MAX_VOL_SCALE, SETTINGS_ALLOW_EXTRA_VOLUME,
+    SETTINGS_SHOW_PERCENTAGE, SETTINGS_VU_ENABLED,
 };
-use crate::pulse::{MeterData, Pulse};
+use crate::pulse::{MeterData, Pulse, StreamType};
 
 mod imp;
 
@@ -32,6 +33,9 @@ impl VolumeScale {
         let imp = obj.imp();
         imp.pulse.set(pulse.clone()).ok();
         imp.settings.set(settings.clone()).ok();
+
+        imp.allow_extra_volume
+            .set(settings.boolean(SETTINGS_ALLOW_EXTRA_VOLUME));
 
         // Add CSS class for styling
         imp.mute_btn.add_css_class("toggle");
@@ -91,7 +95,10 @@ impl VolumeScale {
         // React to allow-extra-volume setting changes
         {
             let obj_clone = obj.clone();
-            settings.connect_changed(Some(SETTINGS_ALLOW_EXTRA_VOLUME), move |_, _| {
+            settings.connect_changed(Some(SETTINGS_ALLOW_EXTRA_VOLUME), move |settings, _| {
+                let imp = obj_clone.imp();
+                imp.allow_extra_volume
+                    .set(settings.boolean(SETTINGS_ALLOW_EXTRA_VOLUME));
                 Self::configure_scale_range(&obj_clone);
             });
         }
@@ -109,19 +116,62 @@ impl VolumeScale {
         let show_percentage = settings.boolean(SETTINGS_SHOW_PERCENTAGE);
         imp.scale.set_draw_value(show_percentage);
 
+        // Configure scale for VU meter appearance if enabled
+        let vu_enabled = settings.boolean(SETTINGS_VU_ENABLED);
+        imp.vu_enabled.set(vu_enabled);
+        // has_origin=false: fill bar extends from the value (knob) position,
+        // not from 0. This is needed for correct fill bar rendering.
+        imp.scale.set_has_origin(false);
+        // Fill bar is always visible: VU shows peaks, non-VU shows volume level.
+        imp.scale.set_show_fill_level(true);
+        if vu_enabled {
+            // Initialize fill_level to 0 BEFORE enabling display.
+            imp.scale.set_fill_level(0.0);
+        }
+
+        // React to vu-enabled setting changes.
+        // Block signals to avoid triggering the volume handler.
+        {
+            let obj_clone = obj.clone();
+            settings.connect_changed(Some(SETTINGS_VU_ENABLED), move |settings, _| {
+                let enabled = settings.boolean(SETTINGS_VU_ENABLED);
+                let imp = obj_clone.imp();
+
+                // Block the value_changed handler during property changes
+                if let Some(id) = imp.value_changed_handler.get() {
+                    imp.scale.block_signal(id);
+                }
+
+                imp.vu_enabled.set(enabled);
+                imp.scale.set_has_origin(false);
+                // Fill bar is always visible: VU shows peaks, non-VU shows volume level.
+                imp.scale.set_show_fill_level(true);
+
+                // Immediately update fill_level to match the new mode.
+                if enabled {
+                    // VU mode: fill_level starts at 0, peaks will update it.
+                    imp.scale.set_fill_level(0.0);
+                } else {
+                    // Non-VU mode: fill_level = current volume.
+                    imp.scale.set_fill_level(imp.scale.value());
+                }
+
+                obj_clone.force_fill_level_redraw();
+
+                if let Some(id) = imp.value_changed_handler.get() {
+                    imp.scale.unblock_signal(id);
+                }
+            });
+        }
+
         obj
     }
 
     /// Apply scale range, size, and snap-mark based on the current allow-extra-volume setting.
     fn configure_scale_range(obj: &Self) {
         let imp = obj.imp();
-        let settings = match imp.settings.get() {
-            Some(s) => s.clone(),
-            None => return,
-        };
-        let extra = settings.boolean(SETTINGS_ALLOW_EXTRA_VOLUME);
 
-        let (upper, height, has_mark) = if extra {
+        let (upper, height, has_mark) = if imp.allow_extra_volume.get() {
             (MAX_VOL_SCALE, (128.0 * MAX_VOL_SCALE) as i32, true)
         } else {
             (1.0, 128, false)
@@ -222,6 +272,11 @@ impl VolumeScale {
 
         if let Some(value) = new_volume {
             imp.scale.set_value(value);
+            // In non-VU mode, keep fill_level synced with volume so the fill bar
+            // shows the current level. In VU mode, update_peak() manages fill_level.
+            if !imp.vu_enabled.get() {
+                imp.scale.set_fill_level(value);
+            }
         }
 
         if let Some(muted) = new_muted {
@@ -239,7 +294,73 @@ impl VolumeScale {
     }
 
     fn format_scale_value(value: f64) -> String {
-        format!("{:.0}", value * 100.0)
+        format!("{:.0}%", value * 100.0)
+    }
+
+    /// Update the VU peak fill level on the scale.
+    ///
+    /// The `peak` value is in the same units as volume (0..MAX_SCALE_VOL).
+    /// For sinks, the peak is scaled by the current volume.
+    /// Smooth decay is handled by `Pulse::update()`. This method only displays the current peak value.
+    pub fn update_peak(&self, peak: u32, stream_type: StreamType) {
+        let imp = self.imp();
+
+        // Normalize peak to 0.0..1.0 range
+        let mut normalized = peak as f64 / MAX_SCALE_VOL as f64;
+
+        // For sinks, scale by current volume.
+        // This shows the effective output level, not the raw input level.
+        if stream_type == StreamType::Sink {
+            let data = imp.data.borrow();
+            normalized *= data.volume.avg().0 as f64 / MAX_NATURAL_VOL as f64;
+            drop(data);
+        }
+
+        // Clamp to valid range
+        normalized = normalized.clamp(
+            0.0,
+            if imp.allow_extra_volume.get() {
+                1.5
+            } else {
+                1.0
+            },
+        );
+
+        // Only update fill_level when VU is enabled.
+        if imp.vu_enabled.get() {
+            // Block the value_changed handler so GTK setters don't trigger
+            // a volume change if they fire value_changed unexpectedly.
+            if let Some(id) = imp.value_changed_handler.get() {
+                imp.scale.block_signal(id);
+            }
+
+            imp.scale.set_fill_level(normalized);
+
+            // Skip repaint if the value hasn't changed meaningfully.
+            // This avoids unnecessary redraws when peaks are stable or fully decayed.
+            let last = imp.last_displayed_peak.get();
+            if (normalized - last).abs() < 0.001 {
+                if let Some(id) = imp.value_changed_handler.get() {
+                    imp.scale.unblock_signal(id);
+                }
+                return;
+            }
+            imp.last_displayed_peak.set(normalized);
+
+            self.force_fill_level_redraw();
+
+            if let Some(id) = imp.value_changed_handler.get() {
+                imp.scale.unblock_signal(id);
+            }
+        }
+    }
+
+    /// GTK4 only repaints the fill block when `show_fill_level` changes (bool).
+    /// Changing only `fill_level` (float) does NOT trigger a repaint.
+    fn force_fill_level_redraw(&self) {
+        let imp = self.imp();
+        imp.scale.set_show_fill_level(false);
+        imp.scale.set_show_fill_level(true);
     }
 }
 
