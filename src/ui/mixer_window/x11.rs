@@ -94,7 +94,7 @@ impl MixerWindow {
         xid: gdk_x11::x11::xlib::XID,
     ) {
         // _NET_WM_WINDOW_TYPE = UTILITY
-        set_window_type(x11, xid, atoms._net_wm_window_type_utility);
+        set_window_type(x11, xid, atoms, atoms._net_wm_window_type_utility);
 
         // _NET_WM_ALLOWED_ACTIONS = CLOSE | ABOVE
         unsafe {

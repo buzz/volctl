@@ -200,7 +200,7 @@ impl super::SurfaceBackend for X11Surface {
             set_override_redirect(&self.x11, xid);
 
             if let Some(atoms) = self.get_atoms() {
-                set_window_type(&self.x11, xid, atoms._net_wm_window_type_notification);
+                set_window_type(&self.x11, xid, &atoms, atoms._net_wm_window_type_notification);
                 set_wm_states_property(
                     &self.x11,
                     xid,

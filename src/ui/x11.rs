@@ -100,13 +100,18 @@ impl AtomCollection {
 // ---------------------------------------------------------------------------
 
 /// Set `_NET_WM_WINDOW_TYPE` on a window.
-pub fn set_window_type(ctx: &X11Context, xid: xlib::XID, window_type_atom: xlib::Atom) {
+pub fn set_window_type(
+    ctx: &X11Context,
+    xid: xlib::XID,
+    atoms: &AtomCollection,
+    window_type_atom: xlib::Atom,
+) {
     unsafe {
         let c = ctx.xlib();
         (c.XChangeProperty)(
             ctx.display,
             xid,
-            AtomCollection::new(ctx).expect("atoms")._net_wm_window_type,
+            atoms._net_wm_window_type,
             xlib::XA_ATOM,
             32,
             xlib::PropModeReplace,
