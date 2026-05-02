@@ -621,6 +621,33 @@ impl Pulse {
                 return Err(PulseError::StreamCreation);
             }
 
+            // Setup read callback BEFORE connect_record to avoid a race where
+            // PulseAudio delivers data before the handler is installed.
+            let stream_clone = stream.clone();
+            let tx = self.tx.clone();
+            let vu_enabled = self.vu_enabled.clone();
+
+            stream_mut.set_read_callback(Some(Box::new(move |_| {
+                // IMPORTANT: We are in the pulse thread.
+                // Borrowing stream_clone is safe because set_read_callback implies strict ownership rules
+                // and the main loop is locked during this callback.
+                monitor_read_callback(
+                    &mut stream_clone.borrow_mut(),
+                    t,
+                    stream_index,
+                    &tx,
+                    &vu_enabled,
+                );
+            })));
+
+            // Setup suspended callback: when the stream is suspended (e.g., the
+            // monitored audio app pauses/stops), immediately zero the peak.
+            // This matches pavucontrol's behavior of calling decayToZero().
+            let tx = self.tx.clone();
+            stream_mut.set_suspended_callback(Some(Box::new(move || {
+                let _ = tx.send(TxMessage::PeakZero(t, stream_index));
+            })));
+
             let mut mainloop = self.mainloop.borrow_mut();
             mainloop.lock();
 
@@ -648,32 +675,6 @@ impl Pulse {
             if res.is_err() {
                 return Err(PulseError::StreamCreation);
             }
-
-            // Setup read callback
-            let stream_clone = stream.clone();
-            let tx = self.tx.clone();
-            let vu_enabled = self.vu_enabled.clone();
-
-            stream_mut.set_read_callback(Some(Box::new(move |_| {
-                // IMPORTANT: We are in the pulse thread.
-                // Borrowing stream_clone is safe because set_read_callback implies strict ownership rules
-                // and the main loop is locked during this callback.
-                monitor_read_callback(
-                    &mut stream_clone.borrow_mut(),
-                    t,
-                    stream_index,
-                    &tx,
-                    &vu_enabled,
-                );
-            })));
-
-            // Setup suspended callback: when the stream is suspended (e.g., the
-            // monitored audio app pauses/stops), immediately zero the peak.
-            // This matches pavucontrol's behavior of calling decayToZero().
-            let tx = self.tx.clone();
-            stream_mut.set_suspended_callback(Some(Box::new(move || {
-                let _ = tx.send(TxMessage::PeakZero(t, stream_index));
-            })));
         }
 
         Ok(stream)
