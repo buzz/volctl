@@ -1,3 +1,8 @@
+// Link libXfixes for click-through OSD windows (XFixesSetWindowShapeRegion etc.)
+#[cfg(target_os = "linux")]
+#[link(name = "Xfixes")]
+unsafe extern "C" {}
+
 mod app;
 mod constants;
 mod errors;

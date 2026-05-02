@@ -19,7 +19,7 @@ use crate::ui::x11::{
 const SHAPE_BOUNDING: c_int = 0;
 const SHAPE_INPUT: c_int = 2;
 
-#[link(name = "Xfixes")]
+// Linked via #[link(name = "Xfixes")] at crate root (main.rs)
 unsafe extern "C" {
     fn XFixesCreateRegion(
         display: *mut xlib::Display,
