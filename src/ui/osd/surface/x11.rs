@@ -108,12 +108,13 @@ impl X11Surface {
 
     fn set_click_through_shape(&self, xid: xlib::XID) {
         unsafe {
+            let display = self.x11.display();
             // Clear bounding
-            XFixesSetWindowShapeRegion(self.x11.display, xid, SHAPE_BOUNDING, 0, 0, 0);
+            XFixesSetWindowShapeRegion(display, xid, SHAPE_BOUNDING, 0, 0, 0);
             // Empty input region
-            let region = XFixesCreateRegion(self.x11.display, std::ptr::null(), 0);
-            XFixesSetWindowShapeRegion(self.x11.display, xid, SHAPE_INPUT, 0, 0, region);
-            XFixesDestroyRegion(self.x11.display, region);
+            let region = XFixesCreateRegion(display, std::ptr::null(), 0);
+            XFixesSetWindowShapeRegion(display, xid, SHAPE_INPUT, 0, 0, region);
+            XFixesDestroyRegion(display, region);
         }
     }
 
@@ -200,7 +201,12 @@ impl super::SurfaceBackend for X11Surface {
             set_override_redirect(&self.x11, xid);
 
             if let Some(atoms) = self.get_atoms() {
-                set_window_type(&self.x11, xid, &atoms, atoms._net_wm_window_type_notification);
+                set_window_type(
+                    &self.x11,
+                    xid,
+                    &atoms,
+                    atoms._net_wm_window_type_notification,
+                );
                 set_wm_states_property(
                     &self.x11,
                     xid,

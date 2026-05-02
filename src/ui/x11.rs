@@ -9,21 +9,39 @@ use gtk::prelude::*;
 
 use crate::errors::X11Error;
 
-/// Shared X11 display context (thin wrapper around GDK's X11 Display*).
-pub struct X11Context {
-    pub display: *mut Display,
-}
+/// Zero-sized X11 display context.
+///
+/// Fetches the X11 `Display*` from GDK on-demand. The GDK display is stable
+/// for the entire application lifetime, so re-fetching the pointer is safe
+/// and has negligible cost. This avoids storing a raw pointer with no lifetime
+/// guarantees.
+#[derive(Clone, Copy)]
+pub struct X11Context;
 
 impl X11Context {
-    /// Create a new X11 context from the current GDK display.
+    /// Create a new X11 context. Verifies that the current GDK display is X11.
+    /// Returns an error if running on Wayland or if no display is available.
     pub fn new() -> Result<Self, X11Error> {
         let gdk_display = gdk::Display::default().ok_or(X11Error::NoDisplay)?;
-        let x11_display = gdk_display
+        gdk_display
             .downcast_ref::<X11Display>()
             .ok_or(X11Error::NotX11Display)?;
-        let display = unsafe { x11_display.xdisplay() };
+        Ok(Self)
+    }
 
-        Ok(Self { display })
+    /// Get the X11 `Display*` from the current GDK display.
+    ///
+    /// # Safety
+    /// The returned pointer is valid as long as the GDK display is alive,
+    /// which is the entire application lifetime.
+    pub fn display(&self) -> *mut Display {
+        unsafe {
+            gdk::Display::default()
+                .expect("GDK display should exist")
+                .downcast_ref::<X11Display>()
+                .expect("X11Display should exist (checked in X11Context::new)")
+                .xdisplay()
+        }
     }
 
     /// Get the cached xlib function table (opened once, cached by the x11-dl crate).
@@ -31,17 +49,6 @@ impl X11Context {
         Xlib::open().expect("Failed to open Xlib")
     }
 }
-
-unsafe impl Send for X11Context {}
-unsafe impl Sync for X11Context {}
-
-impl Clone for X11Context {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl Copy for X11Context {}
 
 // ---------------------------------------------------------------------------
 // AtomCollection
@@ -72,7 +79,7 @@ impl AtomCollection {
         let intern = |name: &str| -> Option<xlib::Atom> {
             let c_name = CString::new(name).ok()?;
             let atom =
-                unsafe { (ctx.xlib().XInternAtom)(ctx.display, c_name.as_ptr(), xlib::False) };
+                unsafe { (ctx.xlib().XInternAtom)(ctx.display(), c_name.as_ptr(), xlib::False) };
             if atom == 0 { None } else { Some(atom) }
         };
 
@@ -108,8 +115,9 @@ pub fn set_window_type(
 ) {
     unsafe {
         let c = ctx.xlib();
+        let display = ctx.display();
         (c.XChangeProperty)(
-            ctx.display,
+            display,
             xid,
             atoms._net_wm_window_type,
             xlib::XA_ATOM,
@@ -130,8 +138,9 @@ pub fn set_wm_states_property(
 ) {
     unsafe {
         let c = ctx.xlib();
+        let display = ctx.display();
         (c.XChangeProperty)(
-            ctx.display,
+            display,
             xid,
             atoms._net_wm_state,
             xlib::XA_ATOM,
@@ -156,6 +165,7 @@ pub fn send_wm_state_add(
 
     unsafe {
         let c = ctx.xlib();
+        let display = ctx.display();
         let mut event: xlib::XEvent = std::mem::zeroed();
         event.client_message.type_ = xlib::ClientMessage;
         event.client_message.window = xid;
@@ -169,13 +179,13 @@ pub fn send_wm_state_add(
         data[4] = 0;
 
         (c.XSendEvent)(
-            ctx.display,
+            display,
             xid,
             xlib::False,
             xlib::SubstructureRedirectMask | xlib::StructureNotifyMask,
             &mut event,
         );
-        (c.XFlush)(ctx.display);
+        (c.XFlush)(display);
     }
 }
 
@@ -186,7 +196,7 @@ pub fn set_override_redirect(ctx: &X11Context, xid: xlib::XID) {
         attrs.override_redirect = 1;
 
         (ctx.xlib().XChangeWindowAttributes)(
-            ctx.display,
+            ctx.display(),
             xid,
             xlib::CWOverrideRedirect,
             &mut attrs,
@@ -198,15 +208,11 @@ pub fn set_override_redirect(ctx: &X11Context, xid: xlib::XID) {
 pub fn configure_window_position(ctx: &X11Context, xid: xlib::XID, x: i32, y: i32) {
     unsafe {
         let c = ctx.xlib();
+        let display = ctx.display();
         let mut changes = std::mem::zeroed::<xlib::XWindowChanges>();
         changes.x = x;
         changes.y = y;
-        (c.XConfigureWindow)(
-            ctx.display,
-            xid,
-            (xlib::CWX | xlib::CWY).into(),
-            &mut changes,
-        );
-        (c.XFlush)(ctx.display);
+        (c.XConfigureWindow)(display, xid, (xlib::CWX | xlib::CWY).into(), &mut changes);
+        (c.XFlush)(display);
     }
 }

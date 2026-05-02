@@ -98,9 +98,10 @@ impl MixerWindow {
 
         // _NET_WM_ALLOWED_ACTIONS = CLOSE | ABOVE
         unsafe {
+            let display = x11.display();
             let actions = [atoms._net_wm_action_close, atoms._net_wm_action_above];
             (x11.xlib().XChangeProperty)(
-                x11.display,
+                display,
                 xid,
                 atoms._net_wm_allowed_actions,
                 gdk_x11::x11::xlib::XA_ATOM,
@@ -113,9 +114,10 @@ impl MixerWindow {
 
         // _NET_WM_BYPASS_COMPOSITOR = 2
         unsafe {
+            let display = x11.display();
             let value: u32 = 2;
             (x11.xlib().XChangeProperty)(
-                x11.display,
+                display,
                 xid,
                 atoms._net_wm_bypass_compositor,
                 gdk_x11::x11::xlib::XA_CARDINAL,
