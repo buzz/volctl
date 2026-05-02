@@ -193,19 +193,18 @@ impl Pulse {
     pub fn set_volume(&self, t: StreamType, index: u32, volumes: ChannelVolumes) {
         let mut introspect = self.context.borrow().introspect();
 
+        // The Operation is fire-and-forget: we pass None as the callback and let
+        // it drop immediately. pa_operation_unref (called on Drop) only decrements
+        // our reference — PulseAudio holds its own reference while processing,
+        // so the operation completes correctly.
         match t {
             StreamType::Sink => {
-                let op = introspect.set_sink_volume_by_index(index, &volumes, None);
-                // Prevent Operation::drop from calling pa_operation_unref,
-                // which would destroy the operation before PulseAudio processes it.
-                // This matches the Python pulsectl behavior (raw pointer is ignored).
-                std::mem::forget(op);
+                let _op = introspect.set_sink_volume_by_index(index, &volumes, None);
             }
             StreamType::SinkInput => {
-                let op = introspect.set_sink_input_volume(index, &volumes, None);
-                std::mem::forget(op);
+                let _op = introspect.set_sink_input_volume(index, &volumes, None);
             }
-        };
+        }
     }
 
     /// Mutes or unmutes a stream.
@@ -230,16 +229,15 @@ impl Pulse {
 
         let mut introspect = self.context.borrow().introspect();
 
+        // Fire-and-forget: see set_volume for why dropping Operation is safe.
         match t {
             StreamType::Sink => {
-                let op = introspect.set_sink_mute_by_index(index, mute, None);
-                std::mem::forget(op);
+                let _op = introspect.set_sink_mute_by_index(index, mute, None);
             }
             StreamType::SinkInput => {
-                let op = introspect.set_sink_input_mute(index, mute, None);
-                std::mem::forget(op);
+                let _op = introspect.set_sink_input_mute(index, mute, None);
             }
-        };
+        }
     }
 
     /// Binds listeners to server events.
