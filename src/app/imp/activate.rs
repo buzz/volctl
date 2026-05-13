@@ -37,7 +37,7 @@ impl Application {
 
         // Periodically update widgets from PulseAudio
         let app = self.obj();
-        glib::timeout_add_local(
+        let source_id = glib::timeout_add_local(
             Duration::from_millis(1000 / 30),
             clone!(
                 #[strong]
@@ -48,6 +48,7 @@ impl Application {
                 }
             ),
         );
+        *self.update_timer.borrow_mut() = Some(source_id);
     }
 
     fn init_tray(&self) {

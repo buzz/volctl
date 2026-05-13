@@ -147,6 +147,11 @@ impl Application {
     pub fn request_quit(&self) {
         let imp = self.imp();
 
+        // Cancel the periodic update timer
+        if let Some(source_id) = imp.update_timer.borrow_mut().take() {
+            source_id.remove();
+        }
+
         // Close mixer window
         if let Some(win) = imp.mixer_window.take() {
             win.close();

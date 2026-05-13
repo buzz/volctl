@@ -2,6 +2,7 @@ use std::cell::{Cell, RefCell};
 use std::process::Child;
 use std::rc::Rc;
 
+use glib::SourceId;
 use glib::subclass::object::ObjectImpl;
 use glib::subclass::types::ObjectSubclass;
 use gtk::gio;
@@ -25,6 +26,9 @@ pub struct Application {
     pub(super) settings: gio::Settings,
     pub(super) tray_handle: RefCell<Option<Handle<VolctlTray>>>,
     pub(super) x11_context: Option<X11Context>,
+
+    // Timer for periodic PulseAudio updates
+    pub(super) update_timer: RefCell<Option<SourceId>>,
 
     // Previous values (tray icon)
     pub(super) volume: Cell<u32>,
@@ -69,6 +73,7 @@ impl Default for Application {
             pulse: Rc::from(RefCell::from(pulse_instance)),
             settings,
             tray_handle: RefCell::from(None),
+            update_timer: RefCell::from(None),
             x11_context,
             volume: Cell::new(0),
             muted: Cell::new(false),
