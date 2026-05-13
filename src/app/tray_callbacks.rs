@@ -85,13 +85,13 @@ impl Application {
     }
 
     /// Show about dialog
-    pub fn show_about(&self) {
+    pub fn show_about() {
         let about_dialog = crate::ui::about_dialog::new();
         about_dialog.present();
     }
 
     /// Show preferences dialog
-    pub fn show_prefs(&self) {
+    pub fn show_prefs() {
         let prefs_window = PreferencesWindow::default();
         prefs_window.present();
     }

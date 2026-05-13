@@ -11,6 +11,7 @@ use crate::constants::{MAX_NATURAL_VOL, SETTINGS_MOUSE_WHEEL_STEP};
 use crate::ui::dialog::show_error;
 use crate::ui::tray::{TrayMessage, VolctlTray};
 
+use super::super::Application as App;
 use super::Application;
 
 impl ApplicationImpl for Application {
@@ -80,11 +81,11 @@ impl Application {
             async move {
                 while let Ok(msg) = rx.recv().await {
                     match msg {
-                        TrayMessage::About => app.show_about(),
+                        TrayMessage::About => App::show_about(),
                         TrayMessage::Activate(x, y) => app.toggle_mixer_popup(x, y),
                         TrayMessage::ExternalMixer => app.external_mixer(),
                         TrayMessage::Mute => app.toggle_muted_active_sink_volume(),
-                        TrayMessage::Preferences => app.show_prefs(),
+                        TrayMessage::Preferences => App::show_prefs(),
                         TrayMessage::Scroll(delta) => {
                             let step = settings_clone.int(SETTINGS_MOUSE_WHEEL_STEP);
                             app.change_active_sink_volume(
