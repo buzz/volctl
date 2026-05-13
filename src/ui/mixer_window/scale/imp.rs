@@ -117,7 +117,7 @@ impl Default for VolumeScale {
                 .build(),
             mute_btn: ToggleButton::builder().build(),
             data: Rc::from(RefCell::from(MeterData::default())),
-            allow_extra_volume: true.into(),
+            allow_extra_volume: false.into(),
             pulse: OnceCell::new(),
             value_changed_handler: OnceCell::new(),
             toggled_handler: OnceCell::new(),
