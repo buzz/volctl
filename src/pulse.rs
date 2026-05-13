@@ -554,13 +554,13 @@ impl Pulse {
         match t {
             StreamType::Sink => {
                 if let Some(e) = self.sinks.get_mut(&index) {
-                    e.peak = peak;
+                    e.peak = apply_peak_floor(e.peak, peak);
                     e.peak_time = now;
                 }
             }
             StreamType::SinkInput => {
                 if let Some(e) = self.sink_inputs.get_mut(&index) {
-                    e.peak = peak;
+                    e.peak = apply_peak_floor(e.peak, peak);
                     e.peak_time = now;
                 }
             }
@@ -717,6 +717,21 @@ fn get_description_from_sink_input(item: &SinkInputInfo<'_>) -> String {
         (Some(app), Some(media)) => format!("<b>{}</b>: {}", app, media),
         (Some(app), None) => app.to_owned(),
         (None, _) => item.name.clone().unwrap_or_default().into_owned(),
+    }
+}
+
+/// Apply a minimum decay floor to a new peak value.
+///
+/// Prevents the peak from dropping by more than one sample period's worth of decay
+/// between consecutive peak samples. Matches pavucontrol's `updatePeak` behavior
+/// for smoother VU meter transitions.
+fn apply_peak_floor(current_peak: u32, new_peak: u32) -> u32 {
+    let floor = MAX_SCALE_VOL as f64 / PEAKS_RATE as f64;
+    if current_peak as f64 >= floor {
+        let min_val = (current_peak as f64 - floor).round() as u32;
+        new_peak.max(min_val)
+    } else {
+        new_peak
     }
 }
 
