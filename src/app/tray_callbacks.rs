@@ -30,6 +30,7 @@ impl Application {
             };
             let mixer_window = imp.mixer_window.clone();
             let window = MixerWindow::new(
+                self,
                 imp.pulse.clone(),
                 imp.settings.clone(),
                 x11_context,

@@ -7,9 +7,10 @@ use crate::pulse::Pulse;
 
 use gdk::prelude::{DeviceExt, DisplayExt, ListModelExt, MonitorExt, SeatExt};
 use glib::object::Cast;
+use glib::prelude::IsA;
 use glib::subclass::types::ObjectSubclassIsExt;
 use glib::translate::ToGlibPtr;
-use gtk::prelude::{BoxExt, WidgetExt};
+use gtk::prelude::{BoxExt, GtkWindowExt, WidgetExt};
 
 use super::utils::{DisplayType, get_display_type};
 use super::x11::X11Context;
@@ -29,6 +30,7 @@ glib::wrapper! {
 
 impl MixerWindow {
     pub fn new(
+        application: &impl IsA<gtk::Application>,
         pulse: Rc<RefCell<Pulse>>,
         settings: gio::Settings,
         x11_context: Option<X11Context>,
@@ -39,6 +41,7 @@ impl MixerWindow {
             .property("resizable", false)
             .property("deletable", false)
             .build();
+        window.set_application(Some(application));
 
         let imp = window.imp();
         imp.pulse.set(pulse).ok();
