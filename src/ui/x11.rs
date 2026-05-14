@@ -45,7 +45,7 @@ impl X11Context {
     }
 
     /// Get the cached xlib function table (opened once, cached by the x11-dl crate).
-    pub fn xlib(&self) -> Xlib {
+    pub fn xlib(self) -> Xlib {
         Xlib::open().expect("Failed to open Xlib")
     }
 }

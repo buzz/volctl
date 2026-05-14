@@ -122,7 +122,7 @@ impl OsdWidget {
         CSS_LOADED.call_once(|| {
             let css_provider = gtk::CssProvider::new();
             css_provider.load_from_string(
-                r#"
+                r"
                 .osd-window {
                     background: transparent;
                     border: none;
@@ -133,7 +133,7 @@ impl OsdWidget {
                     outline-color: transparent;
                     box-shadow: none;
                 }
-                "#,
+                ",
             );
             if let Some(display) = gtk::gdk::Display::default() {
                 gtk::style_context_add_provider_for_display(

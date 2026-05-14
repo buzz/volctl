@@ -20,7 +20,7 @@ impl Application {
             .build()
     }
 
-    /// Process updates from PulseAudio
+    /// Process updates from `PulseAudio`
     fn update(&self) {
         let imp = self.imp();
 

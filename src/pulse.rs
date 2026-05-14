@@ -367,6 +367,9 @@ impl Pulse {
     /// Handles queued messages from the pulse thread.
     /// Returns true if the layout needs a refresh.
     pub fn update(&mut self) -> bool {
+        // Monotonic time is used for frame-rate independent peak decay.
+        // Suspend/resume jumps are acceptable here as they simply advance
+        // the decay, causing peaks to drop to zero faster after wake.
         let now = glib::monotonic_time() as u64;
 
         // Phase 1: Reset peaks for streams that will receive new data this frame.
@@ -768,7 +771,11 @@ fn monitor_read_callback(
             Ok(PeekResult::Hole(_)) => {
                 let _ = stream.discard();
             }
-            _ => break,
+            Ok(PeekResult::Empty) => break,
+            Err(e) => {
+                tracing::warn!(error = %e, "peek() failed on monitor stream, stopping read loop");
+                break;
+            }
         }
     }
 

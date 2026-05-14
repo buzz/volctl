@@ -16,9 +16,7 @@ use app::Application;
 fn main() -> gtk::glib::ExitCode {
     tracing_subscriber::fmt().init();
 
-    if gtk::init().is_err() {
-        panic!("Failed to initialize GTK.");
-    }
+    gtk::init().expect("Failed to initialize GTK.");
 
     let app = Application::default();
     app.run()

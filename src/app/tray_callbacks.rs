@@ -60,9 +60,10 @@ impl Application {
             match amount.cmp(&0) {
                 Ordering::Greater => {
                     let extra_volume = imp.settings.boolean(SETTINGS_ALLOW_EXTRA_VOLUME);
-                    let limit = match extra_volume {
-                        true => MAX_SCALE_VOL,
-                        false => MAX_NATURAL_VOL,
+                    let limit = if extra_volume {
+                        MAX_SCALE_VOL
+                    } else {
+                        MAX_NATURAL_VOL
                     };
                     volumes.inc_clamp(Volume(amount as u32), Volume(limit));
                 }

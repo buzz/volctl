@@ -47,7 +47,7 @@ impl ObjectImpl for VolumeScale {
         SCALE_CSS_LOADED.call_once(|| {
             let provider = gtk::CssProvider::new();
             provider.load_from_string(
-                r#"
+                r"
                 scale marks {
                     margin-top: 0;
                 }
@@ -72,7 +72,7 @@ impl ObjectImpl for VolumeScale {
                 scale.clipping > trough > fill {
                     background-color: #e01b24;
                 }
-            "#,
+            ",
             );
             if let Some(display) = gtk::gdk::Display::default() {
                 gtk::style_context_add_provider_for_display(
