@@ -54,6 +54,7 @@ impl X11Surface {
         settings: &Settings,
         controller: Rc<OsdStateController>,
         x11_context: X11Context,
+        application: &gtk::Application,
     ) -> Self {
         let scale = settings.int(SETTINGS_OSD_SCALE) as f64 / 100.0;
         let width = (OSD_BASE_WIDTH * scale) as i32;
@@ -64,7 +65,7 @@ impl X11Surface {
         // Detect compositor before creating the widget (affects rendering)
         let composited = display.is_composited();
 
-        let widget = OsdWidget::new(scale, composited);
+        let widget = OsdWidget::new(scale, composited, application);
 
         let window = widget.window();
         window.set_decorated(false);

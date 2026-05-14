@@ -21,12 +21,13 @@ pub struct Application {
     pub(super) hold_guard: RefCell<Option<gio::ApplicationHoldGuard>>,
     pub(super) mixer_child: RefCell<Option<Child>>,
     pub(super) mixer_window: Rc<RefCell<Option<MixerWindow>>>,
-    pub(super) osd_controller: OsdController,
+    pub(super) osd_controller: RefCell<Option<OsdController>>,
     pub(super) pulse: Rc<RefCell<Pulse>>,
     pub(super) settings: gio::Settings,
     pub(super) tray_handle: RefCell<Option<Handle<VolctlTray>>>,
     pub(super) x11_context: Option<X11Context>,
 
+    pub(super) display_type: DisplayType,
     // Timer for periodic PulseAudio updates
     pub(super) update_timer: RefCell<Option<SourceId>>,
 
@@ -63,18 +64,17 @@ impl Default for Application {
             }
         };
 
-        let osd_controller = OsdController::new(&settings, x11_context, display_type);
-
         Self {
             hold_guard: RefCell::from(None),
             mixer_child: RefCell::from(None),
             mixer_window: Rc::new(RefCell::new(None)),
-            osd_controller,
+            osd_controller: RefCell::from(None),
             pulse: Rc::from(RefCell::from(pulse_instance)),
             settings,
             tray_handle: RefCell::from(None),
             update_timer: RefCell::from(None),
             x11_context,
+            display_type,
             volume: Cell::new(0),
             muted: Cell::new(false),
         }

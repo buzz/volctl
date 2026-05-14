@@ -92,6 +92,7 @@ impl OsdController {
         settings: &Settings,
         x11_context: Option<X11Context>,
         display_type: DisplayType,
+        application: &gtk::Application,
     ) -> Self {
         let controller = Rc::new(OsdStateController::new());
 
@@ -99,9 +100,18 @@ impl OsdController {
             DisplayType::X11 => {
                 // Safe: caller guarantees x11_context is Some when display_type is X11
                 let ctx = x11_context.expect("X11 context required on X11 display");
-                Rc::new(X11Surface::new(settings, controller.clone(), ctx))
+                Rc::new(X11Surface::new(
+                    settings,
+                    controller.clone(),
+                    ctx,
+                    application,
+                ))
             }
-            DisplayType::Wayland => Rc::new(WaylandSurface::new(settings, controller.clone())),
+            DisplayType::Wayland => Rc::new(WaylandSurface::new(
+                settings,
+                controller.clone(),
+                application,
+            )),
         };
 
         Self {

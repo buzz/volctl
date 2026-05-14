@@ -159,7 +159,9 @@ impl Application {
         }
 
         // Destroy OSD (cancels timers, destroys surface/window)
-        imp.osd_controller.destroy();
+        if let Some(osd_controller) = imp.osd_controller.borrow().as_ref() {
+            osd_controller.destroy();
+        }
 
         // Discard application hold guard which will make the GTK main loop terminate
         *imp.hold_guard.borrow_mut() = None;

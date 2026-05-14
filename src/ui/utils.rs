@@ -2,7 +2,7 @@ use gdk::prelude::DisplayExtManual;
 
 use crate::errors::X11Error;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum DisplayType {
     Wayland,
     X11,

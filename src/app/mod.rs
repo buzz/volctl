@@ -53,8 +53,9 @@ impl Application {
                 }
 
                 // Update OSD
-                imp.osd_controller
-                    .update(active_sink_volume, active_sink_muted);
+                if let Some(osd_controller) = imp.osd_controller.borrow().as_ref() {
+                    osd_controller.update(active_sink_volume, active_sink_muted);
+                }
 
                 // Remember new values
                 imp.volume.set(active_sink_volume);

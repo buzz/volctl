@@ -100,8 +100,9 @@ pub struct OsdWidget {
 
 impl OsdWidget {
     /// Create new OSD widget
-    pub fn new(scale: f64, composited: bool) -> Self {
+    pub fn new(scale: f64, composited: bool, application: &gtk::Application) -> Self {
         let window = gtk::Window::new();
+        window.set_application(Some(application));
         let render_widget = OsdRenderWidget::new_with_composited(scale, composited);
 
         // Set widget size
