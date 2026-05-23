@@ -10,64 +10,19 @@ use libpulse::callbacks::ListResult;
 use libpulse::context::introspect::{ServerInfo, SinkInfo, SinkInputInfo};
 use libpulse::context::subscribe::{Facility, InterestMaskSet, Operation};
 use libpulse::context::{Context, FlagSet as CtxFlagSet, State as ContextState};
-use libpulse::def::BufferAttr;
 use libpulse::mainloop::threaded::Mainloop;
 use libpulse::proplist::{Proplist, properties};
-use libpulse::sample::{Format, Spec};
-use libpulse::stream::{FlagSet as StreamFlagSet, PeekResult, State as StreamState, Stream};
+use libpulse::stream::Stream;
 use libpulse::volume::{ChannelVolumes, Volume};
 
-use crate::constants::{MAX_NATURAL_VOL, MAX_SCALE_VOL, MAX_VOL_SCALE, PEAKS_RATE};
+use crate::constants::{MAX_NATURAL_VOL, MAX_SCALE_VOL};
 use crate::errors::PulseError;
 
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
-pub enum StreamType {
-    #[default]
-    Sink,
-    SinkInput,
-}
+mod monitor;
+pub mod types;
 
-#[derive(Debug, Clone, Default)]
-pub struct MeterData {
-    pub t: StreamType,
-    pub index: u32,
-
-    pub name: String,
-    pub icon: String,
-    pub description: String,
-
-    pub volume: ChannelVolumes,
-    pub muted: bool,
-}
-
-/// The different message types that can be passed from the pulse thread to the data store.
-enum TxMessage {
-    DefaultSinkName(String),
-    StreamUpdate(StreamType, Box<TxStreamData>),
-    StreamRemove(StreamType, u32),
-    Peak(StreamType, u32, u32),
-    /// Sent when a monitor stream is suspended (e.g., the audio app paused/stopped).
-    /// Triggers immediate peak decay to zero for the affected stream.
-    PeakZero(StreamType, u32),
-}
-
-/// Transferrable information pertaining to a stream.
-#[derive(Debug)]
-pub struct TxStreamData {
-    pub data: MeterData,
-    pub monitor_index: u32,
-}
-
-/// Stored representation of a pulse stream.
-pub struct StreamData {
-    pub data: MeterData,
-    pub peak: u32,
-    /// Monotonic time (ms) when `peak` was last updated. Used for smooth decay.
-    peak_time: u64,
-    pub monitor_index: u32,
-    /// Monitor stream connection. kept alive by this Rc.
-    monitor: Rc<RefCell<Stream>>,
-}
+use monitor::TxMessage;
+pub use types::{MeterData, StreamData, StreamType, TxStreamData};
 
 /// The main controller for all pulse server interactions.
 pub struct Pulse {
@@ -283,8 +238,8 @@ impl Pulse {
 
         fn tx_sink_input(tx: &Sender<TxMessage>, result: ListResult<&SinkInputInfo<'_>>) {
             if let ListResult::Item(item) = result {
-                let icon = get_icon_name_from_sink_input(&item.proplist);
-                let description = get_description_from_sink_input(item);
+                let icon = types::get_icon_name_from_sink_input(&item.proplist);
+                let description = types::get_description_from_sink_input(item);
 
                 let data = MeterData {
                     t: StreamType::SinkInput,
@@ -434,39 +389,18 @@ impl Pulse {
     }
 
     /// Enable or disable VU peak monitoring.
-    /// When disabled, streams are corked (stops data flow) but the read
-    /// callback stays installed. Removing and re-adding the callback breaks
-    /// PulseAudio's PEAK_DETECT state, causing peaks to stop updating.
     pub fn set_vu_enabled(&mut self, enabled: bool) {
         self.vu_enabled.store(enabled, Ordering::Relaxed);
 
-        let mut mainloop = self.mainloop.borrow_mut();
-        mainloop.lock();
+        // Collect all monitor streams into a Vec for the monitor module
+        let mut all_monitors: Vec<Rc<RefCell<Stream>>> = self
+            .sinks
+            .values()
+            .chain(self.sink_inputs.values())
+            .map(|s| s.monitor.clone())
+            .collect();
 
-        for streams in [&mut self.sinks, &mut self.sink_inputs] {
-            for stream in streams.values_mut() {
-                let mut monitor = stream.monitor.borrow_mut();
-                // Only operate on streams that are fully connected (READY).
-                // Streams in CREATING state will be handled when they transition.
-                if monitor.get_state() == StreamState::Ready {
-                    if enabled {
-                        // Uncork to resume data flow. The read callback is already
-                        // installed from stream creation and stays active.
-                        if monitor.is_corked().unwrap_or(false) {
-                            let _ = monitor.uncork(Some(Box::new(move |_| {})));
-                        }
-                    } else {
-                        // Cork to stop data flow. The callback stays installed
-                        // so PEAK_DETECT state is preserved.
-                        if !monitor.is_corked().unwrap_or(true) {
-                            let _ = monitor.cork(Some(Box::new(move |_| {})));
-                        }
-                    }
-                }
-            }
-        }
-
-        mainloop.unlock();
+        monitor::set_vu_enabled(&self.mainloop, &mut all_monitors, enabled);
     }
 
     pub fn is_vu_enabled(&self) -> bool {
@@ -502,7 +436,9 @@ impl Pulse {
             stream.data = data;
         } else {
             let source_str = stream_data.monitor_index.to_string();
-            let monitor = self.create_monitor_stream(
+            let monitor = monitor::create_monitor_stream(
+                &self.context,
+                &self.mainloop,
                 t,
                 if t == StreamType::SinkInput {
                     None
@@ -510,6 +446,8 @@ impl Pulse {
                     Some(&source_str)
                 },
                 index,
+                &self.tx,
+                &self.vu_enabled,
             )?;
 
             let stream_entry = StreamData {
@@ -557,13 +495,13 @@ impl Pulse {
         match t {
             StreamType::Sink => {
                 if let Some(e) = self.sinks.get_mut(&index) {
-                    e.peak = apply_peak_floor(e.peak, peak);
+                    e.peak = types::apply_peak_floor(e.peak, peak);
                     e.peak_time = now;
                 }
             }
             StreamType::SinkInput => {
                 if let Some(e) = self.sink_inputs.get_mut(&index) {
-                    e.peak = apply_peak_floor(e.peak, peak);
+                    e.peak = types::apply_peak_floor(e.peak, peak);
                     e.peak_time = now;
                 }
             }
@@ -586,203 +524,6 @@ impl Pulse {
                 }
             }
         };
-    }
-
-    fn create_monitor_stream(
-        &mut self,
-        t: StreamType,
-        source: Option<&str>,
-        stream_index: u32,
-    ) -> Result<Rc<RefCell<Stream>>, PulseError> {
-        let attr = BufferAttr {
-            fragsize: 4,
-            maxlength: u32::MAX,
-            ..Default::default()
-        };
-
-        let spec = Spec {
-            channels: 1,
-            format: Format::F32le,
-            rate: PEAKS_RATE,
-        };
-
-        if !spec.is_valid() {
-            return Err(PulseError::StreamCreation);
-        }
-
-        let stream = {
-            let mut ctx = self.context.borrow_mut();
-            match Stream::new(&mut ctx, "Peak Detect", &spec, None) {
-                Some(s) => Rc::new(RefCell::new(s)),
-                None => return Err(PulseError::StreamCreation),
-            }
-        };
-
-        {
-            let mut stream_mut = stream.borrow_mut();
-            if t == StreamType::SinkInput && stream_mut.set_monitor_stream(stream_index).is_err() {
-                return Err(PulseError::StreamCreation);
-            }
-
-            // Setup read callback BEFORE connect_record to avoid a race where
-            // PulseAudio delivers data before the handler is installed.
-            let stream_clone = stream.clone();
-            let tx = self.tx.clone();
-            let vu_enabled = self.vu_enabled.clone();
-
-            stream_mut.set_read_callback(Some(Box::new(move |_| {
-                // IMPORTANT: We are in the pulse thread.
-                // Borrowing stream_clone is safe because set_read_callback implies strict ownership rules
-                // and the main loop is locked during this callback.
-                monitor_read_callback(
-                    &mut stream_clone.borrow_mut(),
-                    t,
-                    stream_index,
-                    &tx,
-                    &vu_enabled,
-                );
-            })));
-
-            // Setup suspended callback: when the stream is suspended (e.g., the
-            // monitored audio app pauses/stops), immediately zero the peak.
-            // This matches pavucontrol's behavior of calling decayToZero().
-            let tx = self.tx.clone();
-            stream_mut.set_suspended_callback(Some(Box::new(move || {
-                let _ = tx.send(TxMessage::PeakZero(t, stream_index));
-            })));
-
-            let mut mainloop = self.mainloop.borrow_mut();
-            mainloop.lock();
-
-            // Build flags: always use DONT_MOVE, ADJUST_LATENCY, PEAK_DETECT.
-            // For sink inputs, add DONT_INHIBIT_AUTO_SUSPEND so PA can auto-suspend
-            // the monitor stream when the app is idle (saves CPU).
-            //
-            // NOTE: We don't use START_CORKED here. When VU is disabled, we skip
-            // setting the read callback, which already prevents any peak processing.
-            // Using START_CORKED would require tracking uncork timing vs stream READY
-            // state transitions, which is fragile.
-            let flags = StreamFlagSet::DONT_MOVE
-                | StreamFlagSet::ADJUST_LATENCY
-                | StreamFlagSet::PEAK_DETECT
-                | if t == StreamType::SinkInput {
-                    StreamFlagSet::DONT_INHIBIT_AUTO_SUSPEND
-                } else {
-                    StreamFlagSet::empty()
-                };
-
-            let res = stream_mut.connect_record(source, Some(&attr), flags);
-
-            mainloop.unlock();
-
-            if res.is_err() {
-                return Err(PulseError::StreamCreation);
-            }
-        }
-
-        Ok(stream)
-    }
-}
-
-/// Resolve the icon name for a sink input, following the same fallback chain as the Python
-/// implementation (`slider_win._icon_name_from_sink_input`).
-///
-/// Fallback order:
-/// 1. `application.icon_name` property
-/// 2. `media.icon_name` property
-/// 3. `application.process.binary` property (e.g., "firefox")
-/// 4. `application.name` lowercased with spaces replaced by dashes
-/// 5. If no icon name found at all → `"multimedia-volume-control"`
-fn get_icon_name_from_sink_input(proplist: &libpulse::proplist::Proplist) -> String {
-    proplist
-        .get_str("application.icon_name")
-        .or_else(|| proplist.get_str("media.icon_name"))
-        .or_else(|| proplist.get_str("application.process.binary"))
-        .or_else(|| {
-            proplist
-                .get_str("application.name")
-                .map(|name| name.to_lowercase().replace(' ', "-"))
-        })
-        .map(|s| s.to_owned())
-        .unwrap_or_else(|| "multimedia-volume-control".to_owned())
-}
-
-/// Build the description tooltip for a sink input, following the same format as the Python
-/// implementation (`slider_win._name_from_sink_input`).
-///
-/// Format: `<b>Application Name</b>: Media Name` (e.g., `<b>mpv</b>: Song Title - Artist`)
-/// Falls back to just `application.name`, then to `sink_input.name`.
-fn get_description_from_sink_input(item: &SinkInputInfo<'_>) -> String {
-    let app_name = item.proplist.get_str("application.name");
-    let media_name = item.proplist.get_str("media.name");
-
-    match (app_name, media_name) {
-        (Some(app), Some(media)) => format!("<b>{}</b>: {}", app, media),
-        (Some(app), None) => app.to_owned(),
-        (None, _) => item.name.clone().unwrap_or_default().into_owned(),
-    }
-}
-
-/// Apply a minimum decay floor to a new peak value.
-///
-/// Prevents the peak from dropping by more than one sample period's worth of decay
-/// between consecutive peak samples. Matches pavucontrol's `updatePeak` behavior
-/// for smoother VU meter transitions.
-fn apply_peak_floor(current_peak: u32, new_peak: u32) -> u32 {
-    let floor = MAX_SCALE_VOL as f64 / PEAKS_RATE as f64;
-    if current_peak as f64 >= floor {
-        let min_val = (current_peak as f64 - floor).round() as u32;
-        new_peak.max(min_val)
-    } else {
-        new_peak
-    }
-}
-
-/// Helper function to scale a raw peak value (0..1) to the volume scale (0..MAX_SCALE_VOL).
-///
-/// `PA_STREAM_PEAK_DETECT` writes the peak amplitude directly to the buffer as a float in [0, 1].
-/// We scale it to match the volume scale used by the VU meter.
-fn calculate_peak(raw_peak: f32) -> u32 {
-    (raw_peak * MAX_NATURAL_VOL as f32 * MAX_VOL_SCALE as f32).round() as u32
-}
-
-/// Standalone callback logic for monitors.
-/// Always reads and discards audio data (prevents buffer overflow),
-/// but only sends peak messages when `vu_enabled` is true.
-fn monitor_read_callback(
-    stream: &mut Stream,
-    t: StreamType,
-    index: u32,
-    tx: &Sender<TxMessage>,
-    vu_enabled: &Arc<AtomicBool>,
-) {
-    let mut raw_peak: f32 = 0.0;
-
-    while stream.readable_size().unwrap_or(0) > 0 {
-        match stream.peek() {
-            Ok(PeekResult::Data(bytes)) => {
-                // Convert slice to array safely
-                if let Ok(buf) = bytes.try_into() {
-                    let val = f32::from_le_bytes(buf);
-                    raw_peak = val.max(raw_peak);
-                }
-                let _ = stream.discard();
-            }
-            Ok(PeekResult::Hole(_)) => {
-                let _ = stream.discard();
-            }
-            Ok(PeekResult::Empty) => break,
-            Err(e) => {
-                tracing::warn!(error = %e, "peek() failed on monitor stream, stopping read loop");
-                break;
-            }
-        }
-    }
-
-    // Only send peak messages when VU monitoring is active
-    if raw_peak > 0.0 && vu_enabled.load(Ordering::Relaxed) {
-        let peak = calculate_peak(raw_peak);
-        let _ = tx.send(TxMessage::Peak(t, index, peak));
     }
 }
 
