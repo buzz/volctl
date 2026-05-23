@@ -45,8 +45,8 @@ impl Tray for VolctlTray {
         ToolTip {
             icon_name: "".into(),
             icon_pixmap: [].to_vec(),
-            title: "Volume".into(),
-            description: self.get_tooltip_markup(),
+            title: self.get_tooltip_text(),
+            description: "".into(),
         }
     }
 
@@ -143,10 +143,10 @@ impl Tray for VolctlTray {
 }
 
 impl VolctlTray {
-    fn get_tooltip_markup(&self) -> String {
+    fn get_tooltip_text(&self) -> String {
         let text = format!("Volume: {:.0}%", self.volume_fraction() * 100.0);
         if self.muted {
-            format!("{} <span weight=\"bold\">(muted)</span>", text)
+            format!("{} (muted)", text)
         } else {
             text
         }
