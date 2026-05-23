@@ -32,6 +32,7 @@ impl WaylandSurface {
         window.set_layer(Layer::Overlay);
         window.set_keyboard_mode(KeyboardMode::None);
         window.set_namespace(Some("volctl-volume-osd"));
+        window.auto_exclusive_zone_enable();
 
         // Click-Through
         window.connect_realize(|win| {
@@ -111,8 +112,11 @@ impl super::SurfaceBackend for WaylandSurface {
                 window.set_margin(Edge::Bottom, margin);
             }
             "center" => {
-                // To center vertically, leave both Top and Bottom anchors false.
-                // Compositor handles centering.
+                // Center vertically by anchoring to both edges.
+                // With auto_exclusive_zone enabled, the compositor respects
+                // content size and centers the surface.
+                window.set_anchor(Edge::Top, true);
+                window.set_anchor(Edge::Bottom, true);
             }
             _ => {}
         }
@@ -128,8 +132,11 @@ impl super::SurfaceBackend for WaylandSurface {
                 window.set_margin(Edge::Right, margin);
             }
             "center" => {
-                // To center horizontally, leave both Left and Right anchors false.
-                // Compositor handles centering.
+                // Center horizontally by anchoring to both edges.
+                // With auto_exclusive_zone enabled, the compositor respects
+                // content size and centers the surface.
+                window.set_anchor(Edge::Left, true);
+                window.set_anchor(Edge::Right, true);
             }
             _ => {}
         }
