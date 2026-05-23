@@ -2,104 +2,96 @@
 
 Per-application volume control and OSD for Linux desktops.
 
-![Screenshot](https://buzz.github.io/volctl/screenshot.png)
+![Screenshot](screenshot.png)
 
 I couldn't find a simple tray icon that allows to control multiple
 applications easily from the task bar. So I wrote my own.
 
 **Bug reports and patches welcome!**
 
-It's not meant to be an replacement for a full-featured mixer
+It's not meant to be a replacement for a full-featured mixer
 application. If you're looking for that check out the excellent
 [pavucontrol](http://freedesktop.org/software/pulseaudio/pavucontrol/).
 
 ## Features
 
-* Runs on virtually every desktop environment (Needs to support the freedesktop system tray specs)
-* Control main volumes as well as individual applications
-* Mute individual applications
-* Shows application icons and names
-* Per-application VU meter
-* Double-click opens *pavucontrol* (or custom mixer application)
-* Mouse-wheel support
-* On-screen volume display (OSD)
+- Runs on virtually every desktop environment (via [SNI](https://freedesktop.org/wiki/Specifications/StatusNotifierItem/))
+- Control main volumes as well as individual applications
+- Mute individual applications
+- Shows application icons and names
+- Per-application VU meter
+- Click to open the mixer popup; right-click to open *pavucontrol* (or custom mixer application)
+- Mouse-wheel support
+- On-screen volume display (OSD)
+- Supports X11 and Wayland
 
 ## Installation
-
-### Manual installation
-
-1. Clone this repository somewhere and cd into it.
-1. To install: `sudo ./setup.py install`
-   Note: You might need to copy `data/apps.volctl.gschema.xml` to `/usr/share/glib-2.0/schemas/` manually.
-1. For the application icon to show up in the menu: `sudo update-desktop-database`
-1. Compile GSettings schemas: `sudo glib-compile-schemas /usr/share/glib-2.0/schemas/` or sudo `glib-compile-schemas /usr/local/share/glib-2.0/schemas/`
 
 ### Arch Linux
 
 Available in AUR: [volctl](https://aur.archlinux.org/packages/volctl/)
 
-## Status/tray icon implementation
+### Cargo
 
-volctl strives to achieve a high level of support across different Desktop
-Environments. Unfortunately, on the Linux Desktop several tray icon
-implemenations with various levels of support and capabilities co-exist.
+Install from source using Cargo:
 
-volctl supports
+```sh
+cargo install --git https://github.com/buzz/volctl.git
+```
 
-- [*SNI*](https://freedesktop.org/wiki/Specifications/StatusNotifierItem/)  
-  Supported on modern Desktop Environments, like Gnome, KDE, works also on Wayland
-- [*XEmbed*](https://www.freedesktop.org/wiki/Specifications/systemtray-spec/)
-(through `Gtk.StatusIcon`)  
-  Not supported on Gnome, KDE (only through extensions/plugins). No Wayland
-  support.
+[Install the GSettings schema manually](#gsettings-schema-installation).
 
-Your Desktop Environment might support both, one or none of these standards.
-Personally I use XEmbed as it allows for all important user interactions (mouse
-wheel, double-click, etc.) on my current system. The default is to prefer SNI
-which can be changed under the Preferences ➝ Prefer XEmbed.
+### Manual installation
 
-*Please try for yourself which type of tray icon works best for you.*
+1. Clone this repository and build in release mode:
 
-**Note:** If you need support for SNI you have to compile and install
-[statusnotifier](https://jjacky.com/statusnotifier/). Use the configure flags
-`--enable-introspection` and `--enable-dbusmenu`. If you're on Arch Linux you
-can use the AUR package
-[statusnotifier-introspection-dbus-menu](https://aur.archlinux.org/packages/statusnotifier-introspection-dbus-menu/).
+   ```sh
+   cargo build --release
+   ```
 
-## No Wayland support ([#39](https://github.com/buzz/volctl/issues/39))
+1. Copy the binary to a location in your `$PATH`:
 
-Through SNI volctl now supports tray icons under Wayland. Unfortunately it's not
-possible to display the volume slider window on Wayland at the mouse pointer
-position. The Wayland protocol does not allow this unless non-standard Wayland
-extensions are used. The only entity that is capable of doing so is the Wayland
-compositor (generally your Desktop Environment).
+   ```sh
+   cp target/release/volctl ~/.local/bin/
+   ```
+
+[Install the GSettings schema manually](#gsettings-schema-installation).
+
+### GSettings schema installation
+
+volctl uses GSettings to store preferences. The schema file must be
+installed for the settings to work. Copy the schema XML and compile
+the schemas:
+
+```sh
+PREFIX="${HOME}/.local"
+mkdir -p "$PREFIX/share/glib-2.0/schemas/"
+curl -fsSL https://raw.githubusercontent.com/buzz/volctl/main/data/apps.volctl.gschema.xml \
+  -o "$PREFIX/share/glib-2.0/schemas/apps.volctl.gschema.xml"
+glib-compile-schemas "$PREFIX/share/glib-2.0/schemas/"
+```
 
 ## Development
 
-### Deploy dev version in Virtualenv
-
-You can start volctl from the source tree.
+### Run from source
 
 ```sh
-$ python -m venv --system-site-packages venv
-$ ./setup.py develop
-$ venv/bin/volctl
+cargo run
 ```
 
-### Linting
-
-Use pylint and flake8 for linting the sources.
+### Linting and formatting
 
 ```sh
-$ make lint
+cargo clippy
+cargo fmt
 ```
 
-Use black to auto-format the code.
+## Rust Rewrite
 
-```sh
-$ make black
-```
+This is a Rust rewrite of the original Python version. The Python
+implementation is still available on the [`legacy-python`](https://github.com/buzz/volctl/tree/legacy-python)
+branch.
 
 ## License
 
-GNU General Public License v2.0
+GNU General Public License v3.0 or later
