@@ -322,3 +322,72 @@ footer {
     color:#444;
   }
 }
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #1a1a1a;
+    color: #b0b0b0;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    color: #e0e0e0;
+  }
+  h2 {
+    color: #c8c8c8;
+  }
+  h3, h4, h5, h6 {
+    color: #b0b0b0;
+  }
+  a {
+    color: #79b8ff;
+  }
+  a:hover {
+    color: #aee0ff;
+  }
+  a small, a:hover small {
+    color: #888;
+  }
+  blockquote {
+    border-left-color: #444;
+  }
+  code, pre {
+    color: #d4d4d4;
+  }
+  pre {
+    background: #2a2a2a;
+    border-color: #444;
+  }
+  th, td {
+    border-bottom-color: #444;
+  }
+  dt, th {
+    color: #ccc;
+  }
+  strong {
+    color: #e0e0e0;
+  }
+  header ul {
+    background: #2a2a2a;
+    border-color: #444;
+  }
+  header li {
+    border-right-color: #444;
+  }
+  header ul a {
+    color: #999;
+  }
+  header ul a:hover {
+    color: #ccc;
+  }
+  header ul a:active {
+    background-color: #333;
+  }
+  header ul a strong {
+    color: #e0e0e0;
+  }
+  hr {
+    background: #444;
+  }
+  section {
+    border-color: #444;
+  }
+}
