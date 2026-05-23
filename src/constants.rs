@@ -31,6 +31,8 @@ pub const SETTINGS_OSD_ENABLED: &str = "osd-enabled";
 pub const SETTINGS_OSD_TIMEOUT: &str = "osd-timeout";
 pub const SETTINGS_OSD_SCALE: &str = "osd-scale";
 pub const SETTINGS_OSD_POSITION: &str = "osd-position";
+pub const SETTINGS_USE_LAYER_SHELL: &str = "use-layer-shell";
+pub const SETTINGS_MIXER_POSITION: &str = "mixer-position";
 
 // OSD constants
 pub const OSD_DEFAULT_TIMEOUT: u32 = 1000;

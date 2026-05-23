@@ -3,12 +3,12 @@ use std::rc::Rc;
 
 use gtk::gio;
 use gtk::prelude::*;
-use gtk_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
-use tracing;
+use gtk_layer_shell::{KeyboardMode, Layer, LayerShell};
 
 use crate::constants::{OSD_BASE_HEIGHT, OSD_BASE_WIDTH, OSD_SCREEN_MARGIN, SETTINGS_OSD_SCALE};
 use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::widget::OsdWidget;
+use crate::ui::utils::{Position, apply_layer_shell_position};
 
 pub struct WaylandSurface {
     widget: OsdWidget,
@@ -78,68 +78,9 @@ impl super::SurfaceBackend for WaylandSurface {
         window.present();
     }
 
-    fn update_position(&self, position: &str) {
+    fn update_position(&self, position: Position) {
         let window = self.widget.window();
-        let margin = OSD_SCREEN_MARGIN;
-
-        // Reset all anchors and margins first
-        window.set_anchor(Edge::Top, false);
-        window.set_anchor(Edge::Bottom, false);
-        window.set_anchor(Edge::Left, false);
-        window.set_anchor(Edge::Right, false);
-        window.set_margin(Edge::Top, 0);
-        window.set_margin(Edge::Bottom, 0);
-        window.set_margin(Edge::Left, 0);
-        window.set_margin(Edge::Right, 0);
-
-        let parts: Vec<&str> = position.split('-').collect();
-        if parts.len() != 2 {
-            tracing::warn!(position = %position, "Invalid OSD position, falling back to center");
-            return;
-        }
-
-        let v_pos = parts[0]; // top, center, bottom
-        let h_pos = parts[1]; // left, center, right
-
-        // Vertical Anchor & Margin
-        match v_pos {
-            "top" => {
-                window.set_anchor(Edge::Top, true);
-                window.set_margin(Edge::Top, margin);
-            }
-            "bottom" => {
-                window.set_anchor(Edge::Bottom, true);
-                window.set_margin(Edge::Bottom, margin);
-            }
-            "center" => {
-                // Center vertically by anchoring to both edges.
-                // With auto_exclusive_zone enabled, the compositor respects
-                // content size and centers the surface.
-                window.set_anchor(Edge::Top, true);
-                window.set_anchor(Edge::Bottom, true);
-            }
-            _ => {}
-        }
-
-        // Horizontal Anchor & Margin
-        match h_pos {
-            "left" => {
-                window.set_anchor(Edge::Left, true);
-                window.set_margin(Edge::Left, margin);
-            }
-            "right" => {
-                window.set_anchor(Edge::Right, true);
-                window.set_margin(Edge::Right, margin);
-            }
-            "center" => {
-                // Center horizontally by anchoring to both edges.
-                // With auto_exclusive_zone enabled, the compositor respects
-                // content size and centers the surface.
-                window.set_anchor(Edge::Left, true);
-                window.set_anchor(Edge::Right, true);
-            }
-            _ => {}
-        }
+        apply_layer_shell_position(window, position, OSD_SCREEN_MARGIN);
     }
 
     fn update_scale(&self, scale: f64) {

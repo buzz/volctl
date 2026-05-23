@@ -1,5 +1,5 @@
 <schemalist>
-  <enum id="apps.volctl.osd_position">
+  <enum id="apps.volctl.position">
     <value nick="top-left" value="0"/>
     <value nick="top-center" value="1"/>
     <value nick="top-right" value="2"/>
@@ -68,10 +68,21 @@
       <summary>OSD size</summary>
       <description>OSD scale in percent.</description>
     </key>
-    <key enum="apps.volctl.osd_position" name="osd-position">
+    <key enum="apps.volctl.position" name="osd-position">
       <default>"bottom-right"</default>
       <summary>OSD position</summary>
       <description>OSD position: center, bottom-right, middle-right, top-right, top-center, top-left, middle-left, bottom-left, bottom-center</description>
+    </key>
+    <!-- Volume sliders (Wayland) -->
+    <key type="b" name="use-layer-shell">
+      <default>true</default>
+      <summary>Fixed position</summary>
+      <description>Anchor the volume sliders to a fixed screen position.</description>
+    </key>
+    <key enum="apps.volctl.position" name="mixer-position">
+      <default>"top-right"</default>
+      <summary>Volume sliders position</summary>
+      <description>Position of the volume sliders pop-up on Wayland.</description>
     </key>
   </schema>
 </schemalist>

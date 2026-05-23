@@ -1,20 +1,31 @@
-use gtk_layer_shell::{Edge, Layer, LayerShell};
+use glib::subclass::types::ObjectSubclassIsExt;
+use gtk::prelude::SettingsExt;
+use gtk_layer_shell::{Layer, LayerShell};
+
+use crate::constants::{SETTINGS_MIXER_POSITION, SETTINGS_USE_LAYER_SHELL};
+use crate::ui::utils::{Position, apply_layer_shell_position};
 
 use super::MixerWindow;
+
+const MIXER_MARGIN: i32 = 32;
 
 // Wayland
 impl MixerWindow {
     pub fn move_wayland(&self, _x: i32, _y: i32) {
+        let settings = self.imp().settings.get().expect("settings not set");
+
+        let use_layer_shell = settings.boolean(SETTINGS_USE_LAYER_SHELL);
+        if !use_layer_shell {
+            // Without layer shell, the window is managed by the compositor.
+            return;
+        }
+
         self.init_layer_shell();
         self.set_layer(Layer::Overlay);
         self.auto_exclusive_zone_enable();
 
-        self.set_margin(Edge::Right, 32);
-        self.set_margin(Edge::Top, 32);
-
-        self.set_anchor(Edge::Left, false);
-        self.set_anchor(Edge::Right, true);
-        self.set_anchor(Edge::Top, true);
-        self.set_anchor(Edge::Bottom, false);
+        let position = Position::try_from(settings.enum_(SETTINGS_MIXER_POSITION))
+            .expect("invalid mixer-position value");
+        apply_layer_shell_position(self, position, MIXER_MARGIN);
     }
 }

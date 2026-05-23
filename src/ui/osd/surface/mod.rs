@@ -1,12 +1,14 @@
 pub mod wayland;
 pub mod x11;
 
+use crate::ui::utils::Position;
+
 /// Trait for OSD surface backends (X11, Wayland, etc.)
 pub trait SurfaceBackend {
     /// Show the OSD window
     fn show(&self);
     /// Update OSD position
-    fn update_position(&self, position: &str);
+    fn update_position(&self, position: Position);
     /// Update OSD scale (triggers resize)
     fn update_scale(&self, scale: f64);
     /// Begin fade-out animation with given opacity

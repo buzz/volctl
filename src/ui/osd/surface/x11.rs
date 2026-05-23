@@ -10,6 +10,7 @@ use tracing;
 use crate::constants::{OSD_BASE_HEIGHT, OSD_BASE_WIDTH, OSD_SCREEN_MARGIN, SETTINGS_OSD_SCALE};
 use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::widget::OsdWidget;
+use crate::ui::utils::Position;
 use crate::ui::x11::{
     AtomCollection, X11Context, configure_window_position, set_override_redirect, set_window_type,
     set_wm_states_property,
@@ -44,7 +45,7 @@ pub struct X11Surface {
     controller: Rc<OsdStateController>,
     scale: Cell<f64>,
     atoms: RefCell<Option<AtomCollection>>,
-    position: RefCell<String>,
+    position: RefCell<Position>,
     composited: bool,
     x11: X11Context,
 }
@@ -80,7 +81,7 @@ impl X11Surface {
             controller,
             scale: Cell::new(scale),
             atoms: RefCell::new(atoms),
-            position: RefCell::new("top-left".to_string()),
+            position: RefCell::new(Position::TopLeft),
             composited,
             x11: x11_context,
         }
@@ -141,7 +142,9 @@ impl X11Surface {
         None
     }
 
-    fn calculate_position(&self, position: &str) -> (i32, i32) {
+    fn calculate_position(&self, position: Position) -> (i32, i32) {
+        use crate::ui::utils::{HorizontalPos, VerticalPos};
+
         let margin = OSD_SCREEN_MARGIN;
         let scale = self.scale.get();
         let width = (OSD_BASE_WIDTH * scale) as i32;
@@ -159,26 +162,16 @@ impl X11Surface {
             sheight = geometry.height();
         }
 
-        let parts: Vec<&str> = position.split('-').collect();
-        if parts.len() != 2 {
-            return (xpos + margin, ypos + margin);
-        }
-
-        let yname = parts[0];
-        let xname = parts[1];
-
-        let x = match xname {
-            "left" => xpos + margin,
-            "center" => xpos + (swidth - width) / 2,
-            "right" => xpos + swidth - width - margin,
-            _ => xpos + margin,
+        let x = match position.horizontal() {
+            HorizontalPos::Left => xpos + margin,
+            HorizontalPos::Center => xpos + (swidth - width) / 2,
+            HorizontalPos::Right => xpos + swidth - width - margin,
         };
 
-        let y = match yname {
-            "top" => ypos + margin,
-            "center" => ypos + (sheight - height) / 2,
-            "bottom" => ypos + sheight - height - margin,
-            _ => ypos + margin,
+        let y = match position.vertical() {
+            VerticalPos::Top => ypos + margin,
+            VerticalPos::Center => ypos + (sheight - height) / 2,
+            VerticalPos::Bottom => ypos + sheight - height - margin,
         };
 
         (x, y)
@@ -226,8 +219,8 @@ impl super::SurfaceBackend for X11Surface {
             self.set_click_through_shape(xid);
 
             // Apply position before mapping to avoid flicker
-            let position = self.position.borrow();
-            let (x, y) = self.calculate_position(&position);
+            let position = *self.position.borrow();
+            let (x, y) = self.calculate_position(position);
             configure_window_position(&self.x11, xid, x, y);
         }
 
@@ -242,8 +235,8 @@ impl super::SurfaceBackend for X11Surface {
         window.present();
     }
 
-    fn update_position(&self, position: &str) {
-        *self.position.borrow_mut() = position.to_string();
+    fn update_position(&self, position: Position) {
+        *self.position.borrow_mut() = position;
 
         let (x, y) = self.calculate_position(position);
 

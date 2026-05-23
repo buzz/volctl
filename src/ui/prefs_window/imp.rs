@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
+use crate::ui::utils::{DisplayType, Position, get_display_type};
 use glib::prelude::{ToValue, ToVariant};
 use glib::subclass::object::{ObjectImpl, ObjectImplExt};
 use glib::subclass::types::{ObjectSubclass, ObjectSubclassExt, ObjectSubclassIsExt};
@@ -16,9 +17,10 @@ use gtk::{
 
 use crate::constants::{
     SETTINGS_ALLOW_EXTRA_VOLUME, SETTINGS_AUTO_CLOSE, SETTINGS_MIXER_COMMAND,
-    SETTINGS_MOUSE_WHEEL_STEP, SETTINGS_OSD_ENABLED, SETTINGS_OSD_POSITION, SETTINGS_OSD_SCALE,
-    SETTINGS_OSD_TIMEOUT, SETTINGS_PATH, SETTINGS_SCHEMA_KEY, SETTINGS_SHOW_PERCENTAGE,
-    SETTINGS_TIMEOUT, SETTINGS_VU_ENABLED,
+    SETTINGS_MIXER_POSITION, SETTINGS_MOUSE_WHEEL_STEP, SETTINGS_OSD_ENABLED,
+    SETTINGS_OSD_POSITION, SETTINGS_OSD_SCALE, SETTINGS_OSD_TIMEOUT, SETTINGS_PATH,
+    SETTINGS_SCHEMA_KEY, SETTINGS_SHOW_PERCENTAGE, SETTINGS_TIMEOUT, SETTINGS_USE_LAYER_SHELL,
+    SETTINGS_VU_ENABLED,
 };
 
 const MARGIN: i32 = 12;
@@ -29,6 +31,22 @@ const OSD_GRID_SPACING: i32 = 8;
 const OSD_POSITION_NAMES_X: [&str; 3] = ["left", "center", "right"];
 const OSD_POSITION_NAMES_Y: [&str; 3] = ["top", "center", "bottom"];
 
+/// Map grid coordinates (col, row) to the corresponding Position enum value.
+fn grid_to_position(col: usize, row: usize) -> Position {
+    match (row, col) {
+        (0, 0) => Position::TopLeft,
+        (0, 1) => Position::TopCenter,
+        (0, 2) => Position::TopRight,
+        (1, 0) => Position::CenterLeft,
+        (1, 1) => Position::CenterCenter,
+        (1, 2) => Position::CenterRight,
+        (2, 0) => Position::BottomLeft,
+        (2, 1) => Position::BottomCenter,
+        (2, 2) => Position::BottomRight,
+        _ => unreachable!(),
+    }
+}
+
 pub struct PreferencesWindow {
     settings: RefCell<Option<gio::Settings>>,
     label_size_group: SizeGroup,
@@ -36,6 +54,7 @@ pub struct PreferencesWindow {
     row_osd_timeout: RefCell<Option<Scale>>,
     row_osd_size: RefCell<Option<Scale>>,
     row_osd_position_group: RefCell<Vec<CheckButton>>,
+    row_mixer_position_group: RefCell<Vec<CheckButton>>,
 }
 
 impl Default for PreferencesWindow {
@@ -50,6 +69,7 @@ impl Default for PreferencesWindow {
             row_osd_timeout: RefCell::new(None),
             row_osd_size: RefCell::new(None),
             row_osd_position_group: RefCell::new(Vec::new()),
+            row_mixer_position_group: RefCell::new(Vec::new()),
         }
     }
 }
@@ -141,6 +161,17 @@ impl ObjectImpl for PreferencesWindow {
             &mut row,
         );
 
+        if get_display_type().is_ok_and(|dt| dt == DisplayType::Wayland) {
+            self.add_switch(
+                &grid,
+                &settings,
+                SETTINGS_USE_LAYER_SHELL,
+                "Fixed position",
+                &mut row,
+            );
+            self.add_mixer_position(&grid, &settings, &mut row);
+        }
+
         let timeout_scale = self.add_scale(ScaleParams {
             grid: &grid,
             settings: &settings,
@@ -214,6 +245,16 @@ impl ObjectImpl for PreferencesWindow {
         );
         settings.connect_changed(
             Some(SETTINGS_OSD_ENABLED),
+            glib::clone!(
+                #[weak]
+                obj,
+                move |settings, _| {
+                    obj.imp().update_rows(settings);
+                }
+            ),
+        );
+        settings.connect_changed(
+            Some(SETTINGS_USE_LAYER_SHELL),
             glib::clone!(
                 #[weak]
                 obj,
@@ -354,29 +395,30 @@ impl PreferencesWindow {
             .halign(Align::End) // Keep the 3x3 grid small and to the right
             .build();
 
-        let current_pos = settings.string(SETTINGS_OSD_POSITION);
+        let current_pos = Position::try_from(settings.enum_(SETTINGS_OSD_POSITION))
+            .expect("invalid osd-position value");
         let mut radio_buttons = Vec::new();
         let mut first_radio: Option<CheckButton> = None;
 
-        for (top, yname) in OSD_POSITION_NAMES_Y.iter().enumerate() {
-            for (left, xname) in OSD_POSITION_NAMES_X.iter().enumerate() {
-                let name = format!("{}-{}", yname, xname);
+        for (top, _) in OSD_POSITION_NAMES_Y.iter().enumerate() {
+            for (left, _) in OSD_POSITION_NAMES_X.iter().enumerate() {
+                let pos = grid_to_position(left, top);
                 let radio = CheckButton::builder().build();
 
                 if let Some(first) = &first_radio {
                     radio.set_group(Some(first));
                 }
-                if name == current_pos {
+                if pos == current_pos {
                     radio.set_active(true);
                 }
 
-                let pos_name = name.clone();
+                let pos_val = pos as i32;
                 radio.connect_toggled(glib::clone!(
                     #[weak]
                     settings,
                     move |r| {
                         if r.is_active() {
-                            let _ = settings.set_string(SETTINGS_OSD_POSITION, &pos_name);
+                            let _ = settings.set_enum(SETTINGS_OSD_POSITION, pos_val);
                         }
                     }
                 ));
@@ -392,6 +434,55 @@ impl PreferencesWindow {
         grid.attach(&pos_grid, 1, *row, 1, 1);
         *row += 1;
         *self.row_osd_position_group.borrow_mut() = radio_buttons;
+    }
+
+    fn add_mixer_position(&self, grid: &Grid, settings: &gio::Settings, row: &mut i32) {
+        self.add_label(grid, "Volume sliders position", row);
+        let pos_grid = Grid::builder()
+            .column_spacing(OSD_GRID_SPACING)
+            .row_spacing(OSD_GRID_SPACING)
+            .halign(Align::End)
+            .build();
+
+        let current_pos = Position::try_from(settings.enum_(SETTINGS_MIXER_POSITION))
+            .expect("invalid mixer-position value");
+        let mut radio_buttons = Vec::new();
+        let mut first_radio: Option<CheckButton> = None;
+
+        for (top, _) in OSD_POSITION_NAMES_Y.iter().enumerate() {
+            for (left, _) in OSD_POSITION_NAMES_X.iter().enumerate() {
+                let pos = grid_to_position(left, top);
+                let radio = CheckButton::builder().build();
+
+                if let Some(first) = &first_radio {
+                    radio.set_group(Some(first));
+                }
+                if pos == current_pos {
+                    radio.set_active(true);
+                }
+
+                let pos_val = pos as i32;
+                radio.connect_toggled(glib::clone!(
+                    #[weak]
+                    settings,
+                    move |r| {
+                        if r.is_active() {
+                            let _ = settings.set_enum(SETTINGS_MIXER_POSITION, pos_val);
+                        }
+                    }
+                ));
+
+                pos_grid.attach(&radio, left as i32, top as i32, 1, 1);
+                if first_radio.is_none() {
+                    first_radio = Some(radio.clone());
+                }
+                radio_buttons.push(radio);
+            }
+        }
+
+        grid.attach(&pos_grid, 1, *row, 1, 1);
+        *row += 1;
+        *self.row_mixer_position_group.borrow_mut() = radio_buttons;
     }
 
     fn add_tick_marks(&self, scale: &Scale, values: &[f64]) {
@@ -415,6 +506,11 @@ impl PreferencesWindow {
         }
         for r in self.row_osd_position_group.borrow().iter() {
             r.set_sensitive(osd_enabled);
+        }
+
+        let use_layer_shell = settings.boolean(SETTINGS_USE_LAYER_SHELL);
+        for r in self.row_mixer_position_group.borrow().iter() {
+            r.set_sensitive(use_layer_shell);
         }
     }
 }

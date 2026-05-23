@@ -3,7 +3,7 @@ pub mod render;
 pub mod surface;
 pub mod widget;
 
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::rc::Rc;
 
 use gtk::gio::Settings;
@@ -17,7 +17,7 @@ use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::surface::SurfaceBackend;
 use crate::ui::osd::surface::wayland::WaylandSurface;
 use crate::ui::osd::surface::x11::X11Surface;
-use crate::ui::utils::DisplayType;
+use crate::ui::utils::{DisplayType, Position};
 use crate::ui::x11::X11Context;
 
 /// Cached OSD settings, refreshed via gsettings `changed` signals.
@@ -25,7 +25,7 @@ use crate::ui::x11::X11Context;
 struct OsdSettingsCache {
     enabled: Rc<Cell<bool>>,
     scale: Rc<Cell<f64>>,
-    position: Rc<RefCell<String>>,
+    position: Rc<Cell<Position>>,
     timeout: Rc<Cell<u32>>,
 }
 
@@ -33,7 +33,10 @@ impl OsdSettingsCache {
     fn new(settings: &Settings) -> Self {
         let enabled = Rc::new(Cell::new(settings.boolean(SETTINGS_OSD_ENABLED)));
         let scale = Rc::new(Cell::new(settings.int(SETTINGS_OSD_SCALE) as f64 / 100.0));
-        let position = Rc::new(RefCell::new(settings.string(SETTINGS_OSD_POSITION).into()));
+        let position = Rc::new(Cell::new(
+            Position::try_from(settings.enum_(SETTINGS_OSD_POSITION))
+                .expect("invalid osd-position value"),
+        ));
         let timeout = Rc::new(Cell::new(if settings.int(SETTINGS_OSD_TIMEOUT) == 0 {
             OSD_DEFAULT_TIMEOUT
         } else {
@@ -56,7 +59,10 @@ impl OsdSettingsCache {
         {
             let position = position.clone();
             settings.connect_changed(Some(SETTINGS_OSD_POSITION), move |s, _| {
-                *position.borrow_mut() = s.string(SETTINGS_OSD_POSITION).into();
+                position.set(
+                    Position::try_from(s.enum_(SETTINGS_OSD_POSITION))
+                        .expect("invalid osd-position value"),
+                );
             });
         }
         {
@@ -148,11 +154,11 @@ impl OsdController {
 
         // Read cached settings (refreshed via gsettings `changed` signals)
         let scale = self.settings.scale.get();
-        let position = self.settings.position.borrow();
+        let position = self.settings.position.get();
         let timeout = self.settings.timeout.get();
 
         // Update surface position and scale
-        self.surface.update_position(&position);
+        self.surface.update_position(position);
         self.surface.update_scale(scale);
 
         // Show OSD
