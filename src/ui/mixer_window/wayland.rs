@@ -22,7 +22,7 @@ impl MixerWindow {
 
         self.init_layer_shell();
         self.set_layer(Layer::Overlay);
-        self.auto_exclusive_zone_enable();
+        self.set_exclusive_zone(0);
 
         let position = Position::try_from(settings.enum_(SETTINGS_MIXER_POSITION))
             .expect("invalid mixer-position value");

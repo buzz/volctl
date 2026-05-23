@@ -91,8 +91,12 @@ pub enum HorizontalPos {
 
 /// Apply layer shell anchors and margins based on a [`Position`].
 ///
-/// When a dimension is `Center`, both edges are anchored so the compositor
-/// centers the surface (requires auto_exclusive_zone to be enabled).
+/// When a dimension is `Center`, neither anchor is set for that axis,
+/// allowing the compositor to center the surface naturally. Setting both
+/// opposite anchors would stretch the surface instead.
+///
+/// The exclusive zone is set to 0 so the surface floats above other
+/// windows without affecting compositor layout.
 pub fn apply_layer_shell_position<W: LayerShell>(window: &W, position: Position, margin: i32) {
     // Reset all anchors and margins first
     window.set_anchor(Edge::Top, false);
@@ -114,10 +118,8 @@ pub fn apply_layer_shell_position<W: LayerShell>(window: &W, position: Position,
             window.set_anchor(Edge::Bottom, true);
             window.set_margin(Edge::Bottom, margin);
         }
-        VerticalPos::Center => {
-            window.set_anchor(Edge::Top, true);
-            window.set_anchor(Edge::Bottom, true);
-        }
+        // Center: leave both Top and Bottom unset — compositor centers vertically
+        VerticalPos::Center => {}
     }
 
     // Horizontal anchor & margin
@@ -130,9 +132,7 @@ pub fn apply_layer_shell_position<W: LayerShell>(window: &W, position: Position,
             window.set_anchor(Edge::Right, true);
             window.set_margin(Edge::Right, margin);
         }
-        HorizontalPos::Center => {
-            window.set_anchor(Edge::Left, true);
-            window.set_anchor(Edge::Right, true);
-        }
+        // Center: leave both Left and Right unset — compositor centers horizontally
+        HorizontalPos::Center => {}
     }
 }
