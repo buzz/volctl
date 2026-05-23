@@ -20,6 +20,7 @@ impl MixerWindow {
 
         self.init_layer_shell();
         self.set_layer(Layer::Overlay);
+        self.set_namespace(Some("volctl-mixer"));
         self.set_exclusive_zone(0);
 
         let position = Position::try_from(settings.enum_(SETTINGS_MIXER_POSITION))

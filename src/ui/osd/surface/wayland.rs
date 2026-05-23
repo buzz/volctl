@@ -32,7 +32,7 @@ impl WaylandSurface {
         window.init_layer_shell();
         window.set_layer(Layer::Overlay);
         window.set_keyboard_mode(KeyboardMode::None);
-        window.set_namespace(Some("volctl-volume-osd"));
+        window.set_namespace(Some("volctl-osd"));
         window.set_exclusive_zone(0);
 
         // Click-Through
