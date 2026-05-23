@@ -23,3 +23,41 @@ shlex = "1.3.0"
 thiserror = "2.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+
+[package.metadata.git-cliff.changelog]
+header = "# Changelog\nAll notable changes to this project will be documented in this file.\n"
+body = """\
+{% if version %}## [{{ version | replace(from="v", to="") }}](https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/compare/{{ previous.version | default(value="") }}...{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}\n{% else %}## [Unreleased]\n{% endif %}{% for group, commits in commits | group_by(attribute="group") %}\n### {{ group }}\n{% for commit in commits %}- {{ commit.message | split(pat="\n") | first | trim }}{% if commit.remote.username %} by [@{{ commit.remote.username }}](https://github.com/{{ commit.remote.username }}){% endif %}{% if commit.remote.pr_number %} in [#{{ commit.remote.pr_number }}](https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/pull/{{ commit.remote.pr_number }}){% endif %} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/commit/{{ commit.id }}))\n{% endfor %}{% endfor %}\n{% for contributor in github.contributors | filter(attribute="is_first_time", value=true) %}- [@{{ contributor.username }}](https://github.com/{{ contributor.username }}) made their first contribution in [#{{ contributor.pr_number }}](https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}/pull/{{ contributor.pr_number }})\n{% endfor %}"""
+footer = """\
+---
+
+> **Note:** Previous changes can be found in the [`legacy-python`](https://github.com/buzz/volctl/tree/legacy-python) branch."""
+print_footer = true
+trim = false
+
+[package.metadata.git-cliff.git]
+conventional_commits = true
+commit_parsers = [
+  { message = "^feat", group = "✨ Features" },
+  { message = "^fix", group = "🐛 Bug Fixes" },
+  { message = "^docs", group = "📚 Documentation" },
+  { message = "^perf", group = "⚡ Performance" },
+  { message = "^refactor", group = "♻️ Refactoring" },
+  { message = "^style", group = "💅 Styling" },
+  { message = "^test", group = "🧪 Testing" },
+  { message = "^chore\\(deps\\)", group = "📦 Dependencies" },
+  { message = "^chore", group = "🔧 Miscellaneous Chores" },
+  { message = "^ci", group = "🔧 Miscellaneous Chores" },
+  { message = "^revert", skip = true },
+  { message = ".*", group = "🔀 Other Changes" },
+]
+filter_commits = true
+filter_unconventional = true
+include_merge_pattern = ""
+tag_pattern = "^[v]?[0-9]+\\.[0-9]+\\.[0-9]+$"
+topo_order = false
+commit_preprocessors = [{ pattern = "#(\\d+)", replace = "[$1](https://github.com/buzz/volctl/issues/$1)" }]
+
+[package.metadata.git-cliff.remote.github]
+owner = "buzz"
+repo = "volctl"
