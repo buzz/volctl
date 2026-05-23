@@ -1,7 +1,13 @@
 [package]
 name = "volctl"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
+description = "Per-application volume control for GNU/Linux desktops"
+authors = ["buzz <buzz@users.noreply.github.com>"]
+readme = "README.md"
+license = "GPL-3.0-or-later"
+homepage = "https://buzz.github.io/volctl/"
+repository = "https://github.com/buzz/volctl"
 
 [dependencies]
 async-channel = "2.5"
