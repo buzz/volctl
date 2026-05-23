@@ -17,10 +17,10 @@ use gtk::{
 
 use crate::constants::{
     SETTINGS_ALLOW_EXTRA_VOLUME, SETTINGS_AUTO_CLOSE, SETTINGS_MIXER_COMMAND,
-    SETTINGS_MIXER_POSITION, SETTINGS_MOUSE_WHEEL_STEP, SETTINGS_OSD_ENABLED,
-    SETTINGS_OSD_POSITION, SETTINGS_OSD_SCALE, SETTINGS_OSD_TIMEOUT, SETTINGS_PATH,
-    SETTINGS_SCHEMA_KEY, SETTINGS_SHOW_PERCENTAGE, SETTINGS_TIMEOUT, SETTINGS_USE_LAYER_SHELL,
-    SETTINGS_VU_ENABLED,
+    SETTINGS_MIXER_MARGIN, SETTINGS_MIXER_POSITION, SETTINGS_MOUSE_WHEEL_STEP,
+    SETTINGS_OSD_ENABLED, SETTINGS_OSD_MARGIN, SETTINGS_OSD_POSITION, SETTINGS_OSD_SCALE,
+    SETTINGS_OSD_TIMEOUT, SETTINGS_PATH, SETTINGS_SCHEMA_KEY, SETTINGS_SHOW_PERCENTAGE,
+    SETTINGS_TIMEOUT, SETTINGS_USE_LAYER_SHELL, SETTINGS_VU_ENABLED,
 };
 
 const MARGIN: i32 = 12;
@@ -53,8 +53,11 @@ pub struct PreferencesWindow {
     row_timeout: RefCell<Option<Scale>>,
     row_osd_timeout: RefCell<Option<Scale>>,
     row_osd_size: RefCell<Option<Scale>>,
+    row_osd_margin: RefCell<Option<Scale>>,
     row_osd_position_group: RefCell<Vec<CheckButton>>,
     row_mixer_position_group: RefCell<Vec<CheckButton>>,
+    row_mixer_margin: RefCell<Option<Scale>>,
+    on_wayland: bool,
 }
 
 impl Default for PreferencesWindow {
@@ -68,8 +71,11 @@ impl Default for PreferencesWindow {
             row_timeout: RefCell::new(None),
             row_osd_timeout: RefCell::new(None),
             row_osd_size: RefCell::new(None),
+            row_osd_margin: RefCell::new(None),
             row_osd_position_group: RefCell::new(Vec::new()),
             row_mixer_position_group: RefCell::new(Vec::new()),
+            row_mixer_margin: RefCell::new(None),
+            on_wayland: get_display_type().is_ok_and(|dt| dt == DisplayType::Wayland),
         }
     }
 }
@@ -161,7 +167,7 @@ impl ObjectImpl for PreferencesWindow {
             &mut row,
         );
 
-        if get_display_type().is_ok_and(|dt| dt == DisplayType::Wayland) {
+        if self.on_wayland {
             self.add_switch(
                 &grid,
                 &settings,
@@ -170,6 +176,19 @@ impl ObjectImpl for PreferencesWindow {
                 &mut row,
             );
             self.add_mixer_position(&grid, &settings, &mut row);
+
+            let mixer_margin_scale = self.add_scale(ScaleParams {
+                grid: &grid,
+                settings: &settings,
+                key: SETTINGS_MIXER_MARGIN,
+                label_text: "Mixer margin",
+                adjustment: &Adjustment::new(0.0, 0.0, 500.0, 1.0, 1.0, 0.0),
+                digits: 0,
+                format_value_func: |_, value| format!("{} px", value.round() as i32),
+                row: &mut row,
+            });
+            self.add_tick_marks(&mixer_margin_scale, &[0.0, 32.0, 64.0, 128.0, 256.0]);
+            *self.row_mixer_margin.borrow_mut() = Some(mixer_margin_scale);
         }
 
         let timeout_scale = self.add_scale(ScaleParams {
@@ -228,6 +247,19 @@ impl ObjectImpl for PreferencesWindow {
         *self.row_osd_size.borrow_mut() = Some(osd_size_scale);
 
         self.add_osd_position(&grid, &settings, &mut row);
+
+        let osd_margin_scale = self.add_scale(ScaleParams {
+            grid: &grid,
+            settings: &settings,
+            key: SETTINGS_OSD_MARGIN,
+            label_text: "OSD margin",
+            adjustment: &Adjustment::new(0.0, 0.0, 500.0, 1.0, 1.0, 0.0),
+            digits: 0,
+            format_value_func: |_, value| format!("{} px", value.round() as i32),
+            row: &mut row,
+        });
+        self.add_tick_marks(&osd_margin_scale, &[0.0, 32.0, 64.0, 128.0, 256.0]);
+        *self.row_osd_margin.borrow_mut() = Some(osd_margin_scale);
 
         self.update_rows(&settings);
 
@@ -504,6 +536,9 @@ impl PreferencesWindow {
         if let Some(ref s) = *self.row_osd_size.borrow() {
             s.set_sensitive(osd_enabled);
         }
+        if let Some(ref s) = *self.row_osd_margin.borrow() {
+            s.set_sensitive(osd_enabled);
+        }
         for r in self.row_osd_position_group.borrow().iter() {
             r.set_sensitive(osd_enabled);
         }
@@ -511,6 +546,9 @@ impl PreferencesWindow {
         let use_layer_shell = settings.boolean(SETTINGS_USE_LAYER_SHELL);
         for r in self.row_mixer_position_group.borrow().iter() {
             r.set_sensitive(use_layer_shell);
+        }
+        if let Some(ref s) = *self.row_mixer_margin.borrow() {
+            s.set_sensitive(use_layer_shell);
         }
     }
 }

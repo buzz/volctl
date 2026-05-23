@@ -2,12 +2,10 @@ use glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::SettingsExt;
 use gtk_layer_shell::{Layer, LayerShell};
 
-use crate::constants::{SETTINGS_MIXER_POSITION, SETTINGS_USE_LAYER_SHELL};
+use crate::constants::{SETTINGS_MIXER_MARGIN, SETTINGS_MIXER_POSITION, SETTINGS_USE_LAYER_SHELL};
 use crate::ui::utils::{Position, apply_layer_shell_position};
 
 use super::MixerWindow;
-
-const MIXER_MARGIN: i32 = 32;
 
 // Wayland
 impl MixerWindow {
@@ -26,6 +24,7 @@ impl MixerWindow {
 
         let position = Position::try_from(settings.enum_(SETTINGS_MIXER_POSITION))
             .expect("invalid mixer-position value");
-        apply_layer_shell_position(self, position, MIXER_MARGIN);
+        let margin = settings.int(SETTINGS_MIXER_MARGIN);
+        apply_layer_shell_position(self, position, margin);
     }
 }

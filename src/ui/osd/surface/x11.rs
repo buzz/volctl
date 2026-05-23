@@ -7,7 +7,7 @@ use gtk::gio::Settings;
 use gtk::prelude::*;
 use tracing;
 
-use crate::constants::{OSD_BASE_HEIGHT, OSD_BASE_WIDTH, OSD_SCREEN_MARGIN, SETTINGS_OSD_SCALE};
+use crate::constants::{OSD_BASE_HEIGHT, OSD_BASE_WIDTH, SETTINGS_OSD_MARGIN, SETTINGS_OSD_SCALE};
 use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::widget::OsdWidget;
 use crate::ui::utils::Position;
@@ -44,6 +44,7 @@ pub struct X11Surface {
     widget: OsdWidget,
     controller: Rc<OsdStateController>,
     scale: Cell<f64>,
+    margin: Cell<i32>,
     atoms: RefCell<Option<AtomCollection>>,
     position: RefCell<Position>,
     composited: bool,
@@ -76,10 +77,13 @@ impl X11Surface {
 
         let atoms = AtomCollection::new(&x11_context);
 
+        let margin = settings.int(SETTINGS_OSD_MARGIN);
+
         Self {
             widget,
             controller,
             scale: Cell::new(scale),
+            margin: Cell::new(margin),
             atoms: RefCell::new(atoms),
             position: RefCell::new(Position::TopLeft),
             composited,
@@ -145,7 +149,7 @@ impl X11Surface {
     fn calculate_position(&self, position: Position) -> (i32, i32) {
         use crate::ui::utils::{HorizontalPos, VerticalPos};
 
-        let margin = OSD_SCREEN_MARGIN;
+        let margin = self.margin.get();
         let scale = self.scale.get();
         let width = (OSD_BASE_WIDTH * scale) as i32;
         let height = (OSD_BASE_HEIGHT * scale) as i32;
@@ -182,6 +186,10 @@ impl super::SurfaceBackend for X11Surface {
     fn update_scale(&self, scale: f64) {
         self.scale.set(scale);
         self.widget.update_scale(scale);
+    }
+
+    fn update_margin(&self, margin: i32) {
+        self.margin.set(margin);
     }
 
     fn show(&self) {

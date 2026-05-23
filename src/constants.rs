@@ -33,6 +33,8 @@ pub const SETTINGS_OSD_SCALE: &str = "osd-scale";
 pub const SETTINGS_OSD_POSITION: &str = "osd-position";
 pub const SETTINGS_USE_LAYER_SHELL: &str = "use-layer-shell";
 pub const SETTINGS_MIXER_POSITION: &str = "mixer-position";
+pub const SETTINGS_OSD_MARGIN: &str = "osd-margin";
+pub const SETTINGS_MIXER_MARGIN: &str = "mixer-margin";
 
 // OSD constants
 pub const OSD_DEFAULT_TIMEOUT: u32 = 1000;
@@ -40,7 +42,6 @@ pub const OSD_BASE_WIDTH: f64 = 200.0;
 pub const OSD_BASE_HEIGHT: f64 = 200.0;
 pub const OSD_BASE_FONT_SIZE: f64 = 32.0;
 pub const OSD_BASE_LINE_WIDTH: f64 = 5.0;
-pub const OSD_SCREEN_MARGIN: i32 = 64;
 pub const OSD_BASE_PADDING: f64 = 24.0;
 pub const OSD_BG_OPACITY: f64 = 0.85;
 pub const OSD_BG_CORNER_RADIUS: f64 = 8.0;

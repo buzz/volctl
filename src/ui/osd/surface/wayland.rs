@@ -5,7 +5,7 @@ use gtk::gio;
 use gtk::prelude::*;
 use gtk_layer_shell::{KeyboardMode, Layer, LayerShell};
 
-use crate::constants::{OSD_BASE_HEIGHT, OSD_BASE_WIDTH, OSD_SCREEN_MARGIN, SETTINGS_OSD_SCALE};
+use crate::constants::{OSD_BASE_HEIGHT, OSD_BASE_WIDTH, SETTINGS_OSD_MARGIN, SETTINGS_OSD_SCALE};
 use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::widget::OsdWidget;
 use crate::ui::utils::{Position, apply_layer_shell_position};
@@ -14,6 +14,7 @@ pub struct WaylandSurface {
     widget: OsdWidget,
     controller: Rc<OsdStateController>,
     scale: Cell<f64>,
+    margin: Cell<i32>,
 }
 
 impl WaylandSurface {
@@ -43,10 +44,13 @@ impl WaylandSurface {
             }
         });
 
+        let margin = settings.int(SETTINGS_OSD_MARGIN);
+
         let surf = Self {
             widget,
             controller,
             scale: Cell::new(scale),
+            margin: Cell::new(margin),
         };
 
         surf.update_size(scale);
@@ -80,7 +84,11 @@ impl super::SurfaceBackend for WaylandSurface {
 
     fn update_position(&self, position: Position) {
         let window = self.widget.window();
-        apply_layer_shell_position(window, position, OSD_SCREEN_MARGIN);
+        apply_layer_shell_position(window, position, self.margin.get());
+    }
+
+    fn update_margin(&self, margin: i32) {
+        self.margin.set(margin);
     }
 
     fn update_scale(&self, scale: f64) {

@@ -10,8 +10,8 @@ use gtk::gio::Settings;
 use gtk::prelude::*;
 
 use crate::constants::{
-    OSD_DEFAULT_TIMEOUT, SETTINGS_OSD_ENABLED, SETTINGS_OSD_POSITION, SETTINGS_OSD_SCALE,
-    SETTINGS_OSD_TIMEOUT,
+    OSD_DEFAULT_TIMEOUT, SETTINGS_OSD_ENABLED, SETTINGS_OSD_MARGIN, SETTINGS_OSD_POSITION,
+    SETTINGS_OSD_SCALE, SETTINGS_OSD_TIMEOUT,
 };
 use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::surface::SurfaceBackend;
@@ -27,6 +27,7 @@ struct OsdSettingsCache {
     scale: Rc<Cell<f64>>,
     position: Rc<Cell<Position>>,
     timeout: Rc<Cell<u32>>,
+    margin: Rc<Cell<i32>>,
 }
 
 impl OsdSettingsCache {
@@ -42,6 +43,7 @@ impl OsdSettingsCache {
         } else {
             settings.int(SETTINGS_OSD_TIMEOUT) as u32
         }));
+        let margin = Rc::new(Cell::new(settings.int(SETTINGS_OSD_MARGIN)));
 
         // Listen for changes and refresh cache
         {
@@ -76,12 +78,19 @@ impl OsdSettingsCache {
                 timeout.set(val);
             });
         }
+        {
+            let margin = margin.clone();
+            settings.connect_changed(Some(SETTINGS_OSD_MARGIN), move |s, _| {
+                margin.set(s.int(SETTINGS_OSD_MARGIN));
+            });
+        }
 
         Self {
             enabled,
             scale,
             position,
             timeout,
+            margin,
         }
     }
 }
@@ -156,10 +165,12 @@ impl OsdController {
         let scale = self.settings.scale.get();
         let position = self.settings.position.get();
         let timeout = self.settings.timeout.get();
+        let margin = self.settings.margin.get();
 
-        // Update surface position and scale
+        // Update surface position, scale, and margin
         self.surface.update_position(position);
         self.surface.update_scale(scale);
+        self.surface.update_margin(margin);
 
         // Show OSD
         self.surface.show();
