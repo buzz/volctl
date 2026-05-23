@@ -34,6 +34,7 @@ pub const SETTINGS_OSD_POSITION: &str = "osd-position";
 pub const SETTINGS_USE_LAYER_SHELL: &str = "use-layer-shell";
 pub const SETTINGS_MIXER_POSITION: &str = "mixer-position";
 pub const SETTINGS_OSD_MARGIN: &str = "osd-margin";
+pub const SETTINGS_OSD_FADE_ENABLED: &str = "osd-fade-enabled";
 pub const SETTINGS_MIXER_MARGIN: &str = "mixer-margin";
 
 // OSD constants

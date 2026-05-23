@@ -10,8 +10,8 @@ use gtk::gio::Settings;
 use gtk::prelude::*;
 
 use crate::constants::{
-    OSD_DEFAULT_TIMEOUT, SETTINGS_OSD_ENABLED, SETTINGS_OSD_MARGIN, SETTINGS_OSD_POSITION,
-    SETTINGS_OSD_SCALE, SETTINGS_OSD_TIMEOUT,
+    OSD_DEFAULT_TIMEOUT, SETTINGS_OSD_ENABLED, SETTINGS_OSD_FADE_ENABLED, SETTINGS_OSD_MARGIN,
+    SETTINGS_OSD_POSITION, SETTINGS_OSD_SCALE, SETTINGS_OSD_TIMEOUT,
 };
 use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::surface::SurfaceBackend;
@@ -28,6 +28,7 @@ struct OsdSettingsCache {
     position: Rc<Cell<Position>>,
     timeout: Rc<Cell<u32>>,
     margin: Rc<Cell<i32>>,
+    fade_enabled: Rc<Cell<bool>>,
 }
 
 impl OsdSettingsCache {
@@ -44,6 +45,7 @@ impl OsdSettingsCache {
             settings.int(SETTINGS_OSD_TIMEOUT) as u32
         }));
         let margin = Rc::new(Cell::new(settings.int(SETTINGS_OSD_MARGIN)));
+        let fade_enabled = Rc::new(Cell::new(settings.boolean(SETTINGS_OSD_FADE_ENABLED)));
 
         // Listen for changes and refresh cache
         {
@@ -84,6 +86,12 @@ impl OsdSettingsCache {
                 margin.set(s.int(SETTINGS_OSD_MARGIN));
             });
         }
+        {
+            let fade_enabled = fade_enabled.clone();
+            settings.connect_changed(Some(SETTINGS_OSD_FADE_ENABLED), move |s, _| {
+                fade_enabled.set(s.boolean(SETTINGS_OSD_FADE_ENABLED));
+            });
+        }
 
         Self {
             enabled,
@@ -91,6 +99,7 @@ impl OsdSettingsCache {
             position,
             timeout,
             margin,
+            fade_enabled,
         }
     }
 }
@@ -166,6 +175,7 @@ impl OsdController {
         let position = self.settings.position.get();
         let timeout = self.settings.timeout.get();
         let margin = self.settings.margin.get();
+        let fade_enabled = self.settings.fade_enabled.get();
 
         // Update surface position, scale, and margin
         self.surface.update_position(position);
@@ -182,15 +192,21 @@ impl OsdController {
         // Start hide timeout
         let c_hide = controller_rc.clone();
         c_hide.begin_hide_timeout(timeout, move || {
-            let s_check = surface_rc.clone();
-            if s_check.is_composited() {
-                // Start fade-out animation when compositor is available
-                let surf = surface_rc.clone();
-                controller_rc.begin_fade_out(move |opacity| {
-                    surf.begin_fade_out(opacity);
-                });
+            if fade_enabled {
+                let s_check = surface_rc.clone();
+                if s_check.is_composited() {
+                    // Start fade-out animation when compositor is available
+                    let surf = surface_rc.clone();
+                    controller_rc.begin_fade_out(move |opacity| {
+                        surf.begin_fade_out(opacity);
+                    });
+                } else {
+                    // No compositor: immediate hide without fade-out
+                    controller_rc.set_opacity(0.0);
+                    surface_rc.begin_fade_out(0.0);
+                }
             } else {
-                // No compositor: immediate hide without fade-out
+                // Fade disabled: immediate hide without animation
                 controller_rc.set_opacity(0.0);
                 surface_rc.begin_fade_out(0.0);
             }

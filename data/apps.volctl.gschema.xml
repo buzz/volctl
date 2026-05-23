@@ -79,6 +79,11 @@
       <summary>OSD margin</summary>
       <description>Screen margin for the OSD in pixels.</description>
     </key>
+    <key type="b" name="osd-fade-enabled">
+      <default>true</default>
+      <summary>Enable OSD fade animation</summary>
+      <description>Enable fade-in and fade-out animations for the OSD.</description>
+    </key>
     <!-- Volume sliders (Wayland) -->
     <key type="b" name="use-layer-shell">
       <default>true</default>
