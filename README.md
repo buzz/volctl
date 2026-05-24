@@ -29,7 +29,7 @@ application. If you're looking for that check out the excellent
 
 ### Arch Linux
 
-Available in AUR: [volctl](https://aur.archlinux.org/packages/volctl/)
+Available in AUR: [volctl](https://aur.archlinux.org/packages/volctl/) or [volctl-bin](https://aur.archlinux.org/packages/volctl-bin/)
 
 ### Cargo
 
