@@ -1,0 +1,55 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel gtk4 gtk4-layer-shell libpulse cairo glib2 libx11 libxfixes git pkgconf
+
+      - uses: actions/checkout@v4
+
+      - name: Setup rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Load rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release --locked
+
+      - name: Strip binary
+        run: strip target/release/volctl
+
+      - name: Build archive
+        run: |
+          staging="volctl-${{ github.ref_name }}-x86_64"
+          mkdir -p "$staging"
+          cp target/release/volctl "$staging/"
+          cp -r data "$staging/"
+          cp {README.md,LICENSE.txt,CHANGELOG.md} "$staging/"
+          tar czf "$staging.tar.gz" "$staging"
+
+      - name: Generate checksum
+        run: sha256sum volctl-${{ github.ref_name }}-x86_64.tar.gz > volctl-${{ github.ref_name }}-x86_64.tar.gz.sha256
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            volctl-${{ github.ref_name }}-x86_64.tar.gz
+            volctl-${{ github.ref_name }}-x86_64.tar.gz.sha256
+          generate_release_notes: true
