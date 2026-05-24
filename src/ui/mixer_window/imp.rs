@@ -6,10 +6,12 @@ use glib::object::ObjectExt;
 use glib::subclass::object::{ObjectImpl, ObjectImplExt};
 use glib::subclass::types::{ObjectSubclass, ObjectSubclassExt, ObjectSubclassIsExt};
 use gtk::gio;
-use gtk::prelude::{GtkWindowExt, SettingsExt, WidgetExt};
+use gtk::prelude::{EventControllerExt, GtkWindowExt, SettingsExt, WidgetExt};
 use gtk::subclass::widget::WidgetImplExt;
 use gtk::subclass::{widget::WidgetImpl, window::WindowImpl};
-use gtk::{Box, EventControllerMotion, Orientation, Separator};
+use gtk::{
+    Box, EventControllerKey, EventControllerMotion, Orientation, PropagationPhase, Separator,
+};
 
 use crate::constants::{SETTINGS_AUTO_CLOSE, SETTINGS_TIMEOUT};
 use crate::pulse::Pulse;
@@ -52,6 +54,8 @@ impl ObjectImpl for MixerWindow {
 
         obj.set_child(Some(&*self.box_.borrow()));
         obj.set_visible(false);
+        // Make the window accept keyboard focus so key events (e.g., Escape) work
+        obj.set_focus(Some(&*self.box_.borrow()));
 
         // Add event controller for mouse enter/leave to reset auto-close timeout
         let controller = EventControllerMotion::new();
@@ -68,6 +72,28 @@ impl ObjectImpl for MixerWindow {
             }
         });
         obj.add_controller(controller);
+
+        // Add event controller for key press to close on Escape
+        // Use capture phase so it fires before child widgets handle the key
+        let key_controller = EventControllerKey::new();
+        key_controller.set_propagation_phase(PropagationPhase::Capture);
+        let weak_obj_key = obj.downgrade();
+        let parent_ref_key = self.parent_ref.borrow().clone();
+        key_controller.connect_key_pressed(move |_ctrl, key, _code, _state| {
+            if key == gdk::Key::Escape {
+                if let Some(win) = weak_obj_key.upgrade() {
+                    win.imp().cancel_auto_close_timeout();
+                    win.destroy();
+                    if let Some(ref_) = &parent_ref_key {
+                        *ref_.borrow_mut() = None;
+                    }
+                }
+                glib::Propagation::Stop
+            } else {
+                glib::Propagation::Proceed
+            }
+        });
+        obj.add_controller(key_controller);
     }
 }
 impl MixerWindow {

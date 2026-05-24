@@ -1,6 +1,6 @@
 use glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::SettingsExt;
-use gtk_layer_shell::{Layer, LayerShell};
+use gtk_layer_shell::{KeyboardMode, Layer, LayerShell};
 
 use crate::constants::{SETTINGS_MIXER_MARGIN, SETTINGS_MIXER_POSITION, SETTINGS_USE_LAYER_SHELL};
 use crate::ui::utils::{Position, apply_layer_shell_position};
@@ -22,6 +22,8 @@ impl MixerWindow {
         self.set_layer(Layer::Overlay);
         self.set_namespace(Some("volctl-mixer"));
         self.set_exclusive_zone(0);
+        // Allow the window to receive keyboard events (e.g., Escape to close)
+        self.set_keyboard_mode(KeyboardMode::OnDemand);
 
         let position = Position::try_from(settings.enum_(SETTINGS_MIXER_POSITION))
             .expect("invalid mixer-position value");
