@@ -1,0 +1,32 @@
+{% import "macros.html" as macros %}
+<!doctype html>
+<html class="not-ready lg:text-base" lang="{{ lang }}">
+  {% include "partials/head.html" %}
+  <body class="text-black duration-200 ease-out dark:text-white">
+    {% include "partials/header.html" %}
+
+    <!-- Body Start inject -->
+    {% include "injects/body_start.html" ignore missing %}
+
+    <div class="flex">
+      <div class="order-1 hidden w-[calc((100%-var(--container-3xl))/2)] lg:block"></div>
+      <aside
+        class="sticky top-0 order-3 mt-48 hidden h-min w-[calc((100%-var(--container-3xl))/2)] lg:block"
+      >
+        {% include "partials/side_toc.html" %}
+      </aside>
+      <main
+        class="prose prose-neutral dark:prose-invert prose-pre:rounded-lg prose-img:rounded-lg order-2 mx-auto min-h-[calc(100vh-9rem)] w-full max-w-3xl px-4 pt-24 pb-16 wrap-break-word lg:pt-32"
+      >
+        {% block main %}
+        {{ section.content | safe }}
+        {% endblock main %}
+      </main>
+    </div>
+
+    {% include "partials/footer.html" %}
+
+    <!-- Body End inject -->
+    {% include "injects/body_end.html" ignore missing %}
+  </body>
+</html>

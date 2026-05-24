@@ -1,0 +1,13 @@
+base_url = "https://buzz.github.io/volctl/"
+title = "volctl"
+description = "Per-application volume control and OSD for Linux desktops"
+default_language = "en"
+theme = "kita"
+compile_sass = false
+build_search_index = false
+
+[markdown]
+insert_anchor_links = "heading"
+
+[markdown.highlighting]
+theme = "solarized-dark"

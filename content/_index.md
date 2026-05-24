@@ -1,8 +1,13 @@
+
++++
+title = ""
++++
+
 # volctl
 
 Per-application volume control and OSD for Linux desktops.
 
-![Screenshot](screenshot.png)
+![Screenshot](/screenshot.png)
 
 I couldn't find a simple tray icon that allows to control multiple
 applications easily from the task bar. So I wrote my own.
