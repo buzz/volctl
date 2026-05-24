@@ -1,4 +1,4 @@
-# volctl
+# 🔊 volctl
 
 Per-application volume control and OSD for Linux desktops.
 
