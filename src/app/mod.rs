@@ -2,7 +2,7 @@ use glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::SettingsExt;
 use gtk::{gio, prelude::WidgetExt};
 
-use crate::constants::{APP_ID, SETTINGS_VU_ENABLED};
+use crate::constants::{APP_ID, SETTINGS_USE_SYMBOLIC_ICONS, SETTINGS_VU_ENABLED};
 
 mod imp;
 mod tray_callbacks;
@@ -43,12 +43,17 @@ impl Application {
             };
 
             // Only send update if values changed
-            if active_sink_volume != imp.volume.get() || active_sink_muted != imp.muted.get() {
+            let use_symbolic_icons = imp.settings.boolean(SETTINGS_USE_SYMBOLIC_ICONS);
+            if active_sink_volume != imp.volume.get()
+                || active_sink_muted != imp.muted.get()
+                || use_symbolic_icons != imp.use_symbolic_icons.get()
+            {
                 // Update tray icon
                 if let Some(tray_handle) = imp.tray_handle.borrow().as_ref() {
                     tray_handle.update(|tray| {
                         tray.volume = active_sink_volume;
                         tray.muted = active_sink_muted;
+                        tray.use_symbolic_icons = use_symbolic_icons;
                     });
                 }
 
@@ -60,6 +65,7 @@ impl Application {
                 // Remember new values
                 imp.volume.set(active_sink_volume);
                 imp.muted.set(active_sink_muted);
+                imp.use_symbolic_icons.set(use_symbolic_icons);
             }
         }
 

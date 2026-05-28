@@ -12,6 +12,11 @@
   </enum>
   <schema id="apps.volctl" gettext-domain="volctl">
     <!-- Tray icon -->
+    <key type="b" name="use-symbolic-icons">
+      <default>true</default>
+      <summary>Use symbolic icons</summary>
+      <description>Use symbolic icon names so the tray icon color is determined by the panel. Requires a restart.</description>
+    </key>
     <key type="i" name="mouse-wheel-step">
       <range min="1" max="30"/>
       <default>15</default>

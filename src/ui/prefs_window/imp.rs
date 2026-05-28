@@ -20,7 +20,8 @@ use crate::constants::{
     SETTINGS_MIXER_MARGIN, SETTINGS_MIXER_POSITION, SETTINGS_MOUSE_WHEEL_STEP,
     SETTINGS_OSD_ENABLED, SETTINGS_OSD_FADE_ENABLED, SETTINGS_OSD_MARGIN, SETTINGS_OSD_POSITION,
     SETTINGS_OSD_SCALE, SETTINGS_OSD_TIMEOUT, SETTINGS_PATH, SETTINGS_SCHEMA_KEY,
-    SETTINGS_SHOW_PERCENTAGE, SETTINGS_TIMEOUT, SETTINGS_USE_LAYER_SHELL, SETTINGS_VU_ENABLED,
+    SETTINGS_SHOW_PERCENTAGE, SETTINGS_TIMEOUT, SETTINGS_USE_LAYER_SHELL,
+    SETTINGS_USE_SYMBOLIC_ICONS, SETTINGS_VU_ENABLED,
 };
 
 const MARGIN: i32 = 12;
@@ -122,6 +123,13 @@ impl ObjectImpl for PreferencesWindow {
 
         // Tray icon section
         self.create_section_label(&grid, "Tray icon", &mut row);
+        self.add_switch(
+            &grid,
+            &settings,
+            SETTINGS_USE_SYMBOLIC_ICONS,
+            "Use symbolic icons",
+            &mut row,
+        );
         let mouse_wheel_scale = self.add_scale(ScaleParams {
             grid: &grid,
             settings: &settings,

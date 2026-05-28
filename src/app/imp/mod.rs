@@ -34,6 +34,7 @@ pub struct Application {
     // Previous values (tray icon)
     pub(super) volume: Cell<u32>,
     pub(super) muted: Cell<bool>,
+    pub(super) use_symbolic_icons: Cell<bool>,
 }
 
 #[glib::object_subclass]
@@ -77,6 +78,7 @@ impl Default for Application {
             display_type,
             volume: Cell::new(0),
             muted: Cell::new(false),
+            use_symbolic_icons: Cell::new(true),
         }
     }
 }

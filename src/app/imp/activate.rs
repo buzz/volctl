@@ -8,7 +8,7 @@ use glib::subclass::types::ObjectSubclassExt;
 use gtk::prelude::SettingsExt;
 use ksni::blocking::TrayMethods;
 
-use crate::constants::{MAX_NATURAL_VOL, SETTINGS_MOUSE_WHEEL_STEP};
+use crate::constants::{MAX_NATURAL_VOL, SETTINGS_MOUSE_WHEEL_STEP, SETTINGS_USE_SYMBOLIC_ICONS};
 use crate::ui::dialog::show_error;
 use crate::ui::osd::OsdController;
 use crate::ui::tray::{TrayMessage, VolctlTray};
@@ -66,10 +66,13 @@ impl Application {
         let (tx, rx) = async_channel::bounded::<TrayMessage>(1);
 
         // Start tray service
+        let use_symbolic_icons = self.settings.boolean(SETTINGS_USE_SYMBOLIC_ICONS);
+        self.use_symbolic_icons.set(use_symbolic_icons);
         let tray = VolctlTray {
             tx,
             volume: 0,
             muted: false,
+            use_symbolic_icons,
         };
 
         match tray.spawn() {

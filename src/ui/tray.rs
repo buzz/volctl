@@ -19,6 +19,7 @@ pub struct VolctlTray {
     pub tx: Sender<TrayMessage>,
     pub volume: u32,
     pub muted: bool,
+    pub use_symbolic_icons: bool,
 }
 
 impl Tray for VolctlTray {
@@ -29,7 +30,11 @@ impl Tray for VolctlTray {
             let idx = ((self.volume as f32 / MAX_NATURAL_VOL as f32) * 3.0).floor() as usize;
             ["low", "medium", "high"][idx.min(2)]
         };
-        format!("audio-volume-{}", state)
+        if self.use_symbolic_icons {
+            format!("audio-volume-{}-symbolic", state)
+        } else {
+            format!("audio-volume-{}", state)
+        }
     }
 
     fn title(&self) -> String {
@@ -60,11 +65,16 @@ impl Tray for VolctlTray {
         let tx_prefs = self.tx.clone();
         let tx_about = self.tx.clone();
         let tx_quit = self.tx.clone();
+        let use_symbolic = self.use_symbolic_icons;
 
         vec![
             StandardItem {
                 label: "Mute".into(),
-                icon_name: "audio-volume-muted".into(),
+                icon_name: if use_symbolic {
+                    "audio-volume-muted-symbolic".into()
+                } else {
+                    "audio-volume-muted".into()
+                },
                 activate: Box::new(move |_| {
                     if tx_mute.send_blocking(TrayMessage::Mute).is_err() {
                         tracing::warn!(msg = %"Mute", "Channel closed, dropping message");
@@ -75,7 +85,11 @@ impl Tray for VolctlTray {
             .into(),
             StandardItem {
                 label: "Mixer".into(),
-                icon_name: "multimedia-volume-control".into(),
+                icon_name: if use_symbolic {
+                    "multimedia-volume-control-symbolic".into()
+                } else {
+                    "multimedia-volume-control".into()
+                },
                 activate: Box::new(move |_| {
                     if tx_mixer.send_blocking(TrayMessage::ExternalMixer).is_err() {
                         tracing::warn!(msg = %"Mixer", "Channel closed, dropping message");
@@ -86,7 +100,11 @@ impl Tray for VolctlTray {
             .into(),
             StandardItem {
                 label: "Preferences".into(),
-                icon_name: "preferences-desktop".into(),
+                icon_name: if use_symbolic {
+                    "preferences-desktop-symbolic".into()
+                } else {
+                    "preferences-desktop".into()
+                },
                 activate: Box::new(move |_| {
                     if tx_prefs.send_blocking(TrayMessage::Preferences).is_err() {
                         tracing::warn!(msg = %"Preferences", "Channel closed, dropping message");
@@ -98,7 +116,11 @@ impl Tray for VolctlTray {
             MenuItem::Separator,
             StandardItem {
                 label: "About".into(),
-                icon_name: "dialog-information".into(),
+                icon_name: if use_symbolic {
+                    "dialog-information-symbolic".into()
+                } else {
+                    "dialog-information".into()
+                },
                 activate: Box::new(move |_| {
                     if tx_about.send_blocking(TrayMessage::About).is_err() {
                         tracing::warn!(msg = %"About", "Channel closed, dropping message");
@@ -109,7 +131,11 @@ impl Tray for VolctlTray {
             .into(),
             StandardItem {
                 label: "Quit".into(),
-                icon_name: "application-exit".into(),
+                icon_name: if use_symbolic {
+                    "application-exit-symbolic".into()
+                } else {
+                    "application-exit".into()
+                },
                 activate: Box::new(move |_| {
                     if tx_quit.send_blocking(TrayMessage::Quit).is_err() {
                         tracing::warn!(msg = %"Quit", "Channel closed, dropping message");

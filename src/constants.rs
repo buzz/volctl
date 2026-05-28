@@ -20,6 +20,7 @@ pub const SETTINGS_SCHEMA_KEY: &str = "apps.volctl";
 pub const SETTINGS_PATH: &str = "/apps/volctl/";
 
 // Setting keys
+pub const SETTINGS_USE_SYMBOLIC_ICONS: &str = "use-symbolic-icons";
 pub const SETTINGS_MOUSE_WHEEL_STEP: &str = "mouse-wheel-step";
 pub const SETTINGS_MIXER_COMMAND: &str = "mixer-command";
 pub const SETTINGS_SHOW_PERCENTAGE: &str = "show-percentage";
