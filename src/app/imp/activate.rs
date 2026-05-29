@@ -26,8 +26,11 @@ impl ApplicationImpl for Application {
         // Create OSD controller now that the Application object exists
         let obj = self.obj();
         let app = obj.upcast_ref::<gtk::Application>();
+        #[cfg(feature = "x11")]
         let osd_controller =
             OsdController::new(&self.settings, self.x11_context, self.display_type, app);
+        #[cfg(not(feature = "x11"))]
+        let osd_controller = OsdController::new(&self.settings, self.display_type, app);
         *self.osd_controller.borrow_mut() = Some(osd_controller);
 
         self.init_tray();

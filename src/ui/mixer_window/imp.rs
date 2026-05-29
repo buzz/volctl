@@ -1,4 +1,6 @@
-use std::cell::{Cell, OnceCell, RefCell};
+#[cfg(feature = "x11")]
+use std::cell::Cell;
+use std::cell::{OnceCell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -15,7 +17,9 @@ use gtk::{
 
 use crate::constants::{SETTINGS_AUTO_CLOSE, SETTINGS_TIMEOUT};
 use crate::pulse::Pulse;
+#[cfg(feature = "x11")]
 use crate::ui::utils::{DisplayType, get_display_type};
+#[cfg(feature = "x11")]
 use crate::ui::x11::X11Context;
 
 use super::scale::VolumeScale;
@@ -30,6 +34,7 @@ pub struct MixerWindow {
     // Stores scale widgets by stream index
     pub(super) sinks: Rc<RefCell<HashMap<u32, VolumeScale>>>,
     pub(super) sink_inputs: Rc<RefCell<HashMap<u32, VolumeScale>>>,
+    #[cfg(feature = "x11")]
     pub(super) x11_context: RefCell<Option<X11Context>>,
     pub(super) pulse: OnceCell<Rc<RefCell<Pulse>>>,
     pub(super) settings: OnceCell<gio::Settings>,
@@ -37,6 +42,7 @@ pub struct MixerWindow {
     // Back-reference to the app's mixer_window RefCell so we can clear ourselves
     pub(super) parent_ref: RefCell<Option<Rc<RefCell<Option<super::MixerWindow>>>>>,
     // Whether the X11 window position has been applied (prevents double-positioning)
+    #[cfg(feature = "x11")]
     pub(super) position_applied: Cell<bool>,
 }
 
@@ -148,6 +154,7 @@ impl WidgetImpl for MixerWindow {
     fn realize(&self) {
         self.parent_realize();
 
+        #[cfg(feature = "x11")]
         if matches!(get_display_type(), Ok(DisplayType::X11)) {
             self.obj().realize_x11();
         }
@@ -170,11 +177,13 @@ impl Default for MixerWindow {
             separator: Rc::from(RefCell::from(None)),
             sinks: Rc::from(RefCell::from(HashMap::new())),
             sink_inputs: Rc::from(RefCell::from(HashMap::new())),
+            #[cfg(feature = "x11")]
             x11_context: RefCell::from(None),
             pulse: OnceCell::new(),
             settings: OnceCell::new(),
             auto_close_timeout: RefCell::from(None),
             parent_ref: RefCell::from(None),
+            #[cfg(feature = "x11")]
             position_applied: Cell::new(false),
         }
     }

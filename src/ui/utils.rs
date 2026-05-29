@@ -1,7 +1,8 @@
 use gdk::prelude::DisplayExtManual;
+#[cfg(feature = "wayland")]
 use gtk_layer_shell::{Edge, LayerShell};
 
-use crate::errors::X11Error;
+use crate::errors::DisplayError;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum DisplayType {
@@ -9,13 +10,19 @@ pub enum DisplayType {
     X11,
 }
 
-pub fn get_display_type() -> Result<DisplayType, X11Error> {
-    let display = gdk::Display::default().ok_or(X11Error::NoDisplay)?;
-    Ok(if display.backend().is_wayland() {
-        DisplayType::Wayland
+pub fn get_display_type() -> Result<DisplayType, DisplayError> {
+    let display = gdk::Display::default().ok_or(DisplayError::NoDisplay)?;
+    if display.backend().is_wayland() {
+        if cfg!(not(feature = "wayland")) {
+            return Err(DisplayError::WaylandNotSupported);
+        }
+        Ok(DisplayType::Wayland)
     } else {
-        DisplayType::X11
-    })
+        if cfg!(not(feature = "x11")) {
+            return Err(DisplayError::X11NotSupported);
+        }
+        Ok(DisplayType::X11)
+    }
 }
 
 /// Screen position for layer-shell anchored surfaces (OSD, mixer window).
@@ -97,6 +104,7 @@ pub enum HorizontalPos {
 ///
 /// The exclusive zone is set to 0 so the surface floats above other
 /// windows without affecting compositor layout.
+#[cfg(feature = "wayland")]
 pub fn apply_layer_shell_position<W: LayerShell>(window: &W, position: Position, margin: i32) {
     // Reset all anchors and margins first
     window.set_anchor(Edge::Top, false);

@@ -7,7 +7,7 @@ use gdk_x11::{
 };
 use gtk::prelude::*;
 
-use crate::errors::X11Error;
+use crate::errors::DisplayError;
 
 /// Zero-sized X11 display context.
 ///
@@ -21,11 +21,11 @@ pub struct X11Context;
 impl X11Context {
     /// Create a new X11 context. Verifies that the current GDK display is X11.
     /// Returns an error if running on Wayland or if no display is available.
-    pub fn new() -> Result<Self, X11Error> {
-        let gdk_display = gdk::Display::default().ok_or(X11Error::NoDisplay)?;
+    pub fn new() -> Result<Self, DisplayError> {
+        let gdk_display = gdk::Display::default().ok_or(DisplayError::NoDisplay)?;
         gdk_display
             .downcast_ref::<X11Display>()
-            .ok_or(X11Error::NotX11Display)?;
+            .ok_or(DisplayError::NotX11Display)?;
         Ok(Self)
     }
 

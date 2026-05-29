@@ -17,9 +17,14 @@ pub enum PulseError {
 }
 
 #[derive(Error, Debug)]
-pub enum X11Error {
+pub enum DisplayError {
     #[error("Failed to get GDK display")]
     NoDisplay,
+    #[cfg(feature = "x11")]
     #[error("GDK display is not X11")]
     NotX11Display,
+    #[error("X11 display detected but X11 support was not compiled in")]
+    X11NotSupported,
+    #[error("Wayland display detected but Wayland support was not compiled in")]
+    WaylandNotSupported,
 }

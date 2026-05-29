@@ -5,21 +5,27 @@ use tracing;
 
 use crate::pulse::Pulse;
 
-use gdk::prelude::{DeviceExt, DisplayExt, ListModelExt, MonitorExt, SeatExt};
+use gdk::prelude::ListModelExt;
+#[cfg(feature = "x11")]
+use gdk::prelude::{DeviceExt, DisplayExt, MonitorExt, SeatExt};
 use glib::object::Cast;
 use glib::prelude::IsA;
 use glib::subclass::types::ObjectSubclassIsExt;
+#[cfg(feature = "x11")]
 use glib::translate::ToGlibPtr;
 use gtk::prelude::{BoxExt, GtkWindowExt, WidgetExt};
 
 use super::utils::{DisplayType, get_display_type};
+#[cfg(feature = "x11")]
 use super::x11::X11Context;
 use crate::pulse::StreamData;
 use scale::VolumeScale;
 
 mod imp;
 mod scale;
+#[cfg(feature = "wayland")]
 mod wayland;
+#[cfg(feature = "x11")]
 mod x11;
 
 glib::wrapper! {
@@ -33,7 +39,7 @@ impl MixerWindow {
         application: &impl IsA<gtk::Application>,
         pulse: Rc<RefCell<Pulse>>,
         settings: gio::Settings,
-        x11_context: Option<X11Context>,
+        #[cfg(feature = "x11")] x11_context: Option<X11Context>,
         parent_ref: Rc<RefCell<Option<MixerWindow>>>,
     ) -> Self {
         let window: MixerWindow = glib::Object::builder()
@@ -46,6 +52,7 @@ impl MixerWindow {
         let imp = window.imp();
         imp.pulse.set(pulse).ok();
         imp.settings.set(settings).ok();
+        #[cfg(feature = "x11")]
         if let Some(ctx) = x11_context {
             *imp.x11_context.borrow_mut() = Some(ctx);
         }
@@ -150,8 +157,15 @@ impl MixerWindow {
 
     pub fn move_(&self, x: i32, y: i32) {
         match get_display_type() {
+            #[cfg(feature = "wayland")]
             Ok(DisplayType::Wayland) => self.move_wayland(x, y),
+            #[cfg(feature = "x11")]
             Ok(DisplayType::X11) => self.move_x11(x, y),
+            // Catch-all: get_display_type() returns Err when the feature isn't compiled.
+            #[allow(unreachable_patterns)]
+            Ok(other) => unreachable!(
+                "get_display_type returned Ok({other:?}) but no matching feature is compiled"
+            ),
             Err(e) => {
                 tracing::warn!(error = %e, "Failed to detect display type for mixer window");
             }
@@ -160,6 +174,7 @@ impl MixerWindow {
 }
 
 /// Calculate the mixer window position using screen-quadrant logic.
+#[cfg(feature = "x11")]
 ///
 /// Given the tray-click anchor `(x, y)` and the window's allocated size, decides
 /// which side of the pointer the window should appear so that it stays on-screen
@@ -227,6 +242,7 @@ pub(crate) fn calculate_mixer_position(window: &MixerWindow, x: i32, y: i32) -> 
 /// Get the current mouse pointer position.
 ///
 /// Returns `(monitor, x, y)` or `None` if the seat/pointer is unavailable.
+#[cfg(feature = "x11")]
 fn get_pointer_position() -> Option<(gdk::Monitor, f64, f64)> {
     let display = gdk::Display::default()?;
     let seat = display.default_seat()?;
@@ -246,6 +262,7 @@ fn get_pointer_position() -> Option<(gdk::Monitor, f64, f64)> {
 /// Find the monitor whose geometry contains the given point.
 ///
 /// Falls back to the primary (first) monitor if no monitor contains the point.
+#[cfg(feature = "x11")]
 fn find_monitor_at_point(x: i32, y: i32) -> gdk::Rectangle {
     let display = gdk::Display::default();
     let display = match display {

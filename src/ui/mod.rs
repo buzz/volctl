@@ -5,4 +5,5 @@ pub mod osd;
 pub mod prefs_window;
 pub mod tray;
 pub mod utils;
+#[cfg(feature = "x11")]
 pub mod x11;

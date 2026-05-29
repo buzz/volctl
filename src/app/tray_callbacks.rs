@@ -12,7 +12,9 @@ use crate::constants::{
 use crate::pulse::StreamType;
 use crate::ui::mixer_window::MixerWindow;
 use crate::ui::prefs_window::PreferencesWindow;
-use crate::ui::utils::{DisplayType, get_display_type};
+#[cfg(feature = "x11")]
+use crate::ui::utils::DisplayType;
+use crate::ui::utils::get_display_type;
 
 use super::Application;
 
@@ -24,11 +26,15 @@ impl Application {
         if let Some(window) = imp.mixer_window.take() {
             window.close();
         } else {
+            #[cfg(feature = "x11")]
             let x11_context = match get_display_type() {
                 Ok(DisplayType::X11) => imp.x11_context,
                 Ok(DisplayType::Wayland) | Err(_) => None,
             };
+            #[cfg(not(feature = "x11"))]
+            let _ = get_display_type(); // keep display type detection for side-effects
             let mixer_window = imp.mixer_window.clone();
+            #[cfg(feature = "x11")]
             let window = MixerWindow::new(
                 self,
                 imp.pulse.clone(),
@@ -36,6 +42,9 @@ impl Application {
                 x11_context,
                 mixer_window,
             );
+            #[cfg(not(feature = "x11"))]
+            let window =
+                MixerWindow::new(self, imp.pulse.clone(), imp.settings.clone(), mixer_window);
             window.move_(x, y);
 
             // Populate with current PulseAudio data before showing

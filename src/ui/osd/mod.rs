@@ -15,9 +15,12 @@ use crate::constants::{
 };
 use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::surface::SurfaceBackend;
+#[cfg(feature = "wayland")]
 use crate::ui::osd::surface::wayland::WaylandSurface;
+#[cfg(feature = "x11")]
 use crate::ui::osd::surface::x11::X11Surface;
 use crate::ui::utils::{DisplayType, Position};
+#[cfg(feature = "x11")]
 use crate::ui::x11::X11Context;
 
 /// Cached OSD settings, refreshed via gsettings `changed` signals.
@@ -114,13 +117,14 @@ pub struct OsdController {
 impl OsdController {
     pub fn new(
         settings: &Settings,
-        x11_context: Option<X11Context>,
+        #[cfg(feature = "x11")] x11_context: Option<X11Context>,
         display_type: DisplayType,
         application: &gtk::Application,
     ) -> Self {
         let controller = Rc::new(OsdStateController::new());
 
         let surface: Rc<dyn SurfaceBackend> = match display_type {
+            #[cfg(feature = "x11")]
             DisplayType::X11 => {
                 // Safe: caller guarantees x11_context is Some when display_type is X11
                 let ctx = x11_context.expect("X11 context required on X11 display");
@@ -131,11 +135,15 @@ impl OsdController {
                     application,
                 ))
             }
+            #[cfg(feature = "wayland")]
             DisplayType::Wayland => Rc::new(WaylandSurface::new(
                 settings,
                 controller.clone(),
                 application,
             )),
+            // Catch-all: satisfies exhaustiveness when one feature is disabled.
+            #[allow(unreachable_patterns)]
+            other => unreachable!("display_type is {other:?} but no matching feature is compiled"),
         };
 
         Self {

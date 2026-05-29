@@ -12,6 +12,7 @@ use ksni::blocking::Handle;
 use crate::pulse::Pulse;
 use crate::ui::osd::OsdController;
 use crate::ui::utils::{DisplayType, get_display_type};
+#[cfg(feature = "x11")]
 use crate::ui::x11::X11Context;
 use crate::ui::{mixer_window::MixerWindow, tray::VolctlTray};
 
@@ -25,6 +26,7 @@ pub struct Application {
     pub(super) pulse: Rc<RefCell<Pulse>>,
     pub(super) settings: gio::Settings,
     pub(super) tray_handle: RefCell<Option<Handle<VolctlTray>>>,
+    #[cfg(feature = "x11")]
     pub(super) x11_context: Option<X11Context>,
 
     pub(super) display_type: DisplayType,
@@ -53,15 +55,34 @@ impl Default for Application {
         let pulse_instance = Pulse::new().expect("Failed to create PulseAudio controller");
         let settings = gio::Settings::with_path("apps.volctl", "/apps/volctl/");
 
-        let (display_type, x11_context) = match get_display_type() {
+        #[cfg(feature = "x11")]
+        #[allow(unused_assignments)] // initial None is overwritten in the X11 arm
+        let mut x11_context = None;
+        let display_type = match get_display_type() {
+            #[cfg(feature = "x11")]
             Ok(DisplayType::X11) => {
-                let ctx = X11Context::new().expect("X11 context required on X11 display");
-                (DisplayType::X11, Some(ctx))
+                x11_context = Some(X11Context::new().expect("X11 context required on X11 display"));
+                DisplayType::X11
             }
-            Ok(DisplayType::Wayland) => (DisplayType::Wayland, None),
+            #[cfg(feature = "wayland")]
+            Ok(DisplayType::Wayland) => DisplayType::Wayland,
+            // Catch-all: satisfies exhaustiveness when one feature is disabled.
+            #[allow(unreachable_patterns)]
+            Ok(other) => unreachable!(
+                "get_display_type returned Ok({other:?}) but no matching feature is compiled"
+            ),
             Err(e) => {
                 tracing::error!(error = %e, "Failed to detect display type, assuming Wayland");
-                (DisplayType::Wayland, None)
+                #[cfg(feature = "wayland")]
+                {
+                    DisplayType::Wayland
+                }
+                #[cfg(not(feature = "wayland"))]
+                {
+                    eprintln!("Error: {e}");
+                    eprintln!("Aborting.");
+                    std::process::exit(1);
+                }
             }
         };
 
@@ -74,6 +95,7 @@ impl Default for Application {
             settings,
             tray_handle: RefCell::from(None),
             update_timer: RefCell::from(None),
+            #[cfg(feature = "x11")]
             x11_context,
             display_type,
             volume: Cell::new(0),

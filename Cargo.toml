@@ -9,14 +9,19 @@ license = "GPL-3.0-or-later"
 homepage = "https://buzz.github.io/volctl/"
 repository = "https://github.com/buzz/volctl"
 
+[features]
+default = ["x11", "wayland"]
+x11 = ["dep:gdk-x11"]
+wayland = ["dep:gtk-layer-shell"]
+
 [dependencies]
 async-channel = "2.5"
 cairo-rs = { version = "0.22", features = ["use_glib"] }
 gdk = { version = "0.11", package = "gdk4", features = ["v4_18"] }
-gdk-x11 = { version = "0.11", package = "gdk4-x11", features = ["v4_18", "xlib"] }
+gdk-x11 = { version = "0.11", package = "gdk4-x11", features = ["v4_18", "xlib"], optional = true }
 glib = "0.22"
 gtk = { version = "0.11", package = "gtk4", features = ["v4_18"] }
-gtk-layer-shell = { version = "0.8", package = "gtk4-layer-shell" }
+gtk-layer-shell = { version = "0.8", package = "gtk4-layer-shell", optional = true }
 ksni = { version = "0.3.4", features = ["blocking"] }
 libpulse = { version = "2.30", package = "libpulse-binding", features = ["pa_v8"] }
 shlex = "1.3.0"
