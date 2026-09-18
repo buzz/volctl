@@ -18,14 +18,10 @@ pub struct WaylandSurface {
 }
 
 impl WaylandSurface {
-    pub fn new(
-        settings: &gio::Settings,
-        controller: Rc<OsdStateController>,
-        application: &gtk::Application,
-    ) -> Self {
+    pub fn new(settings: &gio::Settings, controller: Rc<OsdStateController>) -> Self {
         let scale = settings.int(SETTINGS_OSD_SCALE) as f64 / 100.0;
 
-        let widget = OsdWidget::new(scale, true, application);
+        let widget = OsdWidget::new(scale, true);
         let window = widget.window();
 
         // Layer Shell Setup

@@ -119,7 +119,6 @@ impl OsdController {
         settings: &Settings,
         #[cfg(feature = "x11")] x11_context: Option<X11Context>,
         display_type: DisplayType,
-        application: &gtk::Application,
     ) -> Self {
         let controller = Rc::new(OsdStateController::new());
 
@@ -128,19 +127,10 @@ impl OsdController {
             DisplayType::X11 => {
                 // Safe: caller guarantees x11_context is Some when display_type is X11
                 let ctx = x11_context.expect("X11 context required on X11 display");
-                Rc::new(X11Surface::new(
-                    settings,
-                    controller.clone(),
-                    ctx,
-                    application,
-                ))
+                Rc::new(X11Surface::new(settings, controller.clone(), ctx))
             }
             #[cfg(feature = "wayland")]
-            DisplayType::Wayland => Rc::new(WaylandSurface::new(
-                settings,
-                controller.clone(),
-                application,
-            )),
+            DisplayType::Wayland => Rc::new(WaylandSurface::new(settings, controller.clone())),
             // Catch-all: satisfies exhaustiveness when one feature is disabled.
             #[allow(unreachable_patterns)]
             other => unreachable!("display_type is {other:?} but no matching feature is compiled"),

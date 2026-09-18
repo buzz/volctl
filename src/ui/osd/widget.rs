@@ -100,9 +100,12 @@ pub struct OsdWidget {
 
 impl OsdWidget {
     /// Create new OSD widget
-    pub fn new(scale: f64, composited: bool, application: &gtk::Application) -> Self {
+    pub fn new(scale: f64, composited: bool) -> Self {
+        // Not added to the GtkApplication on purpose: GTK4's `window-removed`
+        // handler runs on `gtk_window_destroy()` and dereferences the window's
+        // GdkSurface, which is NULL for an OSD that was never mapped. That
+        // segfaults when volctl quits before ever showing the OSD (#96).
         let window = gtk::Window::new();
-        window.set_application(Some(application));
         let render_widget = OsdRenderWidget::new_with_composited(scale, composited);
 
         // Set widget size

@@ -3,7 +3,6 @@ use std::time::Duration;
 use gdk::prelude::ApplicationExtManual;
 use gdk::subclass::prelude::{ApplicationImpl, ApplicationImplExt};
 use glib::clone;
-use glib::object::Cast;
 use glib::subclass::types::ObjectSubclassExt;
 use gtk::prelude::SettingsExt;
 use ksni::blocking::TrayMethods;
@@ -23,14 +22,12 @@ impl ApplicationImpl for Application {
         // Prevent GTK main loop from exiting without window.
         *self.hold_guard.borrow_mut() = Some(self.obj().hold());
 
-        // Create OSD controller now that the Application object exists
-        let obj = self.obj();
-        let app = obj.upcast_ref::<gtk::Application>();
+        // Create OSD controller (window creation needs GTK to be initialised)
         #[cfg(feature = "x11")]
         let osd_controller =
-            OsdController::new(&self.settings, self.x11_context, self.display_type, app);
+            OsdController::new(&self.settings, self.x11_context, self.display_type);
         #[cfg(not(feature = "x11"))]
-        let osd_controller = OsdController::new(&self.settings, self.display_type, app);
+        let osd_controller = OsdController::new(&self.settings, self.display_type);
         *self.osd_controller.borrow_mut() = Some(osd_controller);
 
         self.init_tray();
