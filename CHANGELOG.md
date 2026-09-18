@@ -1,7 +1,27 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [1.0.0](https://github.com/buzz/volctl/compare/v0.9.5...v1.0.0) - 2026-05-23
+## [1.0.1](https://github.com/buzz/volctl/compare/v1.0.0...v1.0.1) - 2026-09-18
+
+### ✨ Features
+- close mixer window on Escape key by [@buzz](https://github.com/buzz) ([fcdf14f](https://github.com/buzz/volctl/commit/fcdf14ffa837541cf1afbd9e1f3fd7ae7c5f441a))
+- add option to use symbolic tray icons by [@buzz](https://github.com/buzz) ([22556a1](https://github.com/buzz/volctl/commit/22556a167d53339962a6e47df51fdcc28a664ed2))
+- add x11 and wayland cargo features by [@buzz](https://github.com/buzz) ([88371c0](https://github.com/buzz/volctl/commit/88371c0aeb8bd08ca73fa3eb6e5e56dae096d52b))
+
+### 🐛 Bug Fixes
+- do not register the OSD window with the application by [@buzz](https://github.com/buzz) ([b7c47bc](https://github.com/buzz/volctl/commit/b7c47bcf3435da1727320635b4b2517426ab2b4b))
+- survive a missing StatusNotifierWatcher at startup by [@buzz](https://github.com/buzz) ([1bce221](https://github.com/buzz/volctl/commit/1bce22143b29241fb7080f3f8fa6a32081d8aa6e))
+- name the missing SNI host in the warning by [@buzz](https://github.com/buzz) ([1b26417](https://github.com/buzz/volctl/commit/1b2641734ebc136746a501e9ea930f371615293f))
+
+### 📚 Documentation
+- add volctl-bin AUR link by [@buzz](https://github.com/buzz) ([5aaed43](https://github.com/buzz/volctl/commit/5aaed43d89f52c751889c6a566c093f8189d8071))
+- add icon to README.md by [@buzz](https://github.com/buzz) ([f546e8a](https://github.com/buzz/volctl/commit/f546e8a26bcef8c334f4e14e14c4af2e8bdbd489))
+- spell out the SNI tray host requirement by [@buzz](https://github.com/buzz) ([8cb95e8](https://github.com/buzz/volctl/commit/8cb95e8f7cbfe6965189371e934e8944f6750b92))
+
+### 🔧 Miscellaneous Chores
+- v1.0.1 by [@buzz](https://github.com/buzz) ([cd47c32](https://github.com/buzz/volctl/commit/cd47c3231985610de9ea4ca380a48cb40a42013d))
+
+## [1.0.0](https://github.com/buzz/volctl/compare/v0.9.5...v1.0.0) - 2026-05-24
 
 ### ♻️ Refactoring
 - trim Pulse wrapper to required functionality by [@buzz](https://github.com/buzz) ([86bec25](https://github.com/buzz/volctl/commit/86bec25ec70f377b6c4864f297ef6cd665cd9385))
@@ -83,6 +103,7 @@ All notable changes to this project will be documented in this file.
 ### 📚 Documentation
 - add LICENSE.txt by [@buzz](https://github.com/buzz) ([99cac0f](https://github.com/buzz/volctl/commit/99cac0fe2278f9d802122cc936cf14461177a7e9))
 - add README.md by [@buzz](https://github.com/buzz) ([ef3badf](https://github.com/buzz/volctl/commit/ef3badf336e0378840c5477749bc62745a559871))
+- add CHANGELOG.md by [@buzz](https://github.com/buzz) ([7a81a14](https://github.com/buzz/volctl/commit/7a81a1479ab213439b08f0d4395dbebbd7eebcbf))
 
 ### 📦 Dependencies
 - upgrade ksni to 0.3.4 by [@buzz](https://github.com/buzz) ([b2f2d10](https://github.com/buzz/volctl/commit/b2f2d1025164c8bd3c3f29047e11f1e924effb72))
@@ -100,8 +121,11 @@ All notable changes to this project will be documented in this file.
 - add GSettings schema and desktop entry files by [@buzz](https://github.com/buzz) ([9545134](https://github.com/buzz/volctl/commit/9545134949250f7d1afbc2f963a619a981ecf7bb))
 - upgrade rust edition to 2024 and fix clippy warnings by [@buzz](https://github.com/buzz) ([d41dfec](https://github.com/buzz/volctl/commit/d41dfece6b910a4afc3cbd4823edd7b9658425d4))
 - add package metadata to Cargo.toml by [@buzz](https://github.com/buzz) ([0d96484](https://github.com/buzz/volctl/commit/0d96484ee8134750ee85a3c6a534714027d0e506))
-- integrate git-cliff for changelog generation ([bdf3882](https://github.com/buzz/volctl/commit/bdf3882db4d36de69864c9d1a806b2e5fa729ed1))
+- integrate git-cliff for changelog generation by [@buzz](https://github.com/buzz) ([bdf3882](https://github.com/buzz/volctl/commit/bdf3882db4d36de69864c9d1a806b2e5fa729ed1))
+- add release profile optimizations to Cargo.toml by [@buzz](https://github.com/buzz) ([662421c](https://github.com/buzz/volctl/commit/662421c840cd9dbbe72693d20c12ebc3e30b751a))
+- add GitHub Actions release workflow by [@buzz](https://github.com/buzz) ([a675504](https://github.com/buzz/volctl/commit/a675504d4b3d3ca696c026834a5251b6c3db11c0))
 
+- [@buzz](https://github.com/buzz) made their first contribution in [#](https://github.com/buzz/volctl/pull/)
 ---
 
 > **Note:** Previous changes can be found in the [`legacy-python`](https://github.com/buzz/volctl/tree/legacy-python) branch.
