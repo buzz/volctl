@@ -168,7 +168,12 @@ impl Tray for VolctlTray {
     }
 
     fn watcher_offline(&self, reason: OfflineReason) -> bool {
-        tracing::warn!(?reason, "No system tray host, waiting for one to appear");
+        tracing::warn!(
+            ?reason,
+            "No StatusNotifierItem host on the session bus: volctl needs an SNI-capable \
+             tray, on XEmbed-only trays (dwm & co.) run a bridge such as snixembed. \
+             Continuing without a tray icon, the icon appears once a watcher shows up."
+        );
         // Keep the tray service running: ksni re-registers when a watcher appears.
         true
     }
