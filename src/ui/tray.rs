@@ -1,5 +1,5 @@
 use async_channel::Sender;
-use ksni::{Category, MenuItem, Orientation, ToolTip, Tray, menu::StandardItem};
+use ksni::{Category, MenuItem, OfflineReason, Orientation, ToolTip, Tray, menu::StandardItem};
 use tracing;
 
 use crate::constants::MAX_NATURAL_VOL;
@@ -165,6 +165,12 @@ impl Tray for VolctlTray {
         {
             tracing::warn!(msg = %"Scroll", "Channel closed, dropping message");
         }
+    }
+
+    fn watcher_offline(&self, reason: OfflineReason) -> bool {
+        tracing::warn!(?reason, "No system tray host, waiting for one to appear");
+        // Keep the tray service running: ksni re-registers when a watcher appears.
+        true
     }
 }
 

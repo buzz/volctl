@@ -75,7 +75,11 @@ impl Application {
             use_symbolic_icons,
         };
 
-        match tray.spawn() {
+        // A tray host (waybar, swaync, ...) started from the same autostart hook
+        // is usually not on the bus yet, so keep running and let ksni register as
+        // soon as a StatusNotifierWatcher shows up. Without this volctl died on
+        // Hyprland autostart, see https://github.com/buzz/volctl/issues/96
+        match tray.assume_sni_available(true).spawn() {
             Ok(handle) => *self.tray_handle.borrow_mut() = Some(handle),
             Err(e) => {
                 tracing::error!(error = %e, "Failed to spawn system tray");
