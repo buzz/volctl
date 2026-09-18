@@ -20,7 +20,7 @@ application. If you're looking for that check out the excellent
 
 ## Features
 
-- Runs on virtually every desktop environment (via [SNI](https://freedesktop.org/wiki/Specifications/StatusNotifierItem/))
+- Runs on virtually every desktop environment (via [SNI](https://freedesktop.org/wiki/Specifications/StatusNotifierItem/), see [System tray host](#system-tray-host))
 - Control main volumes as well as individual applications
 - Mute individual applications
 - Shows application icons and names
@@ -31,6 +31,17 @@ application. If you're looking for that check out the excellent
 - Supports X11 and Wayland
 
 ## Installation
+
+### System tray host
+
+The tray icon uses [SNI](https://freedesktop.org/wiki/Specifications/StatusNotifierItem/),
+so something in the session has to provide a tray host: KDE, Xfce, Cinnamon,
+MATE, LXQt, GNOME (with an extension), waybar's tray module on Hyprland and
+other Wayland compositors, etc. Window managers with an XEmbed-only systray
+(dwm and derivatives) need a bridge such as
+[snixembed](https://github.com/resloved/snixembed). Without any tray host volctl
+still runs, but only the OSD works: the mixer popup and the preferences are
+reached from the tray icon.
 
 ### Arch Linux
 
