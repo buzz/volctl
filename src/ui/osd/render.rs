@@ -1,13 +1,13 @@
 use gdk::RGBA;
 use gtk::Snapshot;
 use gtk::graphene::Point;
-use gtk::gsk::{FillRule, PathBuilder, RoundedRect, Stroke};
+use gtk::gsk::{FillRule, PathBuilder, Stroke};
 use gtk::pango;
 use gtk::prelude::*;
 
 use crate::constants::{
     OSD_BASE_FONT_SIZE, OSD_BASE_HEIGHT, OSD_BASE_LINE_WIDTH, OSD_BASE_PADDING, OSD_BASE_WIDTH,
-    OSD_BG_CORNER_RADIUS, OSD_BG_OPACITY, OSD_MUTE_OPACITY, OSD_NUM_BARS, OSD_TEXT_OPACITY,
+    OSD_BG_OPACITY, OSD_MUTE_OPACITY, OSD_NUM_BARS, OSD_TEXT_OPACITY,
 };
 
 /// Rendering state passed from controller to rendering module
@@ -34,28 +34,22 @@ pub fn build_snapshot(
     let padding = (OSD_BASE_PADDING * scale) as f32;
     let font_size = (OSD_BASE_FONT_SIZE * scale) as f32;
     let line_width = (OSD_BASE_LINE_WIDTH * scale) as f32;
-    let corner_radius = (OSD_BG_CORNER_RADIUS * scale) as f32;
 
     let xcenter = width / 2.0;
     let mute_opacity = if state.muted { OSD_MUTE_OPACITY } else { 1.0 };
 
-    // BACKGROUND (rounded rectangle when composited, sharp when not)
-    let bg_builder = PathBuilder::new();
-    if state.composited {
-        let rect = RoundedRect::from_rect(
-            gtk::graphene::Rect::new(0.0, 0.0, width, height),
-            corner_radius,
-        );
-        bg_builder.add_rounded_rect(&rect);
-    } else {
-        // No compositor: use a plain rectangle so there's no transparent corner area
+    // BACKGROUND: when composited, the window's CSS background-color provides
+    // it (see widget.rs), so the backdrop-filter on the window node blurs the
+    // backdrop behind it. Without a compositor there is no backdrop, so draw
+    // a plain rectangle instead to avoid transparent corner areas.
+    if !state.composited {
         let rect = gtk::graphene::Rect::new(0.0, 0.0, width, height);
+        let bg_builder = PathBuilder::new();
         bg_builder.add_rect(&rect);
+        let bg_path = bg_builder.to_path();
+        let bg_color = RGBA::new(0.1, 0.1, 0.1, (OSD_BG_OPACITY * state.opacity) as f32);
+        snapshot.append_fill(&bg_path, FillRule::Winding, &bg_color);
     }
-    let bg_path = bg_builder.to_path();
-
-    let bg_color = RGBA::new(0.1, 0.1, 0.1, (OSD_BG_OPACITY * state.opacity) as f32);
-    snapshot.append_fill(&bg_path, FillRule::Winding, &bg_color);
 
     // TEXT (percentage)
     let text = format!("{} %", (state.volume * 100.0).round() as i32);

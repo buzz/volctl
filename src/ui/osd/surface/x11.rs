@@ -7,7 +7,9 @@ use gtk::gio::Settings;
 use gtk::prelude::*;
 use tracing;
 
-use crate::constants::{OSD_BASE_HEIGHT, OSD_BASE_WIDTH, SETTINGS_OSD_MARGIN, SETTINGS_OSD_SCALE};
+use crate::constants::{
+    OSD_BASE_HEIGHT, OSD_BASE_WIDTH, SETTINGS_OSD_BLUR, SETTINGS_OSD_MARGIN, SETTINGS_OSD_SCALE,
+};
 use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::widget::OsdWidget;
 use crate::ui::utils::Position;
@@ -65,8 +67,9 @@ impl X11Surface {
 
         // Detect compositor before creating the widget (affects rendering)
         let composited = display.is_composited();
+        let blur = settings.boolean(SETTINGS_OSD_BLUR);
 
-        let widget = OsdWidget::new(scale, composited);
+        let widget = OsdWidget::new(scale, composited, blur);
 
         let window = widget.window();
         window.set_decorated(false);
@@ -189,6 +192,10 @@ impl super::SurfaceBackend for X11Surface {
 
     fn update_margin(&self, margin: i32) {
         self.margin.set(margin);
+    }
+
+    fn update_blur(&self, blur: bool) {
+        self.widget.set_blur(blur);
     }
 
     fn show(&self) {

@@ -15,6 +15,8 @@ pub trait SurfaceBackend {
     fn update_scale(&self, scale: f64);
     /// Update OSD margin
     fn update_margin(&self, margin: i32);
+    /// Toggle the background blur request on the OSD
+    fn update_blur(&self, blur: bool);
     /// Begin fade-out animation with given opacity
     fn begin_fade_out(&self, opacity: f64);
     /// Check if a compositor is available (for fade-out vs immediate hide)

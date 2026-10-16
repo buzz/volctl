@@ -17,7 +17,7 @@ use gtk::{
 
 use crate::constants::{
     SETTINGS_ALLOW_EXTRA_VOLUME, SETTINGS_AUTO_CLOSE, SETTINGS_MIXER_COMMAND,
-    SETTINGS_MIXER_MARGIN, SETTINGS_MIXER_POSITION, SETTINGS_MOUSE_WHEEL_STEP,
+    SETTINGS_MIXER_MARGIN, SETTINGS_MIXER_POSITION, SETTINGS_MOUSE_WHEEL_STEP, SETTINGS_OSD_BLUR,
     SETTINGS_OSD_ENABLED, SETTINGS_OSD_FADE_ENABLED, SETTINGS_OSD_MARGIN, SETTINGS_OSD_POSITION,
     SETTINGS_OSD_SCALE, SETTINGS_OSD_TIMEOUT, SETTINGS_PATH, SETTINGS_SCHEMA_KEY,
     SETTINGS_SHOW_PERCENTAGE, SETTINGS_TIMEOUT, SETTINGS_USE_LAYER_SHELL,
@@ -56,6 +56,7 @@ pub struct PreferencesWindow {
     row_osd_size: RefCell<Option<Scale>>,
     row_osd_margin: RefCell<Option<Scale>>,
     row_osd_fade_switch: RefCell<Option<Switch>>,
+    row_osd_blur_switch: RefCell<Option<Switch>>,
     row_osd_position_group: RefCell<Vec<CheckButton>>,
     row_mixer_position_group: RefCell<Vec<CheckButton>>,
     row_mixer_margin: RefCell<Option<Scale>>,
@@ -76,6 +77,7 @@ impl Default for PreferencesWindow {
             row_osd_margin: RefCell::new(None),
             row_osd_position_group: RefCell::new(Vec::new()),
             row_osd_fade_switch: RefCell::new(None),
+            row_osd_blur_switch: RefCell::new(None),
             row_mixer_position_group: RefCell::new(Vec::new()),
             row_mixer_margin: RefCell::new(None),
             on_wayland: get_display_type().is_ok_and(|dt| dt == DisplayType::Wayland),
@@ -264,6 +266,18 @@ impl ObjectImpl for PreferencesWindow {
             &mut row,
         );
         *self.row_osd_fade_switch.borrow_mut() = Some(fade_switch);
+
+        let blur_switch = self.add_switch(
+            &grid,
+            &settings,
+            SETTINGS_OSD_BLUR,
+            "Blur background",
+            &mut row,
+        );
+        blur_switch.set_tooltip_text(Some(
+            "Requires GTK 4.24+ and a compositor with backdrop blur support.",
+        ));
+        *self.row_osd_blur_switch.borrow_mut() = Some(blur_switch);
 
         self.add_osd_position(&grid, &settings, &mut row);
 
@@ -560,6 +574,9 @@ impl PreferencesWindow {
             s.set_sensitive(osd_enabled);
         }
         if let Some(ref s) = *self.row_osd_fade_switch.borrow() {
+            s.set_sensitive(osd_enabled);
+        }
+        if let Some(ref s) = *self.row_osd_blur_switch.borrow() {
             s.set_sensitive(osd_enabled);
         }
         for r in self.row_osd_position_group.borrow().iter() {

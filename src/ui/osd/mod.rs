@@ -10,8 +10,8 @@ use gtk::gio::Settings;
 use gtk::prelude::*;
 
 use crate::constants::{
-    OSD_DEFAULT_TIMEOUT, SETTINGS_OSD_ENABLED, SETTINGS_OSD_FADE_ENABLED, SETTINGS_OSD_MARGIN,
-    SETTINGS_OSD_POSITION, SETTINGS_OSD_SCALE, SETTINGS_OSD_TIMEOUT,
+    OSD_DEFAULT_TIMEOUT, SETTINGS_OSD_BLUR, SETTINGS_OSD_ENABLED, SETTINGS_OSD_FADE_ENABLED,
+    SETTINGS_OSD_MARGIN, SETTINGS_OSD_POSITION, SETTINGS_OSD_SCALE, SETTINGS_OSD_TIMEOUT,
 };
 use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::surface::SurfaceBackend;
@@ -32,6 +32,7 @@ struct OsdSettingsCache {
     timeout: Rc<Cell<u32>>,
     margin: Rc<Cell<i32>>,
     fade_enabled: Rc<Cell<bool>>,
+    blur: Rc<Cell<bool>>,
 }
 
 impl OsdSettingsCache {
@@ -49,6 +50,7 @@ impl OsdSettingsCache {
         }));
         let margin = Rc::new(Cell::new(settings.int(SETTINGS_OSD_MARGIN)));
         let fade_enabled = Rc::new(Cell::new(settings.boolean(SETTINGS_OSD_FADE_ENABLED)));
+        let blur = Rc::new(Cell::new(settings.boolean(SETTINGS_OSD_BLUR)));
 
         // Listen for changes and refresh cache
         {
@@ -95,6 +97,12 @@ impl OsdSettingsCache {
                 fade_enabled.set(s.boolean(SETTINGS_OSD_FADE_ENABLED));
             });
         }
+        {
+            let blur = blur.clone();
+            settings.connect_changed(Some(SETTINGS_OSD_BLUR), move |s, _| {
+                blur.set(s.boolean(SETTINGS_OSD_BLUR));
+            });
+        }
 
         Self {
             enabled,
@@ -103,6 +111,7 @@ impl OsdSettingsCache {
             timeout,
             margin,
             fade_enabled,
+            blur,
         }
     }
 }
@@ -174,11 +183,13 @@ impl OsdController {
         let timeout = self.settings.timeout.get();
         let margin = self.settings.margin.get();
         let fade_enabled = self.settings.fade_enabled.get();
+        let blur = self.settings.blur.get();
 
-        // Update surface position, scale, and margin
+        // Update surface position, scale, margin, and blur
         self.surface.update_position(position);
         self.surface.update_scale(scale);
         self.surface.update_margin(margin);
+        self.surface.update_blur(blur);
 
         // Show OSD
         self.surface.show();

@@ -99,8 +99,13 @@ pub struct OsdWidget {
 }
 
 impl OsdWidget {
-    /// Create new OSD widget
-    pub fn new(scale: f64, composited: bool) -> Self {
+    /// Create new OSD window.
+    ///
+    /// When composited, the background is the window's CSS `background-color`
+    /// (rounded, translucent). `blur` additionally applies a `backdrop-filter`
+    /// to the window node, which on GTK >= 4.24 asks the compositor to blur
+    /// the backdrop behind the OSD.
+    pub fn new(scale: f64, composited: bool, blur: bool) -> Self {
         // Not added to the GtkApplication on purpose: GTK4's `window-removed`
         // handler runs on `gtk_window_destroy()` and dereferences the window's
         // GdkSurface, which is NULL for an OSD that was never mapped. That
@@ -121,6 +126,12 @@ impl OsdWidget {
 
         // Apply CSS styling
         window.set_css_classes(&["osd-window"]);
+        if composited {
+            window.add_css_class("osd-composited");
+        }
+        if composited && blur {
+            window.add_css_class("osd-blur");
+        }
         static CSS_LOADED: std::sync::Once = std::sync::Once::new();
         CSS_LOADED.call_once(|| {
             let css_provider = gtk::CssProvider::new();
@@ -135,6 +146,16 @@ impl OsdWidget {
                     outline-width: 0;
                     outline-color: transparent;
                     box-shadow: none;
+                }
+                .osd-window.osd-composited {
+                    background-color: rgba(25.5, 25.5, 25.5, 0.85);
+                    /* 4% of the (square) OSD = 8px corner radius, at any scale */
+                    border-radius: 4%;
+                }
+                .osd-window.osd-composited.osd-blur {
+                    /* Compositor backdrop blur (GTK >= 4.24); 20px is GTK's
+                     * minimum radius for it to engage */
+                    backdrop-filter: blur(20px);
                 }
                 ",
             );
@@ -159,6 +180,15 @@ impl OsdWidget {
     /// Get the underlying window
     pub fn window(&self) -> &gtk::Window {
         &self.window
+    }
+
+    /// Toggle the compositor backdrop blur request
+    pub fn set_blur(&self, blur: bool) {
+        if blur {
+            self.window.add_css_class("osd-blur");
+        } else {
+            self.window.remove_css_class("osd-blur");
+        }
     }
 
     /// Update render state and trigger redraw

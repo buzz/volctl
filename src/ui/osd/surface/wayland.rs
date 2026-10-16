@@ -5,7 +5,9 @@ use gtk::gio;
 use gtk::prelude::*;
 use gtk_layer_shell::{KeyboardMode, Layer, LayerShell};
 
-use crate::constants::{OSD_BASE_HEIGHT, OSD_BASE_WIDTH, SETTINGS_OSD_MARGIN, SETTINGS_OSD_SCALE};
+use crate::constants::{
+    OSD_BASE_HEIGHT, OSD_BASE_WIDTH, SETTINGS_OSD_BLUR, SETTINGS_OSD_MARGIN, SETTINGS_OSD_SCALE,
+};
 use crate::ui::osd::controller::OsdStateController;
 use crate::ui::osd::widget::OsdWidget;
 use crate::ui::utils::{Position, apply_layer_shell_position};
@@ -20,8 +22,9 @@ pub struct WaylandSurface {
 impl WaylandSurface {
     pub fn new(settings: &gio::Settings, controller: Rc<OsdStateController>) -> Self {
         let scale = settings.int(SETTINGS_OSD_SCALE) as f64 / 100.0;
+        let blur = settings.boolean(SETTINGS_OSD_BLUR);
 
-        let widget = OsdWidget::new(scale, true);
+        let widget = OsdWidget::new(scale, true, blur);
         let window = widget.window();
 
         // Layer Shell Setup
@@ -85,6 +88,10 @@ impl super::SurfaceBackend for WaylandSurface {
 
     fn update_margin(&self, margin: i32) {
         self.margin.set(margin);
+    }
+
+    fn update_blur(&self, blur: bool) {
+        self.widget.set_blur(blur);
     }
 
     fn update_scale(&self, scale: f64) {

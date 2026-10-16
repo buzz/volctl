@@ -36,6 +36,7 @@ pub const SETTINGS_USE_LAYER_SHELL: &str = "use-layer-shell";
 pub const SETTINGS_MIXER_POSITION: &str = "mixer-position";
 pub const SETTINGS_OSD_MARGIN: &str = "osd-margin";
 pub const SETTINGS_OSD_FADE_ENABLED: &str = "osd-fade-enabled";
+pub const SETTINGS_OSD_BLUR: &str = "osd-blur";
 pub const SETTINGS_MIXER_MARGIN: &str = "mixer-margin";
 
 // OSD constants
@@ -46,7 +47,6 @@ pub const OSD_BASE_FONT_SIZE: f64 = 32.0;
 pub const OSD_BASE_LINE_WIDTH: f64 = 5.0;
 pub const OSD_BASE_PADDING: f64 = 24.0;
 pub const OSD_BG_OPACITY: f64 = 0.85;
-pub const OSD_BG_CORNER_RADIUS: f64 = 8.0;
 pub const OSD_MUTE_OPACITY: f64 = 0.2;
 pub const OSD_TEXT_OPACITY: f64 = 0.8;
 pub const OSD_NUM_BARS: i32 = 16;

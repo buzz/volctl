@@ -89,6 +89,11 @@
       <summary>Enable OSD fade animation</summary>
       <description>Enable fade-in and fade-out animations for the OSD.</description>
     </key>
+    <key type="b" name="osd-blur">
+      <default>true</default>
+      <summary>Blur the OSD background</summary>
+      <description>Blur the background behind the OSD. Requires GTK 4.24 or newer and a compositor with backdrop blur support.</description>
+    </key>
     <!-- Volume sliders (Wayland) -->
     <key type="b" name="use-layer-shell">
       <default>true</default>
