@@ -23,6 +23,7 @@ application. If you're looking for that check out the excellent
 - Click to open the mixer popup; right-click to open *pavucontrol* (or custom mixer application)
 - Mouse-wheel support
 - On-screen volume display (OSD)
+- OSD customizable via CSS file
 - Supports X11 and Wayland
 
 ## Installation
@@ -81,6 +82,29 @@ curl -fsSL https://raw.githubusercontent.com/buzz/volctl/main/data/apps.volctl.g
   -o "$PREFIX/share/glib-2.0/schemas/apps.volctl.gschema.xml"
 glib-compile-schemas "$PREFIX/share/glib-2.0/schemas/"
 ```
+
+## OSD appearance
+
+The OSD can be customized with `~/.config/volctl/osd.css`, reloaded on
+change (no restart needed). The OSD window is a regular GTK4 CSS node
+(selected as `.osd-window`), so standard CSS properties apply, e.g.:
+
+```css
+.osd-window {
+    background-color: #002b36;
+    color: #e6ebef; /* text and volume bars */
+    border-radius: 12px;
+    border: 1px solid #ffffff33;
+}
+```
+
+Notes:
+
+- `color` styles the text and the volume bars
+- `backdrop-filter` needs GTK 4.24+ and a compositor with backdrop blur support
+- `box-shadow`/`outline` are only visible when inset (the surface has no shadow margin)
+- font properties have no effect (the font is set in code)
+- `@media (prefers-color-scheme: dark)` works on GTK 4.20+
 
 ## Development
 

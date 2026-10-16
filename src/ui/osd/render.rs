@@ -7,7 +7,7 @@ use gtk::prelude::*;
 
 use crate::constants::{
     OSD_BASE_FONT_SIZE, OSD_BASE_HEIGHT, OSD_BASE_LINE_WIDTH, OSD_BASE_PADDING, OSD_BASE_WIDTH,
-    OSD_BG_OPACITY, OSD_MUTE_OPACITY, OSD_NUM_BARS, OSD_TEXT_OPACITY,
+    OSD_BG_OPACITY, OSD_MUTE_OPACITY, OSD_NUM_BARS,
 };
 
 /// Rendering state passed from controller to rendering module
@@ -22,11 +22,12 @@ pub struct RenderState {
     pub composited: bool,
 }
 
-/// Main rendering function
+/// Main rendering function. `fg` is the resolved CSS `color` (text and bars).
 pub fn build_snapshot(
     state: &RenderState,
     snapshot: &Snapshot,
     pango_context: &gtk::pango::Context,
+    fg: &gdk::RGBA,
 ) {
     let scale = state.scale;
     let width = (OSD_BASE_WIDTH * scale) as f32;
@@ -54,6 +55,8 @@ pub fn build_snapshot(
     // TEXT (percentage)
     let text = format!("{} %", (state.volume * 100.0).round() as i32);
 
+    let fg_alpha = (fg.alpha() as f64 * mute_opacity * state.opacity) as f32;
+
     // Use the provided PangoContext (has proper font map)
     let layout = gtk::pango::Layout::new(pango_context);
     layout.set_text(&text);
@@ -76,13 +79,7 @@ pub fn build_snapshot(
     let text_x = xcenter - text_width / 2.0;
     let text_y = height - padding - baseline;
 
-    // Text color (matching Python: white with TEXT_OPACITY * mute_opacity * opacity)
-    let text_color = RGBA::new(
-        1.0,
-        1.0,
-        1.0,
-        (OSD_TEXT_OPACITY * mute_opacity * state.opacity) as f32,
-    );
+    let text_color = RGBA::new(fg.red(), fg.green(), fg.blue(), fg_alpha);
 
     // Draw text using GTK4 snapshot API
     snapshot.save();
@@ -97,12 +94,7 @@ pub fn build_snapshot(
     let bars = ((OSD_NUM_BARS as f64 * state.volume).round() as i32).min(OSD_NUM_BARS);
     let center_y = padding + ind_height / 2.0;
 
-    let bar_color = RGBA::new(
-        1.0,
-        1.0,
-        1.0,
-        (OSD_TEXT_OPACITY * mute_opacity * state.opacity) as f32,
-    );
+    let bar_color = text_color;
     let stroke = Stroke::new(line_width);
     stroke.set_line_cap(gtk::gsk::LineCap::Round);
 

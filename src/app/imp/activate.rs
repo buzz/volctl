@@ -22,6 +22,9 @@ impl ApplicationImpl for Application {
         // Prevent GTK main loop from exiting without window.
         *self.hold_guard.borrow_mut() = Some(self.obj().hold());
 
+        // Load the user's osd.css, if any
+        crate::ui::osd::user_css::init();
+
         // Create OSD controller (window creation needs GTK to be initialised)
         #[cfg(feature = "x11")]
         let osd_controller =

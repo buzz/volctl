@@ -28,7 +28,8 @@ mod imp {
             let state = self.render_state.borrow();
             // Get PangoContext from widget (has proper font map)
             let pango_context = self.obj().pango_context();
-            render::build_snapshot(&state, snapshot, &pango_context);
+            let fg = self.obj().color(); // from CSS, overridable in osd.css
+            render::build_snapshot(&state, snapshot, &pango_context, &fg);
         }
     }
 
@@ -139,6 +140,7 @@ impl OsdWidget {
                 r"
                 .osd-window {
                     background: transparent;
+                    color: rgba(255, 255, 255, 0.8);
                     border: none;
                     border-width: 0;
                     border-color: transparent;

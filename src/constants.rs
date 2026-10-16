@@ -48,5 +48,4 @@ pub const OSD_BASE_LINE_WIDTH: f64 = 5.0;
 pub const OSD_BASE_PADDING: f64 = 24.0;
 pub const OSD_BG_OPACITY: f64 = 0.85;
 pub const OSD_MUTE_OPACITY: f64 = 0.2;
-pub const OSD_TEXT_OPACITY: f64 = 0.8;
 pub const OSD_NUM_BARS: i32 = 16;
